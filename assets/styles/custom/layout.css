@@ -1,0 +1,16 @@
+/*
+ * Mise en page propre à l'application (ce que Bootstrap ne fournit pas).
+ *
+ * Exemple : on garde le pied de page collé en bas même sur les pages courtes.
+ * On ajoutera ici la sidebar, le tableau de bord, etc. au fil du projet.
+ */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1 0 auto;
+}

@@ -1,0 +1,56 @@
+/*
+ * Design tokens du Collège Adèle — palette extraite du logo officiel.
+ *
+ * On centralise ici l'identité visuelle. Changer une couleur ici la
+ * propage à TOUT le site (et à Bootstrap, via les variables --bs-*).
+ */
+
+:root {
+    /* --- Couleurs de la charte (issues du logo) --- */
+    --college-purple: #6a2c91;   /* violet royal : couleur maîtresse */
+    --college-green:  #1e8a4c;   /* vert : "COLLÈGE ADÈLE" et la croix */
+    --college-navy:   #25245e;   /* bleu nuit : le livre ouvert */
+    --college-orange: #e2571e;   /* orange : la flamme (accent fort) */
+
+    /* Déclinaisons utiles */
+    --college-purple-dark: #4f2070;
+    --college-light: #f6f3fa;     /* fond très clair teinté violet */
+
+    /* --- Branchement sur Bootstrap ---
+       Bootstrap lit ces variables : redéfinies ici, elles repeignent
+       boutons, liens, bordures, etc. sans recompilation. */
+    --bs-primary: var(--college-purple);
+    --bs-primary-rgb: 106, 44, 145;
+    --bs-secondary: var(--college-navy);
+    --bs-secondary-rgb: 37, 36, 94;
+    --bs-link-color: var(--college-purple);
+    --bs-link-hover-color: var(--college-purple-dark);
+
+    /* --- Typographie ---
+       Corps en sans-serif (lisible), titres en serif (côté
+       institutionnel/classique). Polices système = aucun téléchargement. */
+    --bs-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --college-heading-font: Georgia, "Times New Roman", "Liberation Serif", serif;
+    --bs-body-color: #2b2b3a;
+}
+
+/* Titres en serif pour l'allure institutionnelle. */
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6,
+.display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
+    font-family: var(--college-heading-font);
+}
+
+/* Utilitaires de couleurs maison (réutilisables dans les templates). */
+.text-college-purple { color: var(--college-purple) !important; }
+.text-college-green  { color: var(--college-green) !important; }
+.bg-college-navy     { background-color: var(--college-navy) !important; }
+.bg-college-light    { background-color: var(--college-light) !important; }
+.btn-college-accent {
+    --bs-btn-bg: var(--college-orange);
+    --bs-btn-border-color: var(--college-orange);
+    --bs-btn-hover-bg: #c24614;
+    --bs-btn-hover-border-color: #b13f12;
+    --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+}

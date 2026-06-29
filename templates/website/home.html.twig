@@ -1,0 +1,156 @@
+{# ================================================================
+   PAGE D'ACCUEIL du site vitrine (route website_home, URL "/").
+   Hérite de base.html.twig : on ne réécrit que le contenu central.
+   Style institutionnel & classique, palette issue du logo.
+   ================================================================ #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Accueil — Collège Adèle{% endblock %}
+
+{% block body %}
+    {# ----------------------------------------------------------------
+       1. HERO : la devise de l'établissement, présentée de façon fixe
+       et soignée (encadrée de deux filets). Le <h1> unique de la page.
+       ---------------------------------------------------------------- #}
+    <section class="home-hero">
+        <div class="container-fluid px-4 px-lg-5">
+            <p class="home-hero__eyebrow mb-2">Kara, Togo</p>
+            <h1 class="home-hero__welcome">Bienvenue au Collège Adèle</h1>
+            {# Devise officielle, affichée fixe (aucune animation). #}
+            <p class="home-hero__devise">Succès vertu en esprit de famille</p>
+            <p class="lead mx-auto mt-4 mb-4" style="max-width: 40rem;">
+                Un établissement engagé pour la réussite de chaque élève, du collège
+                au lycée, dans un cadre exigeant et bienveillant.
+            </p>
+            <a href="#presentation" class="btn btn-light btn-lg px-4 me-2">Découvrir l'établissement</a>
+            <a href="#formation" class="btn btn-college-accent btn-lg px-4 mt-2 mt-sm-0">Nos formations</a>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       2. TROUVER VOTRE FORMATION : trois parcours.
+       Mobile-first : une carte par ligne (col-12), trois côte à côte
+       à partir de "md" (col-md-4).
+       ---------------------------------------------------------------- #}
+    <section id="formation" class="container-fluid px-4 px-lg-5 py-5">
+        <div class="section-title">
+            <span class="eyebrow">Nos parcours</span>
+            <h2>Trouver votre formation</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-12 col-md-4">
+                <div class="card formation-card h-100 text-center">
+                    <div class="card-body d-flex flex-column p-4">
+                        <h3 class="h5 card-title text-college-navy">Je suis collégien</h3>
+                        <p class="card-text text-muted flex-grow-1">
+                            De la 6<sup>e</sup> à la 3<sup>e</sup>, un cadre structurant
+                            pour acquérir des bases solides et préparer le BEPC.
+                        </p>
+                        {# TODO : route de la future page du cycle Collège. #}
+                        <a href="#" class="btn btn-outline-primary mt-3">Découvrir</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card formation-card h-100 text-center">
+                    <div class="card-body d-flex flex-column p-4">
+                        <h3 class="h5 card-title text-college-navy">Je suis lycéen</h3>
+                        <p class="card-text text-muted flex-grow-1">
+                            De la 2<sup>nde</sup> à la Terminale, une préparation au
+                            baccalauréat dans les séries D, C et A4.
+                        </p>
+                        {# TODO : route de la future page du cycle Lycée. #}
+                        <a href="#" class="btn btn-outline-primary mt-3">Découvrir</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card formation-card h-100 text-center">
+                    <div class="card-body d-flex flex-column p-4">
+                        <h3 class="h5 card-title text-college-navy">Je suis styliste</h3>
+                        <p class="card-text text-muted flex-grow-1">
+                            Une filière dédiée aux métiers de la mode et du stylisme,
+                            alliant créativité et savoir-faire technique.
+                        </p>
+                        {# TODO : route de la future page de la filière Stylisme. #}
+                        <a href="#" class="btn btn-outline-primary mt-3">Découvrir</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       3. PRÉSENTATION DE L'ÉTABLISSEMENT : photo + texte.
+       order-* : sur mobile, le texte passe avant la photo.
+       ---------------------------------------------------------------- #}
+    <section id="presentation" class="bg-college-light py-5">
+        <div class="container-fluid px-4 px-lg-5">
+            <div class="row align-items-center g-5">
+                <div class="col-12 col-lg-6 order-2 order-lg-1">
+                    <span class="eyebrow text-college-green text-uppercase fw-semibold" style="letter-spacing:.18em; font-size:.8rem;">Qui sommes-nous</span>
+                    <h2 class="h3 text-college-navy mt-2 mb-3">Le Collège Adèle</h2>
+                    <p>
+                        Fondé sur des valeurs de succès, de vertu et d'esprit de famille,
+                        le Collège Adèle accompagne chaque élève vers la réussite, dans un
+                        environnement à la fois exigeant et bienveillant.
+                    </p>
+                    <p class="mb-0">
+                        Réunissant le collège, le lycée et une filière stylisme,
+                        l'établissement propose à chacun un parcours adapté à ses talents
+                        et à ses ambitions.
+                    </p>
+                </div>
+                <div class="col-12 col-lg-6 order-1 order-lg-2">
+                    {# TODO photo : remplacer ce bloc par
+                       <img src="{{ asset('images/etablissement.jpg') }}"
+                            alt="Le Collège Adèle" class="img-fluid rounded shadow-sm">
+                       une fois la photo fournie. #}
+                    <div class="photo-placeholder">
+                        <span>Photo de l'établissement (à venir)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       4. UN ENSEIGNEMENT D'EXCELLENCE : collège & lycée.
+       ---------------------------------------------------------------- #}
+    <section id="excellence" class="container-fluid px-4 px-lg-5 py-5">
+        <div class="section-title">
+            <span class="eyebrow">Notre pédagogie</span>
+            <h2>Un enseignement d'excellence</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-12 col-md-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h4 text-college-purple">Au collège</h3>
+                        <p class="mb-0">
+                            De la 6<sup>e</sup> à la 3<sup>e</sup>, nos équipes pédagogiques
+                            veillent à la maîtrise des savoirs fondamentaux et à l'acquisition
+                            de méthodes de travail solides, pour aborder le BEPC avec sérénité.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h4 text-college-purple">Au lycée</h3>
+                        <p>
+                            De la 2<sup>nde</sup> à la Terminale, le lycée conduit nos élèves
+                            vers le baccalauréat à travers trois séries :
+                        </p>
+                        <ul class="mb-0">
+                            <li><strong>Série D</strong> — sciences expérimentales</li>
+                            <li><strong>Série C</strong> — mathématiques et sciences physiques</li>
+                            <li><strong>Série A4</strong> — littéraire</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}Collège Adèle{% endblock %}</title>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
         {% block stylesheets %}
         {% endblock %}
@@ -19,6 +20,104 @@
         {% endif %}
     </head>
     <body>
-        {% block body %}{% endblock %}
+        {# ============================================================
+           BARRE DE NAVIGATION (la "head" du site).
+           Partagée par toutes les pages -> écrite UNE seule fois ici.
+           - navbar-expand-lg : menu horizontal sur grand écran,
+             replié en "hamburger" sur mobile (mobile-first).
+           - sticky-top : la barre reste visible au défilement.
+           ============================================================ #}
+        <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm border-top border-3 border-primary">
+            <div class="container-fluid px-4 px-lg-5">
+                {# --- Logo / marque : clic -> page d'accueil ---
+                   path('website_home') génère l'URL depuis le NOM de la route,
+                   donc le lien reste correct même si l'URL change un jour.
+
+                   TODO logo : déposer le fichier dans
+                   assets/images/logo-college-adele.png puis remplacer tout le
+                   bloc <span> ci-dessous par :
+                   <img src="{{ asset('images/logo-college-adele.png') }}"
+                        alt="Collège Adèle" height="48"> #}
+                <a class="navbar-brand fw-bold" href="{{ path('website_home') }}">
+                    <span class="text-college-purple">COLLÈGE</span><span class="text-college-green ms-1">ADÈLE</span>
+                </a>
+
+                {# Bouton "hamburger" : visible uniquement sous le point de rupture lg. #}
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#mainNav" aria-controls="mainNav"
+                        aria-expanded="false" aria-label="Ouvrir le menu">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                        {# Lien Accueil #}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('website_home') }}">Accueil</a>
+                        </li>
+
+                        {# Menu déroulant "L'école" (dropdown Bootstrap, géré par son JS). #}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button"
+                               data-bs-toggle="dropdown" aria-expanded="false">L'école</a>
+                            <ul class="dropdown-menu">
+                                {# TODO : créer ces pages (routes dédiées) et remplacer les href="#". #}
+                                <li><a class="dropdown-item" href="#">Présentation</a></li>
+                                <li><a class="dropdown-item" href="#">Politique vestimentaire</a></li>
+                                <li><a class="dropdown-item" href="#">Cantine</a></li>
+                                <li><a class="dropdown-item" href="#">Fourniture scolaire</a></li>
+                            </ul>
+                        </li>
+
+                        {# TODO : routes website_college / website_lycee à créer plus tard. #}
+                        <li class="nav-item"><a class="nav-link" href="#">Collège</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#">Lycée</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        {# Pas de "container" ici : certaines sections (hero) sont pleine largeur.
+           Chaque page / section choisit elle-même son container. #}
+        <main>
+            {% block body %}{% endblock %}
+        </main>
+
+        {# ============================================================
+           PIED DE PAGE — partagé. Contacts + liens rapides.
+           "now"|date("Y") : l'année se met à jour automatiquement.
+           ============================================================ #}
+        <footer class="bg-college-navy text-light pt-5 pb-4 mt-auto">
+            <div class="container-fluid px-4 px-lg-5">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <h2 class="h5 text-uppercase">Collège Adèle</h2>
+                        <p class="text-secondary mb-0">
+                            {# À COMPLÉTER : adresse exacte du Collège Adèle. #}
+                            Kara, Togo
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="h5 text-uppercase">Contact</h2>
+                        <ul class="list-unstyled text-secondary mb-0">
+                            {# À COMPLÉTER : téléphone et e-mail réels. #}
+                            <li>Tél. : (+228) 00 00 00 00</li>
+                            <li>Email : contact@college-adele.tg</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="h5 text-uppercase">Navigation</h2>
+                        <ul class="list-unstyled mb-0">
+                            <li><a class="link-light link-underline-opacity-0 link-underline-opacity-75-hover" href="{{ path('website_home') }}">Accueil</a></li>
+                            <li><a class="link-light link-underline-opacity-0 link-underline-opacity-75-hover" href="#formation">Nos formations</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <hr class="border-secondary my-4">
+                <div class="text-center">
+                    <small class="text-secondary">&copy; {{ "now"|date("Y") }} Collège Adèle — EduManage Togo. Tous droits réservés.</small>
+                </div>
+            </div>
+        </footer>
     </body>
 </html>

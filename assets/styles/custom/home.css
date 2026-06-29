@@ -1,0 +1,133 @@
+/* ================================================================
+   Page d'accueil — style INSTITUTIONNEL & CLASSIQUE.
+   Palette issue du logo (voir variables.css). Mobile-first.
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   Titre de section réutilisable : centré, serif, avec un court
+   liseré sous le texte (touche "officielle"). On le réutilisera
+   sur les autres pages du site.
+   ---------------------------------------------------------------- */
+.section-title {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+.section-title h2 {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 0.75rem;
+    color: var(--college-navy);
+}
+/* Le petit liseré bicolore (violet) sous le titre. */
+.section-title h2::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 64px;
+    height: 3px;
+    transform: translateX(-50%);
+    background-color: var(--college-purple);
+}
+.section-title .eyebrow {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--college-green);
+    margin-bottom: 0.5rem;
+}
+
+/* ----------------------------------------------------------------
+   1. HERO : bandeau institutionnel, dégradé profond violet → nuit.
+   La devise y est affichée FIXE et soignée (plus de défilement).
+
+   TODO photo : pour ajouter une photo de fond, déposer le fichier
+   dans assets/images/ puis, dans la règle .home-hero, compléter
+   "background-image" avec un voile sombre PUIS l'image (via la fonction
+   CSS d'image de fond). IMPORTANT : ne jamais référencer un fichier image
+   inexistant, même en commentaire — AssetMapper analyse ces références
+   et provoque une erreur 500.
+   ---------------------------------------------------------------- */
+.home-hero {
+    position: relative;
+    padding: 6rem 1rem;
+    color: #fff;
+    text-align: center;
+    background-color: var(--college-purple);
+    background-image: linear-gradient(135deg,
+        var(--college-purple) 0%,
+        var(--college-purple-dark) 55%,
+        var(--college-navy) 100%);
+}
+
+/* Petite étiquette de localisation au-dessus du titre. */
+.home-hero__eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+/* Titre de bienvenue : grand, serif. Le <h1> de la page. */
+.home-hero__welcome {
+    font-family: var(--college-heading-font);
+    font-weight: 700;
+    font-size: clamp(2rem, 5.5vw, 3.5rem);
+    margin-bottom: 1.25rem;
+}
+
+/* La devise : accroche fixe (aucune animation), encadrée de deux filets. */
+.home-hero__devise {
+    font-family: var(--college-heading-font);
+    font-weight: 600;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+    font-size: clamp(1.05rem, 2.6vw, 1.6rem);
+    max-width: 26ch;
+    margin: 0 auto;
+    padding: 1rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.35);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+/* ----------------------------------------------------------------
+   2. CARTES "Trouver votre formation" — classiques, avec un mince
+   bandeau de couleur en haut et un léger relèvement au survol.
+   ---------------------------------------------------------------- */
+.formation-card {
+    border: 1px solid #e6e1ee;
+    border-top: 3px solid var(--college-purple);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.formation-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.75rem 1.5rem rgba(37, 36, 94, 0.12);
+}
+
+/* ----------------------------------------------------------------
+   3. PHOTO DE PRÉSENTATION — placeholder en attendant la vraie image.
+   ---------------------------------------------------------------- */
+.photo-placeholder {
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--college-light);
+    color: #6c757d;
+    border: 1px dashed #c9bedd;
+    border-radius: 0.5rem;
+}
+
+/* ----------------------------------------------------------------
+   4. Cartes "enseignement d'excellence" : liseré latéral coloré.
+   ---------------------------------------------------------------- */
+.excellence-card {
+    border: 0;
+    border-left: 4px solid var(--college-green);
+    background-color: #fff;
+    box-shadow: 0 0.25rem 1rem rgba(37, 36, 94, 0.06);
+}
