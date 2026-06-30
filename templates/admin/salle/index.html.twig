@@ -1,0 +1,50 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Salles — EduManage{% endblock %}
+{% block page_title %}Salles{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Salles de cours</h1>
+    <a href="{{ path('admin_salle_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle salle
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Salle</th>
+                    <th>Type</th>
+                    <th>Capacité</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for salle in salles %}
+                <tr>
+                    <td class="fw-semibold">
+                        <i class="bi bi-door-open-fill me-2 text-muted"></i>{{ salle.nom }}
+                    </td>
+                    <td><span class="badge bg-secondary">{{ salle.type.label() }}</span></td>
+                    <td>{{ salle.capacite }} places</td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_salle_edit', {id: salle.id}),
+                            path('admin_salle_delete', {id: salle.id}),
+                            salle.id,
+                            'Supprimer la salle ' ~ salle.nom ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(4, 'Aucune salle enregistrée.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

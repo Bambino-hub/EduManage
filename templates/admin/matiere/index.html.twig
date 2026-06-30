@@ -1,0 +1,53 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Matières — EduManage{% endblock %}
+{% block page_title %}Matières{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Matières enseignées</h1>
+    <a href="{{ path('admin_matiere_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle matière
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Couleur</th>
+                    <th>Nom</th>
+                    <th>Code</th>
+                    <th>Coefficient</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for matiere in matieres %}
+                <tr>
+                    <td>
+                        <span class="d-inline-block rounded-circle border"
+                              style="width:22px;height:22px;background:{{ matiere.couleur }}"></span>
+                    </td>
+                    <td class="fw-semibold">{{ matiere.nom }}</td>
+                    <td><code class="bg-light px-2 py-1 rounded">{{ matiere.code }}</code></td>
+                    <td>{{ matiere.coefficient }}</td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_matiere_edit', {id: matiere.id}),
+                            path('admin_matiere_delete', {id: matiere.id}),
+                            matiere.id,
+                            'Supprimer la matière ' ~ matiere.nom ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(5, 'Aucune matière enregistrée.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

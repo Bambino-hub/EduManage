@@ -1,0 +1,23 @@
+{% macro actions(edit_path, delete_path, delete_id, confirm_msg) %}
+<div class="d-flex gap-1 justify-content-end">
+    <a href="{{ edit_path }}" class="btn btn-sm btn-outline-primary" title="Modifier">
+        <i class="bi bi-pencil"></i>
+    </a>
+    <form method="post" action="{{ delete_path }}"
+          onsubmit="return confirm('{{ confirm_msg|default('Supprimer cet élément ?') }}')">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ delete_id) }}">
+        <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+            <i class="bi bi-trash"></i>
+        </button>
+    </form>
+</div>
+{% endmacro %}
+
+{% macro empty_row(colspan, message) %}
+<tr>
+    <td colspan="{{ colspan }}" class="text-center text-muted py-5">
+        <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+        {{ message|default('Aucun enregistrement pour l\'instant.') }}
+    </td>
+</tr>
+{% endmacro %}

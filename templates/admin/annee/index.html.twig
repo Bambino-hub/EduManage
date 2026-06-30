@@ -1,0 +1,61 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Années scolaires — EduManage{% endblock %}
+{% block page_title %}Années scolaires{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Années scolaires</h1>
+    <a href="{{ path('admin_annee_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle année
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Libellé</th>
+                    <th>Du</th>
+                    <th>Au</th>
+                    <th>Statut</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for annee in annees %}
+                <tr>
+                    <td class="fw-semibold">{{ annee.libelle }}</td>
+                    <td>{{ annee.dateDebut ? annee.dateDebut|date('d/m/Y') : '—' }}</td>
+                    <td>{{ annee.dateFin ? annee.dateFin|date('d/m/Y') : '—' }}</td>
+                    <td>
+                        {% if annee.active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <form method="post" action="{{ path('admin_annee_activate', {id: annee.id}) }}" class="d-inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('activate'~annee.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-secondary" style="font-size:.7rem;padding:.2rem .5rem">
+                                    Activer
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_annee_edit', {id: annee.id}),
+                            path('admin_annee_delete', {id: annee.id}),
+                            annee.id,
+                            'Supprimer l\'année ' ~ annee.libelle ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(5, 'Aucune année scolaire. Créez la première !') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

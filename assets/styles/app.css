@@ -12,3 +12,4 @@
 @import "variables.css";        /* design tokens : couleurs & typo du Collège Adèle */
 @import "custom/layout.css";    /* mise en page propre à l'application */
 @import "custom/home.css";      /* styles de la page d'accueil (hero, devise, formations) */
+@import "custom/admin.css";     /* layout admin : sidebar, topbar, cartes statistiques */

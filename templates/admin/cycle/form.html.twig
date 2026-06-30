@@ -1,0 +1,35 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ cycle.id ? 'Modifier' : 'Nouveau' }} cycle — EduManage{% endblock %}
+{% block page_title %}{{ cycle.id ? 'Modifier' : 'Nouveau' }} cycle{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-layers-fill me-2 text-college-purple"></i>
+                    {{ cycle.id ? 'Modifier ' ~ cycle.nom : 'Nouveau cycle' }}
+                </h2>
+                <a href="{{ path('admin_cycle_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                {{ form_row(form.nom) }}
+                {{ form_row(form.type) }}
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                    <a href="{{ path('admin_cycle_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

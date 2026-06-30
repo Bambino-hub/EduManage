@@ -1,0 +1,61 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Créneaux horaires — EduManage{% endblock %}
+{% block page_title %}Créneaux horaires{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Créneaux horaires</h1>
+    <a href="{{ path('admin_creneau_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouveau créneau
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Jour</th>
+                    <th>Début</th>
+                    <th>Fin</th>
+                    <th>Durée</th>
+                    <th>Ordre</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set currentDay = null %}
+                {% for c in creneaux %}
+                    {% if c.jourSemaine.label() != currentDay %}
+                        {% set currentDay = c.jourSemaine.label() %}
+                        <tr class="table-light">
+                            <td colspan="6" class="fw-bold text-college-purple py-2 px-3">
+                                <i class="bi bi-calendar2-day me-2"></i>{{ currentDay }}
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="text-muted">{{ c.jourSemaine.label() }}</td>
+                        <td class="fw-semibold">{{ c.heureDebut ? c.heureDebut|date('H:i') : '—' }}</td>
+                        <td class="fw-semibold">{{ c.heureFin ? c.heureFin|date('H:i') : '—' }}</td>
+                        <td class="text-muted">{{ c.dureeMinutes }} min</td>
+                        <td class="text-muted">{{ c.ordre }}</td>
+                        <td>
+                            {{ ui.actions(
+                                path('admin_creneau_edit', {id: c.id}),
+                                path('admin_creneau_delete', {id: c.id}),
+                                c.id,
+                                'Supprimer ce créneau ?'
+                            ) }}
+                        </td>
+                    </tr>
+                {% else %}
+                    {{ ui.empty_row(6, 'Aucun créneau défini. Créez les cases horaires de la semaine.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

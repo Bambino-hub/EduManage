@@ -1,0 +1,232 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Tableau de bord — EduManage{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block admin_content %}
+
+{# ============================================================
+   EN-TÊTE : accueil + indicateur d'année active
+   ============================================================ #}
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+    <div>
+        <h1 class="h4 mb-1">Bienvenue sur EduManage</h1>
+        <p class="text-muted mb-0" style="font-size:.875rem">
+            Gestion du Collège Adèle — Kara, Togo
+        </p>
+    </div>
+    <div>
+        {% if anneeActive %}
+            <span class="badge-annee">
+                <i class="bi bi-check-circle-fill"></i>
+                Année active : {{ anneeActive.libelle }}
+            </span>
+        {% else %}
+            <span class="badge-annee badge-annee-inactive">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                Aucune année scolaire active
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+{# ============================================================
+   CARTES STATISTIQUES
+   ============================================================ #}
+<div class="row g-3 mb-4">
+
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-card-icon purple">
+                <i class="bi bi-person-badge-fill"></i>
+            </div>
+            <div>
+                <div class="stat-card-value">{{ nbEnseignants }}</div>
+                <div class="stat-card-label">Enseignants</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-card-icon green">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div>
+                <div class="stat-card-value">{{ nbClasses }}</div>
+                <div class="stat-card-label">Classes</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-card-icon navy">
+                <i class="bi bi-book-fill"></i>
+            </div>
+            <div>
+                <div class="stat-card-value">{{ nbMatieres }}</div>
+                <div class="stat-card-label">Matières</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-card-icon orange">
+                <i class="bi bi-door-open-fill"></i>
+            </div>
+            <div>
+                <div class="stat-card-value">{{ nbSalles }}</div>
+                <div class="stat-card-label">Salles</div>
+            </div>
+        </div>
+    </div>
+
+</div>{# /.row stats #}
+
+{# ============================================================
+   RANGÉE INFÉRIEURE : checklist + actions rapides
+   ============================================================ #}
+<div class="row g-3">
+
+    {# --- Checklist de démarrage --- #}
+    <div class="col-lg-7">
+        <div class="admin-card h-100">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-list-check me-2 text-college-purple"></i>
+                    Configuration initiale
+                </h2>
+                <span class="badge bg-light text-muted" style="font-size:.7rem">
+                    {{ anneeActive ? '1' : '0' }}/8 étapes
+                </span>
+            </div>
+            <div class="admin-card-body py-1">
+
+                <div class="setup-step">
+                    <div class="setup-step-icon {{ anneeActive ? 'done' : 'pending' }}">
+                        <i class="bi bi-{{ anneeActive ? 'check-lg' : 'dash' }}"></i>
+                    </div>
+                    <div>
+                        <div class="setup-step-label {{ anneeActive ? 'done-label' : '' }}">
+                            Créer l'année scolaire active (ex. : 2025-2026)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon pending"><i class="bi bi-dash"></i></div>
+                    <div>
+                        <div class="setup-step-label">Créer les cycles (Collège / Lycée) et les niveaux</div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon {{ nbMatieres > 0 ? 'done' : 'pending' }}">
+                        <i class="bi bi-{{ nbMatieres > 0 ? 'check-lg' : 'dash' }}"></i>
+                    </div>
+                    <div>
+                        <div class="setup-step-label {{ nbMatieres > 0 ? 'done-label' : '' }}">
+                            Ajouter les matières (Maths, Français, SVT…)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon {{ nbSalles > 0 ? 'done' : 'pending' }}">
+                        <i class="bi bi-{{ nbSalles > 0 ? 'check-lg' : 'dash' }}"></i>
+                    </div>
+                    <div>
+                        <div class="setup-step-label {{ nbSalles > 0 ? 'done-label' : '' }}">
+                            Enregistrer les salles de cours disponibles
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon {{ nbEnseignants > 0 ? 'done' : 'pending' }}">
+                        <i class="bi bi-{{ nbEnseignants > 0 ? 'check-lg' : 'dash' }}"></i>
+                    </div>
+                    <div>
+                        <div class="setup-step-label {{ nbEnseignants > 0 ? 'done-label' : '' }}">
+                            Enregistrer les enseignants du collège
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon {{ nbClasses > 0 ? 'done' : 'pending' }}">
+                        <i class="bi bi-{{ nbClasses > 0 ? 'check-lg' : 'dash' }}"></i>
+                    </div>
+                    <div>
+                        <div class="setup-step-label {{ nbClasses > 0 ? 'done-label' : '' }}">
+                            Créer les classes (ex. : 6ème A, 3ème B, Tle D)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon pending"><i class="bi bi-dash"></i></div>
+                    <div>
+                        <div class="setup-step-label">Définir les créneaux horaires de la semaine</div>
+                    </div>
+                </div>
+
+                <div class="setup-step">
+                    <div class="setup-step-icon pending"><i class="bi bi-dash"></i></div>
+                    <div>
+                        <div class="setup-step-label">
+                            Affecter les enseignants aux matières / classes,
+                            puis générer l'emploi du temps
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    {# --- Actions rapides --- #}
+    <div class="col-lg-5">
+        <div class="admin-card h-100">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-lightning-charge-fill me-2" style="color:var(--college-orange)"></i>
+                    Actions rapides
+                </h2>
+            </div>
+            <div class="admin-card-body">
+
+                <a href="{{ path('admin_annee_index') }}" class="quick-action">
+                    <i class="bi bi-calendar-range text-college-purple"></i>
+                    Gérer les années scolaires
+                </a>
+                <a href="{{ path('admin_enseignant_new') }}" class="quick-action">
+                    <i class="bi bi-person-badge-fill text-college-purple"></i>
+                    Ajouter un enseignant
+                </a>
+                <a href="{{ path('admin_classe_new') }}" class="quick-action">
+                    <i class="bi bi-people-fill" style="color:var(--college-green)"></i>
+                    Créer une nouvelle classe
+                </a>
+                <a href="{{ path('admin_matiere_new') }}" class="quick-action">
+                    <i class="bi bi-book-fill" style="color:var(--college-navy)"></i>
+                    Ajouter une matière
+                </a>
+                <a href="{{ path('admin_attribution_index') }}" class="quick-action">
+                    <i class="bi bi-clipboard-data-fill text-college-purple"></i>
+                    Gérer les attributions
+                </a>
+                <a href="#" class="quick-action" style="border-color:var(--college-orange); color:var(--college-orange)">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    Lancer la génération auto
+                </a>
+
+            </div>
+        </div>
+    </div>
+
+</div>{# /.row inférieure #}
+
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends 'base.html.twig' %}
+
+{# Supprime la barre publique et le pied de page — l'admin a sa propre mise en page #}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block body %}
+
+{# ============================================================
+   SIDEBAR + TOPBAR + CONTENU
+   Structure :
+     .admin-wrapper
+       aside.admin-sidebar          ← navigation latérale fixe
+       div.admin-main
+         header.admin-topbar        ← barre du haut (hamburger + titre + user)
+         div.admin-content          ← contenu de la page
+   ============================================================ #}
+
+{% set currentRoute = app.request.attributes.get('_route') %}
+
+<div class="admin-wrapper">
+
+    {# ==================== SIDEBAR ==================== #}
+    <aside class="admin-sidebar" id="adminSidebar">
+
+        {# Logo / marque #}
+        <div class="sidebar-brand">
+            <a href="{{ path('admin_dashboard') }}" class="text-decoration-none d-flex align-items-center gap-2">
+                <div class="sidebar-brand-icon">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
+                <div class="lh-1">
+                    <div class="sidebar-brand-name">Collège Adèle</div>
+                    <div class="sidebar-brand-sub">EduManage</div>
+                </div>
+            </a>
+        </div>
+
+        {# Navigation #}
+        <nav class="sidebar-nav">
+
+            {# — Tableau de bord — #}
+            <a href="{{ path('admin_dashboard') }}"
+               class="sidebar-link {% if currentRoute == 'admin_dashboard' %}active{% endif %}">
+                <i class="bi bi-grid-fill"></i>
+                Tableau de bord
+            </a>
+
+            {# — Académique — #}
+            <div class="sidebar-section-label">Académique</div>
+
+            <a href="{{ path('admin_annee_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_annee' %}active{% endif %}">
+                <i class="bi bi-calendar-range"></i>
+                Années scolaires
+            </a>
+            <a href="{{ path('admin_cycle_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_cycle' %}active{% endif %}">
+                <i class="bi bi-layers-fill"></i>
+                Cycles
+            </a>
+            <a href="{{ path('admin_niveau_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_niveau' %}active{% endif %}">
+                <i class="bi bi-diagram-3-fill"></i>
+                Niveaux
+            </a>
+            <a href="{{ path('admin_classe_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_classe' %}active{% endif %}">
+                <i class="bi bi-people-fill"></i>
+                Classes
+            </a>
+            <a href="{{ path('admin_matiere_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_matiere' %}active{% endif %}">
+                <i class="bi bi-book-fill"></i>
+                Matières
+            </a>
+            <a href="{{ path('admin_salle_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_salle' %}active{% endif %}">
+                <i class="bi bi-door-open-fill"></i>
+                Salles
+            </a>
+
+            {# — Personnel — #}
+            <div class="sidebar-section-label">Personnel</div>
+
+            <a href="{{ path('admin_enseignant_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_enseignant' %}active{% endif %}">
+                <i class="bi bi-person-badge-fill"></i>
+                Enseignants
+            </a>
+
+            {# — Emplois du temps — #}
+            <div class="sidebar-section-label">Emplois du temps</div>
+
+            <a href="{{ path('admin_creneau_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_creneau' %}active{% endif %}">
+                <i class="bi bi-clock-fill"></i>
+                Créneaux horaires
+            </a>
+            <a href="{{ path('admin_attribution_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_attribution' %}active{% endif %}">
+                <i class="bi bi-clipboard-data-fill"></i>
+                Attributions
+            </a>
+            <a href="#" class="sidebar-link {% if currentRoute starts with 'admin_edt' %}active{% endif %}">
+                <i class="bi bi-calendar-week-fill"></i>
+                Emplois du temps
+            </a>
+            <a href="#" class="sidebar-link sidebar-link-accent {% if currentRoute == 'admin_edt_generate' %}active{% endif %}">
+                <i class="bi bi-lightning-charge-fill"></i>
+                Génération auto
+            </a>
+
+            {# — Administration — #}
+            <div class="sidebar-section-label">Administration</div>
+
+            <a href="{{ path('website_home') }}" class="sidebar-link">
+                <i class="bi bi-globe2"></i>
+                Site public
+            </a>
+
+        </nav>
+
+        {# Bas de sidebar #}
+        <div class="sidebar-footer">
+            <i class="bi bi-person-circle me-2"></i>
+            {% if app.user %}{{ app.user.userIdentifier }}{% else %}Administrateur{% endif %}
+        </div>
+
+    </aside>
+
+    {# ==================== CONTENU PRINCIPAL ==================== #}
+    <div class="admin-main">
+
+        {# Barre du haut #}
+        <header class="admin-topbar">
+            <button class="admin-toggler" id="sidebarToggle" aria-label="Ouvrir/fermer le menu">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <div class="admin-topbar-title">
+                {% block page_title %}Tableau de bord{% endblock %}
+            </div>
+
+            <div class="admin-topbar-actions ms-auto d-flex align-items-center gap-2">
+                {% block topbar_actions %}{% endblock %}
+                <a href="{{ path('website_home') }}" class="btn btn-sm btn-outline-secondary" title="Voir le site public">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                    <span class="d-none d-md-inline ms-1">Site public</span>
+                </a>
+            </div>
+        </header>
+
+        {# Zone de contenu #}
+        <div class="admin-content">
+
+            {# Flashs (messages de succès/erreur) #}
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+            {% block admin_content %}{% endblock %}
+        </div>
+
+    </div>{# /.admin-main #}
+
+</div>{# /.admin-wrapper #}
+
+{# Script : toggle sidebar sur mobile #}
+<script>
+    document.getElementById('sidebarToggle').addEventListener('click', function () {
+        document.getElementById('adminSidebar').classList.toggle('show');
+    });
+</script>
+
+{% endblock body %}

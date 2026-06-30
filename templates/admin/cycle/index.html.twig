@@ -1,0 +1,48 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Cycles — EduManage{% endblock %}
+{% block page_title %}Cycles{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Cycles d'enseignement</h1>
+    <a href="{{ path('admin_cycle_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouveau cycle
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nom</th>
+                    <th>Type</th>
+                    <th>Niveaux</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cycle in cycles %}
+                <tr>
+                    <td class="fw-semibold">{{ cycle.nom }}</td>
+                    <td><span class="badge bg-secondary">{{ cycle.type.label() }}</span></td>
+                    <td class="text-muted">{{ cycle.niveaux|length }} niveau(x)</td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_cycle_edit', {id: cycle.id}),
+                            path('admin_cycle_delete', {id: cycle.id}),
+                            cycle.id,
+                            'Supprimer le cycle ' ~ cycle.nom ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(4, 'Aucun cycle. Créez Collège et Lycée.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -27,7 +27,7 @@
              replié en "hamburger" sur mobile (mobile-first).
            - sticky-top : la barre reste visible au défilement.
            ============================================================ #}
-        <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm border-top border-3 border-primary">
+        {% block navbar %}<nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm border-top border-3 border-primary">
             <div class="container-fluid px-4 px-lg-5">
                 {# --- Logo / marque : clic -> page d'accueil ---
                    path('website_home') génère l'URL depuis le NOM de la route,
@@ -75,7 +75,7 @@
                     </ul>
                 </div>
             </div>
-        </nav>
+        </nav>{% endblock navbar %}
 
         {# Pas de "container" ici : certaines sections (hero) sont pleine largeur.
            Chaque page / section choisit elle-même son container. #}
@@ -87,7 +87,7 @@
            PIED DE PAGE — partagé. Contacts + liens rapides.
            "now"|date("Y") : l'année se met à jour automatiquement.
            ============================================================ #}
-        <footer class="bg-college-navy text-light pt-5 pb-4 mt-auto">
+        {% block footer %}<footer class="bg-college-navy text-light pt-5 pb-4 mt-auto">
             <div class="container-fluid px-4 px-lg-5">
                 <div class="row g-4">
                     <div class="col-md-4">
@@ -118,6 +118,6 @@
                     <small class="text-secondary">&copy; {{ "now"|date("Y") }} Collège Adèle — EduManage Togo. Tous droits réservés.</small>
                 </div>
             </div>
-        </footer>
+        </footer>{% endblock footer %}
     </body>
 </html>

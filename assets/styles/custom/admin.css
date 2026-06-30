@@ -1,0 +1,412 @@
+/* =============================================================
+   MISE EN PAGE ADMIN — Sidebar + Topbar + Contenu
+   ============================================================= */
+
+/* --- Variables spécifiques admin --- */
+:root {
+    --admin-sidebar-w: 260px;
+    --admin-sidebar-bg: #1c1c3a;
+    --admin-sidebar-bg2: #141430;
+    --admin-topbar-h: 60px;
+    --admin-topbar-bg: #ffffff;
+    --admin-content-bg: #f4f5f9;
+    --admin-link-color: rgba(255,255,255,0.70);
+    --admin-link-active: #ffffff;
+    --admin-link-accent-color: var(--college-orange);
+}
+
+/* --- Wrapper global --- */
+.admin-wrapper {
+    display: flex;
+    min-height: 100vh;
+    background: var(--admin-content-bg);
+}
+
+/* =============================================================
+   SIDEBAR
+   ============================================================= */
+
+.admin-sidebar {
+    width: var(--admin-sidebar-w);
+    min-height: 100vh;
+    background: linear-gradient(175deg, var(--admin-sidebar-bg) 0%, var(--admin-sidebar-bg2) 100%);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    overflow-x: hidden;
+}
+
+/* --- Brand (logo) --- */
+.sidebar-brand {
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+}
+
+.sidebar-brand-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--college-purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.sidebar-brand-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.02em;
+    font-family: var(--college-heading-font);
+}
+
+.sidebar-brand-sub {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* --- Navigation scrollable --- */
+.sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem 0 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+/* --- Étiquette de section --- */
+.sidebar-section-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.30);
+    padding: 1rem 1.25rem 0.3rem;
+}
+
+/* --- Lien de navigation --- */
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.52rem 1.25rem;
+    color: var(--admin-link-color);
+    text-decoration: none;
+    font-size: 0.84rem;
+    border-left: 3px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.sidebar-link i {
+    font-size: 1rem;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+}
+
+.sidebar-link:hover {
+    color: var(--admin-link-active);
+    background: rgba(255,255,255,0.07);
+    border-left-color: rgba(255,255,255,0.2);
+}
+
+.sidebar-link.active {
+    color: var(--admin-link-active);
+    background: rgba(255,255,255,0.10);
+    border-left-color: var(--college-orange);
+    font-weight: 500;
+}
+
+.sidebar-link.sidebar-link-accent {
+    color: var(--college-orange);
+}
+
+.sidebar-link.sidebar-link-accent:hover,
+.sidebar-link.sidebar-link-accent.active {
+    color: #fff;
+    background: rgba(226,87,30,0.20);
+    border-left-color: var(--college-orange);
+}
+
+/* --- Pied de sidebar --- */
+.sidebar-footer {
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* =============================================================
+   CONTENU PRINCIPAL (droite)
+   ============================================================= */
+
+.admin-main {
+    margin-left: var(--admin-sidebar-w);
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Topbar --- */
+.admin-topbar {
+    height: var(--admin-topbar-h);
+    background: var(--admin-topbar-bg);
+    border-bottom: 1px solid #e4e7ed;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.admin-toggler {
+    background: none;
+    border: none;
+    padding: 0.35rem 0.5rem;
+    color: #6c757d;
+    font-size: 1.3rem;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s;
+}
+
+.admin-toggler:hover { background: #f0f0f0; }
+
+.admin-topbar-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2b2b3a;
+    font-family: var(--college-heading-font);
+}
+
+/* --- Zone de contenu --- */
+.admin-content {
+    padding: 1.5rem;
+    flex: 1;
+}
+
+/* =============================================================
+   CARTES STATISTIQUES (dashboard)
+   ============================================================= */
+
+.stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.375rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.125rem;
+    border: 1px solid #e9edf3;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.stat-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+    transform: translateY(-2px);
+}
+
+.stat-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.stat-card-icon.purple  { background: #f3eafb; color: var(--college-purple); }
+.stat-card-icon.green   { background: #e6f6ee; color: var(--college-green); }
+.stat-card-icon.navy    { background: #eeeef8; color: var(--college-navy); }
+.stat-card-icon.orange  { background: #fdf0ea; color: var(--college-orange); }
+
+.stat-card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    line-height: 1;
+}
+
+.stat-card-label {
+    font-size: 0.78rem;
+    color: #8a90a0;
+    margin-top: 0.2rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* =============================================================
+   CARDS GÉNÉRIQUES ADMIN
+   ============================================================= */
+
+.admin-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e9edf3;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.admin-card-header {
+    padding: 1rem 1.375rem;
+    border-bottom: 1px solid #f0f2f5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.admin-card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #2b2b3a;
+    margin: 0;
+    font-family: var(--college-heading-font);
+}
+
+.admin-card-body {
+    padding: 1.375rem;
+}
+
+/* =============================================================
+   GETTING STARTED (checklist de démarrage)
+   ============================================================= */
+
+.setup-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.setup-step:last-child { border-bottom: none; }
+
+.setup-step-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.setup-step-icon.done    { background: #e6f6ee; color: var(--college-green); }
+.setup-step-icon.pending { background: #f4f5f9; color: #adb5bd; }
+
+.setup-step-label {
+    font-size: 0.85rem;
+    color: #3a3a4a;
+}
+
+.setup-step-label.done-label {
+    text-decoration: line-through;
+    color: #adb5bd;
+}
+
+/* =============================================================
+   ACTIONS RAPIDES
+   ============================================================= */
+
+.quick-action {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: #f8f9fc;
+    border: 1px solid #e9edf3;
+    color: #2b2b3a;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-bottom: 0.5rem;
+}
+
+.quick-action:hover {
+    background: var(--college-light);
+    border-color: var(--college-purple);
+    color: var(--college-purple);
+}
+
+.quick-action i {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+}
+
+/* =============================================================
+   BADGE ANNÉE SCOLAIRE
+   ============================================================= */
+
+.badge-annee {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #e6f6ee;
+    color: var(--college-green);
+    border: 1px solid #b6e8ce;
+    border-radius: 20px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.badge-annee-inactive {
+    background: #fdf0ea;
+    color: #c45520;
+    border-color: #f5c3a9;
+}
+
+/* =============================================================
+   RESPONSIVE — sidebar mobile
+   ============================================================= */
+
+@media (max-width: 991.98px) {
+    .admin-sidebar {
+        transform: translateX(-100%);
+    }
+
+    .admin-sidebar.show {
+        transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+    }
+
+    .admin-main {
+        margin-left: 0;
+    }
+
+    .admin-content {
+        padding: 1rem;
+    }
+}

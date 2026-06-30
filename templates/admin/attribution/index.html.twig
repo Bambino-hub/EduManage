@@ -1,0 +1,79 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Attributions — EduManage{% endblock %}
+{% block page_title %}Attributions enseignant / matière / classe{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Attributions</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            Définissez ici quel enseignant enseigne quelle matière dans quelle classe.
+        </p>
+    </div>
+    <a href="{{ path('admin_attribution_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle attribution
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Enseignant</th>
+                    <th>Matière</th>
+                    <th>Classe</th>
+                    <th>Année</th>
+                    <th>H/sem</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set currentClasse = null %}
+                {% for a in attributions %}
+                    {% if a.classe.nom != currentClasse %}
+                        {% set currentClasse = a.classe.nom %}
+                        <tr class="table-light">
+                            <td colspan="6" class="fw-bold py-2 px-3" style="color:var(--college-navy)">
+                                <i class="bi bi-people-fill me-2"></i>{{ currentClasse }}
+                                <small class="fw-normal text-muted ms-2">— {{ a.classe.anneeScolaire.libelle }}</small>
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ a.enseignant.nomComplet }}</div>
+                            <small class="text-muted">{{ a.enseignant.type.label() }}</small>
+                        </td>
+                        <td>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <span class="rounded-circle border d-inline-block"
+                                      style="width:10px;height:10px;background:{{ a.matiere.couleur }}"></span>
+                                {{ a.matiere.nom }}
+                            </span>
+                            <small class="text-muted d-block">coeff. {{ a.matiere.coefficient }}</small>
+                        </td>
+                        <td>{{ a.classe.nom }}</td>
+                        <td class="text-muted">{{ a.classe.anneeScolaire.libelle }}</td>
+                        <td>
+                            <span class="badge bg-primary">{{ a.volumeHoraireHebdo }}h</span>
+                        </td>
+                        <td>
+                            {{ ui.actions(
+                                path('admin_attribution_edit', {id: a.id}),
+                                path('admin_attribution_delete', {id: a.id}),
+                                a.id,
+                                'Supprimer cette attribution ?'
+                            ) }}
+                        </td>
+                    </tr>
+                {% else %}
+                    {{ ui.empty_row(6, 'Aucune attribution. Ajoutez les enseignants, matières et classes d\'abord.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

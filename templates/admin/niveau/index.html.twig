@@ -1,0 +1,50 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Niveaux — EduManage{% endblock %}
+{% block page_title %}Niveaux{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Niveaux d'enseignement</h1>
+    <a href="{{ path('admin_niveau_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouveau niveau
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Ordre</th>
+                    <th>Nom</th>
+                    <th>Série</th>
+                    <th>Cycle</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for niveau in niveaux %}
+                <tr>
+                    <td class="text-muted">{{ niveau.ordre }}</td>
+                    <td class="fw-semibold">{{ niveau.nom }}</td>
+                    <td>{{ niveau.serie ?? '—' }}</td>
+                    <td><span class="badge bg-secondary">{{ niveau.cycle.nom }}</span></td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_niveau_edit', {id: niveau.id}),
+                            path('admin_niveau_delete', {id: niveau.id}),
+                            niveau.id,
+                            'Supprimer le niveau ' ~ niveau.nom ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(5, 'Aucun niveau. Créez d\'abord les cycles.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

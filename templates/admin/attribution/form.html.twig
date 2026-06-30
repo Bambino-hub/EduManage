@@ -1,0 +1,49 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ attribution.id ? 'Modifier' : 'Nouvelle' }} attribution — EduManage{% endblock %}
+{% block page_title %}{{ attribution.id ? 'Modifier' : 'Nouvelle' }} attribution{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-clipboard-data-fill me-2 text-college-purple"></i>
+                    {{ attribution.id ? 'Modifier l\'attribution' : 'Nouvelle attribution' }}
+                </h2>
+                <a href="{{ path('admin_attribution_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Un enseignant peut avoir <strong>plusieurs matières dans la même classe</strong>.
+                        Les conflits d'horaire (même enseignant à la même heure) seront détectés lors
+                        de la génération de l'emploi du temps.
+                    </div>
+                </div>
+
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3">
+                    <div class="col-12">{{ form_row(form.enseignant) }}</div>
+                    <div class="col-12">{{ form_row(form.matiere) }}</div>
+                    <div class="col-12">{{ form_row(form.classe) }}</div>
+                    <div class="col-6">{{ form_row(form.volumeHoraireHebdo) }}</div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                    <a href="{{ path('admin_attribution_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
