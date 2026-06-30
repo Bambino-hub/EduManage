@@ -20,7 +20,7 @@
                     <th>Couleur</th>
                     <th>Nom</th>
                     <th>Code</th>
-                    <th>Coefficient</th>
+                    <th>Niveaux configurés</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -33,7 +33,15 @@
                     </td>
                     <td class="fw-semibold">{{ matiere.nom }}</td>
                     <td><code class="bg-light px-2 py-1 rounded">{{ matiere.code }}</code></td>
-                    <td>{{ matiere.coefficient }}</td>
+                    <td>
+                        {% for mn in matiere.matiereNiveaux %}
+                            <span class="badge bg-light text-dark border me-1">
+                                {{ mn.niveau }} : {{ mn.coefficient }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted fst-italic">Aucun</span>
+                        {% endfor %}
+                    </td>
                     <td>
                         {{ ui.actions(
                             path('admin_matiere_edit', {id: matiere.id}),

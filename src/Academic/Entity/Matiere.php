@@ -28,18 +28,24 @@ class Matiere
     #[ORM\Column(length: 10, unique: true)]
     private string $code = '';
 
-    #[ORM\Column(type: 'decimal', precision: 4, scale: 2)]
-    private string $coefficient = '1.00';
-
     #[ORM\Column(length: 7)]
     private string $couleur = '#4a90d9';
+
+    #[ORM\OneToMany(
+        targetEntity: MatiereNiveau::class,
+        mappedBy: 'matiere',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+    )]
+    private Collection $matiereNiveaux;
 
     #[ORM\OneToMany(targetEntity: \App\Scheduling\Entity\Attribution::class, mappedBy: 'matiere')]
     private Collection $attributions;
 
     public function __construct()
     {
-        $this->attributions = new ArrayCollection();
+        $this->matiereNiveaux = new ArrayCollection();
+        $this->attributions   = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -60,19 +66,29 @@ class Matiere
         return $this;
     }
 
-    public function getCoefficient(): string { return $this->coefficient; }
-
-    public function setCoefficient(string $coefficient): static
-    {
-        $this->coefficient = $coefficient;
-        return $this;
-    }
-
     public function getCouleur(): string { return $this->couleur; }
 
     public function setCouleur(string $couleur): static
     {
         $this->couleur = $couleur;
+        return $this;
+    }
+
+    /** @return Collection<int, MatiereNiveau> */
+    public function getMatiereNiveaux(): Collection { return $this->matiereNiveaux; }
+
+    public function addMatiereNiveau(MatiereNiveau $mn): static
+    {
+        if (!$this->matiereNiveaux->contains($mn)) {
+            $this->matiereNiveaux->add($mn);
+            $mn->setMatiere($this);
+        }
+        return $this;
+    }
+
+    public function removeMatiereNiveau(MatiereNiveau $mn): static
+    {
+        $this->matiereNiveaux->removeElement($mn);
         return $this;
     }
 

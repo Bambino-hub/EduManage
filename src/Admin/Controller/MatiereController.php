@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Admin\Controller;
 
 use App\Academic\Entity\Matiere;
+use App\Academic\Entity\MatiereNiveau;
 use App\Academic\Form\MatiereType;
 use App\Academic\Repository\MatiereRepository;
+use App\Academic\Repository\NiveauRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,10 +27,12 @@ class MatiereController extends AbstractController
     }
 
     #[Route('/new', name: 'new')]
-    public function new(Request $request, EntityManagerInterface $em): Response
+    public function new(Request $request, EntityManagerInterface $em, NiveauRepository $niveauRepo): Response
     {
         $matiere = new Matiere();
-        $form    = $this->createForm(MatiereType::class, $matiere);
+        $this->preRemplirNiveaux($matiere, $niveauRepo);
+
+        $form = $this->createForm(MatiereType::class, $matiere);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -42,8 +46,10 @@ class MatiereController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit')]
-    public function edit(Request $request, Matiere $matiere, EntityManagerInterface $em): Response
+    public function edit(Request $request, Matiere $matiere, EntityManagerInterface $em, NiveauRepository $niveauRepo): Response
     {
+        $this->preRemplirNiveaux($matiere, $niveauRepo);
+
         $form = $this->createForm(MatiereType::class, $matiere);
         $form->handleRequest($request);
 
@@ -65,5 +71,32 @@ class MatiereController extends AbstractController
             $this->addFlash('success', 'Matière supprimée.');
         }
         return $this->redirectToRoute('admin_matiere_index');
+    }
+
+    /**
+     * Ajoute un MatiereNiveau pour chaque niveau qui n'en a pas encore,
+     * trié par cycle puis par ordre dans le cycle.
+     */
+    private function preRemplirNiveaux(Matiere $matiere, NiveauRepository $niveauRepo): void
+    {
+        $niveauxExistants = [];
+        foreach ($matiere->getMatiereNiveaux() as $mn) {
+            $niveauxExistants[$mn->getNiveau()->getId()] = true;
+        }
+
+        $tousNiveaux = $niveauRepo->createQueryBuilder('n')
+            ->join('n.cycle', 'c')
+            ->orderBy('c.id', 'ASC')
+            ->addOrderBy('n.ordre', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        foreach ($tousNiveaux as $niveau) {
+            if (!isset($niveauxExistants[$niveau->getId()])) {
+                $mn = new MatiereNiveau();
+                $mn->setNiveau($niveau);
+                $matiere->addMatiereNiveau($mn);
+            }
+        }
     }
 }

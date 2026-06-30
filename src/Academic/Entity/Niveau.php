@@ -38,9 +38,13 @@ class Niveau
     #[ORM\OneToMany(targetEntity: Classe::class, mappedBy: 'niveau')]
     private Collection $classes;
 
+    #[ORM\OneToMany(targetEntity: MatiereNiveau::class, mappedBy: 'niveau')]
+    private Collection $matiereNiveaux;
+
     public function __construct()
     {
-        $this->classes = new ArrayCollection();
+        $this->classes        = new ArrayCollection();
+        $this->matiereNiveaux = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -79,6 +83,9 @@ class Niveau
 
     /** @return Collection<int, Classe> */
     public function getClasses(): Collection { return $this->classes; }
+
+    /** @return Collection<int, MatiereNiveau> */
+    public function getMatiereNiveaux(): Collection { return $this->matiereNiveaux; }
 
     public function getNomComplet(): string
     {
