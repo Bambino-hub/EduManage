@@ -5,46 +5,96 @@
 {% block page_title %}Enseignants{% endblock %}
 
 {% block admin_content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h4 mb-0">Enseignants</h1>
-    <a href="{{ path('admin_enseignant_new') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Ajouter un enseignant
-    </a>
+<div data-controller="list-filter" data-list-filter-total-value="{{ enseignants|length }}">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h1 class="h4 mb-1">Enseignants</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem" data-list-filter-target="count">
+            {{ enseignants|length }} enseignant{{ enseignants|length > 1 ? 's' : '' }}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i>Imprimer
+        </button>
+        <a href="{{ path('admin_enseignant_export_word') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-file-earmark-word-fill me-1"></i>Word
+        </a>
+        <a href="{{ path('admin_enseignant_export_pdf') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
+        </a>
+        <a href="{{ path('admin_enseignant_import_new') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-arrow-up-fill me-1"></i>Importer
+        </a>
+        <a href="{{ path('admin_enseignant_new') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Ajouter un enseignant
+        </a>
+    </div>
 </div>
+<h1 class="h4 mb-4 d-none d-print-block">Enseignants — {{ enseignants|length }} personne(s)</h1>
 
 <div class="admin-card">
+    <div class="admin-card-body border-bottom py-3 no-print">
+        <div class="d-flex flex-wrap gap-2">
+            <div class="flex-grow-1" style="min-width:220px">
+                <input type="search" class="form-control form-control-sm" placeholder="Rechercher un nom, une spécialité, un matricule…"
+                       data-list-filter-target="search" data-action="input->list-filter#search">
+            </div>
+            <select class="form-select form-select-sm" style="max-width:200px"
+                    data-action="change->list-filter#filter" data-list-filter-filter-key-param="type">
+                <option value="">Tous les statuts</option>
+                {% for type in typePersonnel %}
+                    <option value="{{ type.value }}">{{ type.label() }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select form-select-sm" style="max-width:160px"
+                    data-action="change->list-filter#filter" data-list-filter-filter-key-param="actif">
+                <option value="">Actifs et inactifs</option>
+                <option value="1">Actifs seulement</option>
+                <option value="0">Inactifs seulement</option>
+            </select>
+        </div>
+    </div>
     <div class="admin-card-body p-0">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Nom complet</th>
-                    <th>Email</th>
-                    <th>Téléphone</th>
-                    <th>Statut</th>
-                    <th>Actif</th>
-                    <th class="text-end">Actions</th>
+                    <th>NOM ET PRÉNOMS</th>
+                    <th>SEXE</th>
+                    <th>MATRICULE</th>
+                    <th>STATUT</th>
+                    <th>DISCIPLINE</th>
+                    <th>CYCLE</th>
+                    <th>CONTACT</th>
+                    <th class="text-end no-print">ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
                 {% for e in enseignants %}
-                <tr>
-                    <td>
-                        <div class="fw-semibold">{{ e.nomComplet }}</div>
-                        {% if e.specialite %}
-                            <small class="text-muted">{{ e.specialite }}</small>
-                        {% endif %}
-                    </td>
-                    <td class="text-muted small">{{ e.email }}</td>
-                    <td class="text-muted small">{{ e.telephone ?? '—' }}</td>
+                <tr data-list-filter-target="row"
+                    data-search="{{ (e.nomComplet ~ ' ' ~ e.specialite ~ ' ' ~ e.matricule ~ ' ' ~ e.email)|lower }}"
+                    data-type="{{ e.type.value }}"
+                    data-actif="{{ e.actif ? '1' : '0' }}">
+                    <td class="fw-semibold">{{ e.nomComplet }}</td>
+                    <td class="text-muted small">{{ e.sexe ? e.sexe.value : '—' }}</td>
+                    <td class="text-muted small">{{ e.matricule ?? 'Privé' }}</td>
                     <td><span class="badge bg-secondary">{{ e.type.label() }}</span></td>
                     <td>
-                        {% if e.actif %}
-                            <i class="bi bi-check-circle-fill text-success"></i>
+                        {% if e.disciplines is not empty %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for discipline in e.disciplines %}
+                                    <span class="badge bg-light text-dark border fw-normal">{{ discipline }}</span>
+                                {% endfor %}
+                            </div>
                         {% else %}
-                            <i class="bi bi-x-circle text-muted"></i>
+                            <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="text-muted small">{{ e.cycle ?? '—' }}</td>
+                    <td class="text-muted small">
+                        {{ e.email }}<br>{{ e.telephone ?? '—' }}
+                    </td>
+                    <td class="no-print">
                         {{ ui.actions(
                             path('admin_enseignant_edit', {id: e.id}),
                             path('admin_enseignant_delete', {id: e.id}),
@@ -54,10 +104,19 @@
                     </td>
                 </tr>
                 {% else %}
-                    {{ ui.empty_row(6, 'Aucun enseignant enregistré.') }}
+                    {{ ui.empty_row(8, 'Aucun enseignant enregistré.') }}
                 {% endfor %}
+                {% if enseignants is not empty %}
+                    <tr data-list-filter-target="empty" hidden>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-search fs-3 d-block mb-2 opacity-50"></i>
+                            Aucun enseignant ne correspond à la recherche.
+                        </td>
+                    </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
+</div>
 </div>
 {% endblock %}

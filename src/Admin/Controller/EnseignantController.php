@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Admin\Controller;
 
 use App\Staff\Entity\Enseignant;
+use App\Staff\Enum\TypePersonnel;
 use App\Staff\Form\EnseignantType;
 use App\Staff\Repository\EnseignantRepository;
+use App\Staff\Service\Export\EnseignantPdfExporter;
+use App\Staff\Service\Export\EnseignantWordExporter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +24,29 @@ class EnseignantController extends AbstractController
     {
         return $this->render('admin/enseignant/index.html.twig', [
             'enseignants' => $repo->findBy([], ['nom' => 'ASC']),
+            'typePersonnel' => TypePersonnel::cases(),
+        ]);
+    }
+
+    #[Route('/export/word', name: 'export_word')]
+    public function exportWord(EnseignantRepository $repo, EnseignantWordExporter $exporter): Response
+    {
+        $contenu = $exporter->exporter($repo->findBy([], ['nom' => 'ASC']));
+
+        return new Response($contenu, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition' => 'attachment; filename="enseignants.docx"',
+        ]);
+    }
+
+    #[Route('/export/pdf', name: 'export_pdf')]
+    public function exportPdf(EnseignantRepository $repo, EnseignantPdfExporter $exporter): Response
+    {
+        $contenu = $exporter->exporter($repo->findBy([], ['nom' => 'ASC']));
+
+        return new Response($contenu, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="enseignants.pdf"',
         ]);
     }
 

@@ -12,9 +12,14 @@
             Définissez ici quel enseignant enseigne quelle matière dans quelle classe.
         </p>
     </div>
-    <a href="{{ path('admin_attribution_new') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Nouvelle attribution
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_attribution_verification') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clipboard2-check me-1"></i>Vérifier la complétude
+        </a>
+        <a href="{{ path('admin_attribution_new') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Nouvelle attribution
+        </a>
+    </div>
 </div>
 
 <div class="admin-card">
@@ -24,53 +29,56 @@
                 <tr>
                     <th>Enseignant</th>
                     <th>Matière</th>
-                    <th>Classe</th>
-                    <th>Année</th>
+                    <th>Classes</th>
                     <th>H/sem</th>
-                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% set currentClasse = null %}
-                {% for a in attributions %}
-                    {% if a.classe.nom != currentClasse %}
-                        {% set currentClasse = a.classe.nom %}
-                        <tr class="table-light">
-                            <td colspan="6" class="fw-bold py-2 px-3" style="color:var(--college-navy)">
-                                <i class="bi bi-people-fill me-2"></i>{{ currentClasse }}
-                                <small class="fw-normal text-muted ms-2">— {{ a.classe.anneeScolaire.libelle }}</small>
+                {% for g in groupes %}
+                    {% for mg in g.matieres %}
+                        <tr>
+                            {% if loop.first %}
+                                <td rowspan="{{ g.matieres|length }}" class="align-middle">
+                                    <div class="fw-semibold">{{ g.enseignant.nomComplet }}</div>
+                                    <small class="text-muted">{{ g.enseignant.type.label() }}</small>
+                                </td>
+                            {% endif %}
+                            <td>
+                                <span class="d-inline-flex align-items-center gap-1" title="{{ mg.matiere.nom }}">
+                                    <span class="rounded-circle border d-inline-block"
+                                          style="width:10px;height:10px;background:{{ mg.matiere.couleur }}"></span>
+                                    {{ mg.matiere.code }}
+                                </span>
                             </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for a in mg.attributions %}
+                                        <span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1" style="font-size:.8rem" title="{{ a.classe.anneeScolaire.libelle }}">
+                                            {{ a.classe.nom }}
+                                            <strong class="text-college-purple">{{ a.volumeHoraireHebdo }}h</strong>
+                                            <a href="{{ path('admin_attribution_edit', {id: a.id}) }}" class="text-primary ms-1" title="Modifier">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form method="post" action="{{ path('admin_attribution_delete', {id: a.id}) }}" class="d-inline"
+                                                  onsubmit="return confirm('Supprimer cette attribution ?')">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ a.id) }}">
+                                                <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-1" title="Supprimer">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            {% if loop.first %}
+                                <td rowspan="{{ g.matieres|length }}" class="align-middle">
+                                    <span class="badge bg-primary">{{ g.total }}h</span>
+                                </td>
+                            {% endif %}
                         </tr>
-                    {% endif %}
-                    <tr>
-                        <td>
-                            <div class="fw-semibold">{{ a.enseignant.nomComplet }}</div>
-                            <small class="text-muted">{{ a.enseignant.type.label() }}</small>
-                        </td>
-                        <td>
-                            <span class="d-inline-flex align-items-center gap-1">
-                                <span class="rounded-circle border d-inline-block"
-                                      style="width:10px;height:10px;background:{{ a.matiere.couleur }}"></span>
-                                {{ a.matiere.nom }}
-                            </span>
-                            <small class="text-muted d-block">coeff. {{ a.matiere.coefficient }}</small>
-                        </td>
-                        <td>{{ a.classe.nom }}</td>
-                        <td class="text-muted">{{ a.classe.anneeScolaire.libelle }}</td>
-                        <td>
-                            <span class="badge bg-primary">{{ a.volumeHoraireHebdo }}h</span>
-                        </td>
-                        <td>
-                            {{ ui.actions(
-                                path('admin_attribution_edit', {id: a.id}),
-                                path('admin_attribution_delete', {id: a.id}),
-                                a.id,
-                                'Supprimer cette attribution ?'
-                            ) }}
-                        </td>
-                    </tr>
+                    {% endfor %}
                 {% else %}
-                    {{ ui.empty_row(6, 'Aucune attribution. Ajoutez les enseignants, matières et classes d\'abord.') }}
+                    {{ ui.empty_row(4, 'Aucune attribution. Ajoutez les enseignants, matières et classes d\'abord.') }}
                 {% endfor %}
             </tbody>
         </table>

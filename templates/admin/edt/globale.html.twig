@@ -1,0 +1,81 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Emploi du temps — vue globale — EduManage{% endblock %}
+{% block page_title %}Emploi du temps — vue globale{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h1 class="h4 mb-1">Emploi du temps — vue globale</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            Toutes les classes {{ annee ? 'de ' ~ annee.libelle : '' }} côte à côte, une ligne par créneau.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i>Imprimer
+        </button>
+        <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Vue par classe/enseignant
+        </a>
+    </div>
+</div>
+<h1 class="h4 mb-4 d-none d-print-block">Emploi du temps {{ annee ? '— ' ~ annee.libelle : '' }}</h1>
+
+{% if classes is empty %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
+            Aucune classe pour l'année active.
+        </div>
+    </div>
+{% else %}
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-bordered align-middle mb-0 text-center" style="font-size:.68rem">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:60px">Jour</th>
+                        <th style="min-width:40px">Hres</th>
+                        {% for classe in classes %}
+                            <th style="min-width:58px">{{ classe.nom }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for jour in joursAffiches %}
+                        {% set ordresJour = creneauxParJour[jour.value]|keys %}
+                        {% for ordre in ordresJour %}
+                            {% set creneau = creneauxParJour[jour.value][ordre] %}
+                            <tr>
+                                {% if loop.first %}
+                                    <td class="fw-bold bg-light align-middle text-uppercase" rowspan="{{ ordresJour|length }}">
+                                        {{ jour.label() }}
+                                    </td>
+                                {% endif %}
+                                <td class="text-muted fw-semibold bg-light">{{ ordre }}ᵉ</td>
+                                {% if creneau.reserve %}
+                                    <td colspan="{{ classes|length }}" class="fw-semibold text-muted fst-italic">
+                                        {{ creneau.libelleReserve }}
+                                    </td>
+                                {% else %}
+                                    {% for classe in classes %}
+                                        {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
+                                        <td>
+                                            {% if seancesCase is not empty %}
+                                                <span class="fw-semibold">{% for s in seancesCase %}{{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{% endfor %}</span>
+                                            {% else %}
+                                                <span class="text-muted">·</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

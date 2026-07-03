@@ -106,11 +106,15 @@
                 <i class="bi bi-clipboard-data-fill"></i>
                 Attributions
             </a>
-            <a href="#" class="sidebar-link {% if currentRoute starts with 'admin_edt' %}active{% endif %}">
+            <a href="{{ path('admin_edt_index') }}" class="sidebar-link {% if currentRoute == 'admin_edt_index' %}active{% endif %}">
                 <i class="bi bi-calendar-week-fill"></i>
                 Emplois du temps
             </a>
-            <a href="#" class="sidebar-link sidebar-link-accent {% if currentRoute == 'admin_edt_generate' %}active{% endif %}">
+            <a href="{{ path('admin_edt_globale') }}" class="sidebar-link {% if currentRoute == 'admin_edt_globale' %}active{% endif %}">
+                <i class="bi bi-grid-3x3-gap-fill"></i>
+                Vue globale
+            </a>
+            <a href="{{ path('admin_edt_generate') }}" class="sidebar-link sidebar-link-accent {% if currentRoute == 'admin_edt_generate' %}active{% endif %}">
                 <i class="bi bi-lightning-charge-fill"></i>
                 Génération auto
             </a>

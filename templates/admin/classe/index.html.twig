@@ -22,6 +22,7 @@
                     <th>Cycle</th>
                     <th>Année scolaire</th>
                     <th>Effectif max</th>
+                    <th>Statut</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -34,6 +35,13 @@
                     <td>{{ classe.anneeScolaire.libelle }}</td>
                     <td class="text-muted">{{ classe.effectifMax }} élèves</td>
                     <td>
+                        {% if classe.active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {{ ui.actions(
                             path('admin_classe_edit', {id: classe.id}),
                             path('admin_classe_delete', {id: classe.id}),
@@ -43,7 +51,7 @@
                     </td>
                 </tr>
                 {% else %}
-                    {{ ui.empty_row(6, 'Aucune classe. Créez d\'abord les niveaux et l\'année scolaire.') }}
+                    {{ ui.empty_row(7, 'Aucune classe. Créez d\'abord les niveaux et l\'année scolaire.') }}
                 {% endfor %}
             </tbody>
         </table>

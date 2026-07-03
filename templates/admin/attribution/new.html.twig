@@ -1,0 +1,74 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Nouvelle attribution — EduManage{% endblock %}
+{% block page_title %}Nouvelle attribution{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-clipboard-data-fill me-2 text-college-purple"></i>
+                    Nouvelle attribution
+                </h2>
+                <a href="{{ path('admin_attribution_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Un même enseignant enseignant la même matière dans plusieurs classes ?
+                        Cochez toutes les classes concernées : une attribution sera créée pour chacune.
+                        Le volume horaire hebdomadaire de chaque attribution est repris automatiquement
+                        de la grille matière × niveau.
+                    </div>
+                </div>
+
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3" data-controller="attribution-autofill">
+                    <div class="col-12">
+                        {{ form_label(form.enseignant) }}
+                        {{ form_errors(form.enseignant) }}
+                        <div class="position-relative" data-controller="searchable-select">
+                            <input type="text" class="form-control" placeholder="Rechercher un enseignant…" autocomplete="off"
+                                   data-searchable-select-target="input"
+                                   data-action="input->searchable-select#filter focus->searchable-select#open blur->searchable-select#closeSoon keydown->searchable-select#keydown">
+                            <ul class="dropdown-menu w-100" style="max-height:260px; overflow-y:auto" data-searchable-select-target="menu"></ul>
+                            {{ form_widget(form.enseignant, {
+                                attr: {
+                                    'data-searchable-select-target': 'select',
+                                    'data-attribution-autofill-target': 'enseignant',
+                                    'data-action': 'change->attribution-autofill#syncMatiere',
+                                },
+                            }) }}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        {{ form_row(form.matiere, {attr: {'data-attribution-autofill-target': 'matiere'}}) }}
+                    </div>
+                    <div class="col-12">
+                        {{ form_label(form.classes) }}
+                        {{ form_errors(form.classes) }}
+                        <div class="border rounded p-3" style="max-height:340px; overflow-y:auto">
+                            {{ form_widget(form.classes) }}
+                        </div>
+                        {{ form_help(form.classes) }}
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Créer les attributions
+                    </button>
+                    <a href="{{ path('admin_attribution_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Academic\Entity;
 
+use App\Academic\Enum\GroupeOptionnel;
+use App\Academic\Enum\TypeSalle;
 use App\Academic\Repository\MatiereRepository;
 use App\Shared\Entity\TimestampableTrait;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -30,6 +32,12 @@ class Matiere
 
     #[ORM\Column(length: 7)]
     private string $couleur = '#4a90d9';
+
+    #[ORM\Column(length: 20, nullable: true, enumType: GroupeOptionnel::class)]
+    private ?GroupeOptionnel $groupeOptionnel = null;
+
+    #[ORM\Column(length: 20, nullable: true, enumType: TypeSalle::class)]
+    private ?TypeSalle $salleRequise = null;
 
     #[ORM\OneToMany(
         targetEntity: MatiereNiveau::class,
@@ -71,6 +79,22 @@ class Matiere
     public function setCouleur(string $couleur): static
     {
         $this->couleur = $couleur;
+        return $this;
+    }
+
+    public function getGroupeOptionnel(): ?GroupeOptionnel { return $this->groupeOptionnel; }
+
+    public function setGroupeOptionnel(?GroupeOptionnel $groupeOptionnel): static
+    {
+        $this->groupeOptionnel = $groupeOptionnel;
+        return $this;
+    }
+
+    public function getSalleRequise(): ?TypeSalle { return $this->salleRequise; }
+
+    public function setSalleRequise(?TypeSalle $salleRequise): static
+    {
+        $this->salleRequise = $salleRequise;
         return $this;
     }
 

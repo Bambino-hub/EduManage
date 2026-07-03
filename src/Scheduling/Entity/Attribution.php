@@ -16,10 +16,16 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Lie un enseignant à une matière et une classe pour une année scolaire donnée.
  * Porte aussi le volume horaire hebdomadaire attendu (ex: 3h de Maths/semaine).
+ *
+ * Contrainte métier : une classe ne peut avoir qu'un seul enseignant pour une
+ * matière donnée (pas de partage d'une même matière entre deux enseignants dans
+ * la même classe). D'où l'unicité sur (matière, classe) et non (enseignant,
+ * matière, classe) — cette dernière aurait laissé passer deux enseignants
+ * différents sur le même couple matière/classe.
  */
 #[ORM\Entity(repositoryClass: AttributionRepository::class)]
 #[ORM\Table(name: 'attribution')]
-#[ORM\UniqueConstraint(fields: ['enseignant', 'matiere', 'classe'])]
+#[ORM\UniqueConstraint(fields: ['matiere', 'classe'])]
 #[ORM\HasLifecycleCallbacks]
 class Attribution
 {

@@ -21,8 +21,16 @@ class MatiereController extends AbstractController
     #[Route('', name: 'index')]
     public function index(MatiereRepository $repo): Response
     {
+        $matieres = $repo->findBy([], ['nom' => 'ASC']);
+
+        $niveauxParMatiere = [];
+        foreach ($matieres as $matiere) {
+            $niveauxParMatiere[$matiere->getId()] = $this->trierNiveauxEnseignes($matiere);
+        }
+
         return $this->render('admin/matiere/index.html.twig', [
-            'matieres' => $repo->findBy([], ['nom' => 'ASC']),
+            'matieres'          => $matieres,
+            'niveauxParMatiere' => $niveauxParMatiere,
         ]);
     }
 
@@ -71,6 +79,27 @@ class MatiereController extends AbstractController
             $this->addFlash('success', 'Matière supprimée.');
         }
         return $this->redirectToRoute('admin_matiere_index');
+    }
+
+    /**
+     * Niveaux où la matière est réellement enseignée (heures > 0), triés par
+     * cycle puis par ordre dans le cycle, pour un affichage propre dans la liste.
+     *
+     * @return MatiereNiveau[]
+     */
+    private function trierNiveauxEnseignes(Matiere $matiere): array
+    {
+        $mns = array_filter(
+            $matiere->getMatiereNiveaux()->toArray(),
+            static fn (MatiereNiveau $mn) => (float) $mn->getHeuresParSemaine() > 0,
+        );
+
+        usort($mns, static function (MatiereNiveau $a, MatiereNiveau $b): int {
+            $cycleOrdre = $a->getNiveau()->getCycle()->getId() <=> $b->getNiveau()->getCycle()->getId();
+            return $cycleOrdre !== 0 ? $cycleOrdre : $a->getNiveau()->getOrdre() <=> $b->getNiveau()->getOrdre();
+        });
+
+        return array_values($mns);
     }
 
     /**

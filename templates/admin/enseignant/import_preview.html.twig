@@ -1,0 +1,90 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Aperçu de l'import — EduManage{% endblock %}
+{% block page_title %}Aperçu avant import{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Aperçu avant import</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            {{ lignes|length }} ligne(s) détectée(s). Corrigez les champs si besoin, puis confirmez.
+        </p>
+    </div>
+    <a href="{{ path('admin_enseignant_import_new') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Choisir un autre fichier
+    </a>
+</div>
+
+{% if extension == 'pdf' %}
+    <div class="alert alert-warning d-flex gap-2 mb-4" style="font-size:.85rem">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+        <div>
+            <strong>Extraction PDF en mode "meilleur effort".</strong> Ce format est moins fiable que
+            Word/Excel — relisez attentivement chaque ligne (nom, matricule, discipline, cycle) avant
+            de confirmer. Une valeur manquante ou mal coupée peut se corriger directement ci-dessous.
+        </div>
+    </div>
+{% endif %}
+
+<form method="post" action="{{ path('admin_enseignant_import_confirm') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('enseignant_import') }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:130px">Nom</th>
+                        <th style="min-width:150px">Prénom(s)</th>
+                        <th style="min-width:80px">Sexe</th>
+                        <th style="min-width:110px">Matricule</th>
+                        <th style="min-width:140px">Poste</th>
+                        <th style="min-width:150px">Discipline(s)</th>
+                        <th style="min-width:80px">Cycle</th>
+                        <th style="min-width:120px">Téléphone</th>
+                        <th style="min-width:130px">Statut</th>
+                        <th style="min-width:170px">E-mail (indicatif)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                        <tr>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][nom]" value="{{ ligne.nom }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][prenom]" value="{{ ligne.prenom }}"></td>
+                            <td>
+                                <select class="form-select form-select-sm" name="enseignants[{{ loop.index0 }}][sexe]">
+                                    <option value="">—</option>
+                                    {% for s in sexes %}
+                                        <option value="{{ s.value }}" {{ ligne.sexe == s ? 'selected' }}>{{ s.value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][matricule]" value="{{ ligne.matricule }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][poste]" value="{{ ligne.poste }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][specialite]" value="{{ ligne.specialite }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][cycle]" value="{{ ligne.cycle }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="enseignants[{{ loop.index0 }}][telephone]" value="{{ ligne.telephone }}"></td>
+                            <td>
+                                <select class="form-select form-select-sm" name="enseignants[{{ loop.index0 }}][type]">
+                                    {% for t in typesPersonnel %}
+                                        <option value="{{ t.value }}" {{ ligne.type == t ? 'selected' }}>{{ t.label() }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="text-muted small">{{ ligne.emailApercu }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Confirmer l'import de {{ lignes|length }} ligne(s)
+        </button>
+        <a href="{{ path('admin_enseignant_index') }}" class="btn btn-outline-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

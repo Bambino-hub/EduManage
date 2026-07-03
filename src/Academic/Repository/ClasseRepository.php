@@ -18,13 +18,25 @@ class ClasseRepository extends ServiceEntityRepository
         parent::__construct($registry, Classe::class);
     }
 
-    /** @return Classe[] */
+    /**
+     * Classes réellement en cours cette année : année scolaire active ET classe elle-même
+     * active (une classe désactivée reste en base — utile si son niveau n'a pas de cohorte
+     * cette année, ex. série qui alterne — mais ne doit apparaître dans aucun emploi du
+     * temps, aucune génération auto, ni la vérification des attributions).
+     *
+     * @return Classe[]
+     */
     public function findByAnneeScolaireActive(): array
     {
         return $this->createQueryBuilder('c')
+            ->addSelect('mo')
             ->join('c.anneeScolaire', 'a')
+            ->join('c.niveau', 'n')
+            ->leftJoin('c.matieresOptionnelles', 'mo')
             ->where('a.active = true')
-            ->orderBy('c.nom', 'ASC')
+            ->andWhere('c.active = true')
+            ->orderBy('n.ordre', 'ASC')
+            ->addOrderBy('c.nom', 'ASC')
             ->getQuery()
             ->getResult();
     }

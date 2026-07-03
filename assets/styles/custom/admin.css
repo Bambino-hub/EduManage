@@ -410,3 +410,39 @@
         padding: 1rem;
     }
 }
+
+/* =============================================================
+   IMPRESSION — masque la navigation, garde le contenu pleine largeur.
+   Générique : réutilisable sur n'importe quelle page admin (marquer les
+   éléments à masquer avec .no-print, ex. boutons d'action, colonne Actions).
+   ============================================================= */
+
+@page {
+    size: landscape;
+    margin: 1.2cm;
+}
+
+@media print {
+    .admin-sidebar,
+    .admin-topbar,
+    .no-print {
+        display: none !important;
+    }
+
+    .admin-main {
+        margin-left: 0 !important;
+    }
+
+    .admin-content {
+        padding: 0 !important;
+    }
+
+    .admin-card {
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    table {
+        font-size: .8rem;
+    }
+}

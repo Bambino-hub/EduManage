@@ -1,0 +1,112 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Emplois du temps — EduManage{% endblock %}
+{% block page_title %}Emplois du temps{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Emplois du temps</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">Vue en lecture seule, par classe ou par enseignant.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_edt_globale') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-grid-3x3-gap-fill me-1"></i>Vue globale
+        </a>
+        <a href="{{ path('admin_edt_generate') }}" class="btn btn-sm" style="background:var(--college-orange);color:#fff">
+            <i class="bi bi-lightning-charge-fill me-1"></i>Génération auto
+        </a>
+    </div>
+</div>
+
+<div class="admin-card mb-4">
+    <div class="admin-card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Par classe</label>
+                <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">— Choisir une classe —</option>
+                    {% for classe in classes %}
+                        <option value="{{ classe.id }}" {{ classeSelectionnee == classe.id ? 'selected' }}>
+                            {{ classe.nom }} — {{ classe.anneeScolaire.libelle }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1 text-center text-muted small">ou</div>
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Par enseignant</label>
+                <select name="enseignant" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">— Choisir un enseignant —</option>
+                    {% for enseignant in enseignants %}
+                        <option value="{{ enseignant.id }}" {{ enseignantSelectionne == enseignant.id ? 'selected' }}>
+                            {{ enseignant.nomComplet }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not classeSelectionnee and not enseignantSelectionne %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
+            Choisissez une classe ou un enseignant pour afficher son emploi du temps.
+        </div>
+    </div>
+{% else %}
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-bordered align-middle mb-0 text-center" style="font-size:.8rem">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:70px">Heure</th>
+                        {% for jour in joursAffiches %}
+                            <th>{{ jour.label() }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ordre in 1..ordreMax %}
+                        <tr>
+                            <td class="text-muted fw-semibold bg-light">{{ ordre }}</td>
+                            {% for jour in joursAffiches %}
+                                {% set creneau = creneauxParJour[jour.value][ordre] ?? null %}
+                                {% set seancesCase = grille[jour.value][ordre] ?? [] %}
+                                <td class="{{ creneau and creneau.reserve ? 'bg-light' }}" style="min-width:130px">
+                                    {% if creneau is null %}
+                                        <span class="text-muted">—</span>
+                                    {% elseif creneau.reserve %}
+                                        <span class="text-muted fst-italic small">{{ creneau.libelleReserve }}</span>
+                                    {% elseif seancesCase is not empty %}
+                                        {% for seance in seancesCase %}
+                                            {% if not loop.first %}<hr class="my-1">{% endif %}
+                                            <div class="d-flex align-items-center justify-content-center gap-1 fw-semibold">
+                                                <span class="rounded-circle border d-inline-block flex-shrink-0"
+                                                      style="width:8px;height:8px;background:{{ seance.attribution.matiere.couleur }}"></span>
+                                                {{ seance.attribution.matiere.code }}
+                                            </div>
+                                            <div class="text-muted" style="font-size:.72rem">
+                                                {% if enseignantSelectionne %}
+                                                    {{ seance.attribution.classe.nom }}
+                                                {% else %}
+                                                    {{ seance.attribution.enseignant.nomComplet }}
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-muted" style="font-size:.7rem">{{ seance.salle.nom }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">·</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

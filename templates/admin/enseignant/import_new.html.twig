@@ -1,0 +1,46 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Importer des enseignants — EduManage{% endblock %}
+{% block page_title %}Importer des enseignants{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-file-earmark-arrow-up-fill me-2 text-college-purple"></i>
+                    Importer depuis un fichier
+                </h2>
+                <a href="{{ path('admin_enseignant_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Le fichier doit respecter la structure "liste du personnel" habituelle : une colonne
+                        Nom &amp; Prénoms, Sexe, Matricule, Statut, Disciplines, Cycle, Contact.
+                        <strong>Word (.docx) et Excel (.xlsx) sont les formats les plus fiables</strong> —
+                        le PDF fonctionne en meilleur effort et nécessite une relecture attentive avant
+                        de confirmer l'import. Rien n'est enregistré tant que vous n'avez pas validé
+                        l'aperçu à l'étape suivante.
+                    </div>
+                </div>
+
+                {{ form_start(form, {action: path('admin_enseignant_import_preview'), method: 'POST'}) }}
+                {{ form_errors(form) }}
+                {{ form_row(form.fichier) }}
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>Analyser le fichier
+                    </button>
+                    <a href="{{ path('admin_enseignant_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

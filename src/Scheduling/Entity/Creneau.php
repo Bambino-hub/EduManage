@@ -37,6 +37,9 @@ class Creneau
     #[ORM\Column]
     private int $ordre = 0;
 
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $libelleReserve = null;
+
     #[ORM\OneToMany(targetEntity: Seance::class, mappedBy: 'creneau')]
     private Collection $seances;
 
@@ -79,6 +82,16 @@ class Creneau
         return $this;
     }
 
+    public function getLibelleReserve(): ?string { return $this->libelleReserve; }
+
+    public function setLibelleReserve(?string $libelleReserve): static
+    {
+        $this->libelleReserve = $libelleReserve;
+        return $this;
+    }
+
+    public function isReserve(): bool { return $this->libelleReserve !== null; }
+
     /** @return Collection<int, Seance> */
     public function getSeances(): Collection { return $this->seances; }
 
@@ -86,7 +99,8 @@ class Creneau
     {
         $debut = $this->heureDebut?->format('H:i') ?? '';
         $fin   = $this->heureFin?->format('H:i') ?? '';
-        return "{$this->jourSemaine->label()} {$debut}–{$fin}";
+        $base  = "{$this->jourSemaine->label()} {$debut}–{$fin}";
+        return $this->libelleReserve ? "{$base} ({$this->libelleReserve})" : $base;
     }
 
     public function getDureeMinutes(): int

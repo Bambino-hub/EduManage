@@ -34,13 +34,28 @@
                     <td class="fw-semibold">{{ matiere.nom }}</td>
                     <td><code class="bg-light px-2 py-1 rounded">{{ matiere.code }}</code></td>
                     <td>
-                        {% for mn in matiere.matiereNiveaux %}
-                            <span class="badge bg-light text-dark border me-1">
-                                {{ mn.niveau }} : {{ mn.coefficient }}
-                            </span>
+                        {% set mns = niveauxParMatiere[matiere.id] %}
+                        {% if mns is empty %}
+                            <span class="text-muted fst-italic small">Aucune heure configurée</span>
                         {% else %}
-                            <span class="text-muted fst-italic">Aucun</span>
-                        {% endfor %}
+                            {% set currentCycle = null %}
+                            {% for mn in mns %}
+                                {% set cycleName = mn.niveau.cycle.nom %}
+                                {% if cycleName != currentCycle %}
+                                    {% if not loop.first %}</div>{% endif %}
+                                    <div class="d-flex flex-wrap align-items-center gap-1 {{ not loop.first ? 'mt-1' }}">
+                                        <span class="text-muted text-uppercase me-1" style="font-size:.68rem;letter-spacing:.04em;">{{ cycleName }}</span>
+                                    {% set currentCycle = cycleName %}
+                                {% endif %}
+                                <span class="badge bg-light text-dark border fw-normal">
+                                    {{ mn.niveau.nomComplet }} <strong>{{ mn.heuresParSemaineAffichage }}h</strong>
+                                    {%- if mn.hasCoefficientParticulier %}
+                                        <span class="text-muted" title="Coefficient {{ mn.coefficientAffichage }}">×{{ mn.coefficientAffichage }}</span>
+                                    {%- endif %}
+                                </span>
+                                {% if loop.last %}</div>{% endif %}
+                            {% endfor %}
+                        {% endif %}
                     </td>
                     <td>
                         {{ ui.actions(

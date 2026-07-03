@@ -17,4 +17,21 @@ class MatiereNiveauRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, MatiereNiveau::class);
     }
+
+    /**
+     * Toutes les matières réellement enseignées (heuresParSemaine > 0), tous niveaux
+     * confondus, matière déjà chargée pour éviter le N+1 lors d'un regroupement par niveau.
+     *
+     * @return MatiereNiveau[]
+     */
+    public function findToutesEnseignees(): array
+    {
+        return $this->createQueryBuilder('mn')
+            ->addSelect('m')
+            ->join('mn.matiere', 'm')
+            ->where('mn.heuresParSemaine > 0')
+            ->orderBy('m.nom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

@@ -1,0 +1,125 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Génération auto — EduManage{% endblock %}
+{% block page_title %}Génération automatique de l'emploi du temps{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <div class="admin-card mb-4">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-lightning-charge-fill me-2" style="color:var(--college-orange)"></i>
+                    Génération automatique
+                </h2>
+                <a href="{{ path('admin_edt_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {% if annee is null %}
+                    <div class="alert alert-danger mb-0">
+                        Aucune année scolaire active. Activez une année avant de générer l'emploi du temps.
+                    </div>
+                {% else %}
+                    <p class="mb-3">
+                        Année active : <strong>{{ annee.libelle }}</strong>
+                    </p>
+                    <ul class="mb-4">
+                        <li>{{ nbAttributions }} attribution(s) enseignant × matière × classe</li>
+                        <li>{{ nbCreneaux }} créneau(x) horaire(s) défini(s)</li>
+                        <li>{{ nbSalles }} salle(s) déclarée(s)</li>
+                    </ul>
+
+                    {% if nbAttributions == 0 %}
+                        <div class="alert alert-warning">
+                            Aucune attribution trouvée pour cette année — rien à générer. Créez d'abord les
+                            <a href="{{ path('admin_attribution_index') }}">attributions</a>.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info d-flex gap-2" style="font-size:.85rem">
+                            <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                            <div>
+                                Cette action <strong>remplace entièrement</strong> l'emploi du temps existant de
+                                cette année (les séances déjà générées seront supprimées et recalculées). La
+                                génération est aléatoire et de type « meilleur effort » : ce qui ne peut pas être
+                                placé sans conflit est signalé ci-dessous après génération.
+                            </div>
+                        </div>
+                        <form method="post">
+                            <input type="hidden" name="_token" value="{{ csrf_token('generer_edt') }}">
+                            <button type="submit" class="btn" style="background:var(--college-orange);color:#fff">
+                                <i class="bi bi-lightning-charge-fill me-1"></i>Lancer la génération
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if resultat %}
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h2 class="admin-card-title">
+                        <i class="bi bi-clipboard-check-fill me-2 text-college-purple"></i>
+                        Résultat de la génération
+                    </h2>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row g-3 mb-4 text-center">
+                        <div class="col-4">
+                            <div class="fs-4 fw-bold" style="color:var(--college-green)">{{ resultat.heuresPlacees }}h</div>
+                            <div class="text-muted small">placées</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="fs-4 fw-bold {{ resultat.heuresNonPlacees > 0 ? 'text-danger' : 'text-muted' }}">
+                                {{ resultat.heuresNonPlacees }}h
+                            </div>
+                            <div class="text-muted small">non placées</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="fs-4 fw-bold" style="color:var(--college-navy)">{{ resultat.tentatives }}</div>
+                            <div class="text-muted small">tentative(s)</div>
+                        </div>
+                    </div>
+
+                    {% set incompletes = resultat.unitesIncompletes %}
+                    {% if incompletes is empty %}
+                        <div class="alert alert-success mb-0">
+                            Toutes les heures ont été placées sans conflit.
+                        </div>
+                    {% else %}
+                        <h6 class="fw-semibold mb-2">Unités non (ou partiellement) placées</h6>
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Attribution</th>
+                                    <th class="text-center">Demandées</th>
+                                    <th class="text-center">Placées</th>
+                                    <th>Raison</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in incompletes %}
+                                    <tr>
+                                        <td>{{ u.libelle }}</td>
+                                        <td class="text-center">{{ u.heuresDemandees }}h</td>
+                                        <td class="text-center">{{ u.heuresPlacees }}h</td>
+                                        <td class="text-muted small">{{ u.raisonsEchec|join(' ') }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+
+                    <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-primary btn-sm mt-2">
+                        <i class="bi bi-calendar-week me-1"></i>Voir l'emploi du temps généré
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

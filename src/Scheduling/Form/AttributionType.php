@@ -10,8 +10,9 @@ use App\Scheduling\Entity\Attribution;
 use App\Staff\Entity\Enseignant;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class AttributionType extends AbstractType
@@ -33,19 +34,35 @@ class AttributionType extends AbstractType
                 'class'        => Matiere::class,
                 'choice_label' => fn(Matiere $m) => $m->getNom().' ('.$m->getCode().')',
                 'placeholder'  => '— Choisir une matière —',
-            ])
-            ->add('classe', EntityType::class, [
+            ]);
+
+        // Le champ "classe" est ajouté via un listener (et non directement ci-dessus) pour
+        // pouvoir garder, dans le choix, la classe déjà affectée même si elle a été désactivée
+        // depuis (sinon Symfony ne la présélectionne plus et un simple "Enregistrer" sans y
+        // toucher réaffecterait silencieusement l'attribution à une autre classe). Les
+        // nouvelles affectations, elles, ne peuvent viser qu'une classe active.
+        $builder->addEventListener(FormEvents::PRE_SET_DATA, function (FormEvent $event) {
+            $attribution    = $event->getData();
+            $classeActuelle = $attribution instanceof Attribution ? $attribution->getClasse() : null;
+
+            $event->getForm()->add('classe', EntityType::class, [
                 'label'        => 'Classe',
                 'class'        => Classe::class,
                 'choice_label' => fn(Classe $c) => $c->getNom().' — '.$c->getAnneeScolaire()->getLibelle(),
                 'placeholder'  => '— Choisir une classe —',
                 'group_by'     => fn(Classe $c) => $c->getAnneeScolaire()->getLibelle(),
-            ])
-            ->add('volumeHoraireHebdo', IntegerType::class, [
-                'label' => 'Heures par semaine',
-                'attr'  => ['min' => 1, 'max' => 20],
-                'help'  => 'Nombre de séances (créneaux) par semaine pour cette matière dans cette classe.',
+                'query_builder' => function ($repo) use ($classeActuelle) {
+                    $qb = $repo->createQueryBuilder('c')->where('c.active = true');
+                    if ($classeActuelle !== null && !$classeActuelle->isActive()) {
+                        $qb->orWhere('c.id = :classeActuelleId')
+                            ->setParameter('classeActuelleId', $classeActuelle->getId());
+                    }
+                    return $qb;
+                },
             ]);
+        });
+        // volumeHoraireHebdo n'est pas un champ de formulaire : il est déduit automatiquement
+        // de MatiereNiveau (matière × niveau de la classe) par le contrôleur avant la sauvegarde.
     }
 
     public function configureOptions(OptionsResolver $resolver): void

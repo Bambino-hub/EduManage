@@ -23,12 +23,14 @@
                 <div class="row g-3 mb-4">
                     <div class="col-8">{{ form_row(form.nom) }}</div>
                     <div class="col-4">{{ form_row(form.code) }}</div>
-                    <div class="col-6">{{ form_row(form.couleur) }}</div>
+                    <div class="col-4">{{ form_row(form.couleur) }}</div>
+                    <div class="col-4">{{ form_row(form.groupeOptionnel) }}</div>
+                    <div class="col-4">{{ form_row(form.salleRequise) }}</div>
                 </div>
 
                 <h6 class="fw-semibold mb-3 border-bottom pb-2">
                     <i class="bi bi-sliders me-1 text-college-purple"></i>
-                    Coefficients par niveau
+                    Coefficients et volume horaire par niveau
                 </h6>
                 <table class="table table-sm align-middle mb-4">
                     <thead class="table-light">
@@ -36,6 +38,7 @@
                             <th>Cycle</th>
                             <th>Niveau</th>
                             <th style="width:130px">Coefficient</th>
+                            <th style="width:150px">Heures / semaine</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -52,6 +55,7 @@
                                 </td>
                                 <td>{{ niveau }}</td>
                                 <td>{{ form_widget(mnForm.coefficient) }}</td>
+                                <td>{{ form_widget(mnForm.heuresParSemaine) }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

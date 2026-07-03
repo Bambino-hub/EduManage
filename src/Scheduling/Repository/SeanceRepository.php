@@ -32,6 +32,38 @@ class SeanceRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Toutes les séances de l'année, pour la vue globale (toutes classes côte à côte). @return Seance[] */
+    public function findByAnneeScolaire(int $anneeScolaireId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.attribution', 'a')
+            ->addSelect('a')
+            ->join('a.classe', 'cl')
+            ->addSelect('cl')
+            ->join('a.matiere', 'm')
+            ->addSelect('m')
+            ->join('s.creneau', 'c')
+            ->addSelect('c')
+            ->where('cl.anneeScolaire = :anneeId')
+            ->setParameter('anneeId', $anneeScolaireId)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return Seance[] */
+    public function findByEnseignant(int $enseignantId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.attribution', 'a')
+            ->join('s.creneau', 'c')
+            ->where('a.enseignant = :enseignantId')
+            ->setParameter('enseignantId', $enseignantId)
+            ->orderBy('c.ordre', 'ASC')
+            ->addOrderBy('c.heureDebut', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** Détecte si un créneau est déjà pris pour une salle donnée */
     public function existeConflitSalle(int $salleId, int $creneauId, ?int $excludeId = null): bool
     {
