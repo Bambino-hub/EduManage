@@ -16,8 +16,10 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class AttributionRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private readonly RegroupementClasseRepository $regroupementRepo,
+    ) {
         parent::__construct($registry, Attribution::class);
     }
 
@@ -80,26 +82,67 @@ class AttributionRepository extends ServiceEntityRepository
      * Charge horaire hebdomadaire totale par enseignant (toutes classes/matières confondues),
      * pour visualiser la charge globale sur la liste des attributions.
      *
-     * @return list<array{enseignant: \App\Staff\Entity\Enseignant, total: int}>
+     * Déduplique les heures quand un même enseignant intervient, pour la même matière,
+     * sur plusieurs classes fusionnées via un `RegroupementClasse` (ex. 1ère C / 1ère D1) :
+     * ces séances ont lieu simultanément (classes réunies dans une seule salle), donc ne
+     * comptent qu'une fois dans sa charge réelle — pas une fois par classe. Si les classes
+     * fusionnées ont des enseignants différents pour cette matière (autorisé par
+     * `RegroupementClasse`, seul le créneau est imposé), chacun garde bien son propre
+     * volume : la déduplication ne s'applique qu'au doublon d'un même enseignant.
+     *
+     * @return list<array{enseignant: Enseignant, total: int}>
      */
     public function totalHeuresParEnseignant(): array
     {
-        // Doctrine exige que l'entité sélectionnée (ici Enseignant) soit l'alias racine de la
-        // requête pour pouvoir la retourner telle quelle aux côtés d'un agrégat — on part donc
-        // de Enseignant plutôt que d'Attribution, en joignant sa collection d'attributions.
-        $resultats = $this->getEntityManager()->createQueryBuilder()
-            ->select('e AS enseignant', 'SUM(a.volumeHoraireHebdo) AS total')
-            ->from(Enseignant::class, 'e')
-            ->join('e.attributions', 'a')
-            ->groupBy('e.id')
-            ->orderBy('total', 'DESC')
-            ->addOrderBy('e.nom', 'ASC')
+        $regroupementParClasseEtMatiere = [];
+        foreach ($this->regroupementRepo->findAllAvecRelations() as $regroupement) {
+            foreach ($regroupement->getClasses() as $classe) {
+                foreach ($regroupement->getMatieres() as $matiere) {
+                    $regroupementParClasseEtMatiere[$classe->getId()][$matiere->getId()] = $regroupement->getId();
+                }
+            }
+        }
+
+        $attributions = $this->createQueryBuilder('a')
+            ->addSelect('e', 'cl', 'm')
+            ->join('a.enseignant', 'e')
+            ->join('a.classe', 'cl')
+            ->join('a.matiere', 'm')
             ->getQuery()
             ->getResult();
 
-        return array_map(
-            static fn (array $r) => ['enseignant' => $r['enseignant'], 'total' => (int) $r['total']],
-            $resultats,
-        );
+        $enseignantParId    = [];
+        $totalParEnseignant = [];
+        $groupesComptes     = []; // enseignantId => [clé de dédoublonnage => true]
+
+        foreach ($attributions as $attribution) {
+            $enseignant   = $attribution->getEnseignant();
+            $enseignantId = $enseignant->getId();
+            $enseignantParId[$enseignantId] ??= $enseignant;
+
+            $classeId       = $attribution->getClasse()->getId();
+            $matiereId      = $attribution->getMatiere()->getId();
+            $regroupementId = $regroupementParClasseEtMatiere[$classeId][$matiereId] ?? null;
+
+            $cle = $regroupementId !== null
+                ? "regroupement:{$regroupementId}:{$matiereId}"
+                : "attribution:{$attribution->getId()}";
+
+            if (isset($groupesComptes[$enseignantId][$cle])) {
+                continue; // même enseignant, même matière fusionnée : déjà compté via une autre classe
+            }
+            $groupesComptes[$enseignantId][$cle] = true;
+
+            $totalParEnseignant[$enseignantId] = ($totalParEnseignant[$enseignantId] ?? 0) + $attribution->getVolumeHoraireHebdo();
+        }
+
+        $resultats = [];
+        foreach ($totalParEnseignant as $enseignantId => $total) {
+            $resultats[] = ['enseignant' => $enseignantParId[$enseignantId], 'total' => $total];
+        }
+
+        usort($resultats, static fn (array $a, array $b) => [$b['total'], $a['enseignant']->getNom()] <=> [$a['total'], $b['enseignant']->getNom()]);
+
+        return $resultats;
     }
 }
