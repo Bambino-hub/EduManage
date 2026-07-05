@@ -61,6 +61,33 @@ class EmploiDuTempsGenerator
      */
     private const BUDGET_REPARATION_PAR_TENTATIVE = 4000;
 
+    /**
+     * Budget de réparation dédié, offert individuellement à chaque unité encore
+     * incomplète après la passe normale (voir la "deuxième chance" dans generer()) —
+     * un budget frais par unité, pas partagé, puisqu'il n'en reste qu'une poignée à ce
+     * stade.
+     */
+    private const BUDGET_REPARATION_SECONDE_CHANCE = 3000;
+
+    /**
+     * Nombre de passages de la "deuxième chance" — sortie anticipée dès que tout est
+     * complet. Volontairement bas (1) : chaque passage supplémentaire coûte cher en
+     * temps (rebalaie toutes les unités encore incomplètes avec un budget dédié) pour
+     * un gain marginal décroissant — le budget de temps global (BUDGET_TEMPS_SECONDES)
+     * reste le vrai filet de sécurité si jamais ça ne suffit pas.
+     */
+    private const NB_ESSAIS_SECONDE_CHANCE = 1;
+
+    /**
+     * Budget de temps total (secondes) pour l'ensemble des tentatives + réparations.
+     * Marge volontairement large sous la limite d'exécution PHP côté web (30s observée
+     * en local, potentiellement différente en production) : mieux vaut rendre un
+     * résultat "meilleur effort" incomplet que de se faire tuer par le serveur en plein
+     * calcul, APRÈS la purge des séances existantes et AVANT le flush() final — un
+     * timeout à ce moment-là laisserait l'emploi du temps entièrement vide en base.
+     */
+    private const BUDGET_TEMPS_SECONDES = 18.0;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AttributionRepository $attributionRepo,
@@ -73,6 +100,7 @@ class EmploiDuTempsGenerator
 
     public function generer(AnneeScolaire $annee, int $maxRestarts = 20): GenerationResult
     {
+        $debut        = microtime(true);
         $attributions = $this->attributionRepo->findByAnneeScolaire((int) $annee->getId());
         $this->purgerSeances($attributions);
 
@@ -113,6 +141,10 @@ class EmploiDuTempsGenerator
         $tentativesEffectuees = 0;
 
         for ($tentative = 1; $tentative <= $maxRestarts; $tentative++) {
+            if ($meilleur !== null && microtime(true) - $debut > self::BUDGET_TEMPS_SECONDES) {
+                break;
+            }
+
             $tentativesEffectuees = $tentative;
 
             $classeBusy                      = [];
@@ -162,6 +194,59 @@ class EmploiDuTempsGenerator
                     ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
                     : [];
                 $resultatsUnites[] = new UnitResult($unite->libelle, $unite->heures, $resultat['heures'], $raisons);
+            }
+
+            // Deuxième chance, ciblée sur les seules unités encore incomplètes : le
+            // budget de réparation de la passe normale est partagé entre TOUTES les
+            // unités d'une tentative, donc une unité traitée tard peut échouer simplement
+            // parce que le budget a déjà été consommé par des réparations antérieures —
+            // pas parce qu'aucune réparation n'était possible. Une fois qu'il ne reste
+            // qu'une poignée d'unités en échec, on peut se permettre de leur donner
+            // chacune un budget frais dédié, sans toucher à l'ordre ni au budget qui a
+            // fait ses preuves pour les 90%+ déjà placés. Répété plusieurs fois (avec
+            // sortie anticipée dès que tout est complet) : le nouvel ordre aléatoire des
+            // candidats à chaque appel de placerUnite() peut réussir un coup qui avait
+            // échoué au tour précédent, pour un coût quasi nul une fois qu'il ne reste
+            // que quelques unités.
+            for ($essai = 0; $essai < self::NB_ESSAIS_SECONDE_CHANCE; $essai++) {
+                if (microtime(true) - $debut > self::BUDGET_TEMPS_SECONDES) {
+                    break;
+                }
+
+                $resteDesIncompletes = false;
+
+                foreach ($ordreUnites as $index => $unite) {
+                    if ($resultatsUnites[$index]->estComplet()) {
+                        continue;
+                    }
+
+                    $budgetSecondeChance = self::BUDGET_REPARATION_SECONDE_CHANCE;
+                    $resultat = $this->placerUnite(
+                        $unite,
+                        $creneauxEligiblesParCycle,
+                        $classeSalleMap,
+                        $sallesParType,
+                        $classeBusy,
+                        $enseignantBusy,
+                        $salleBusy,
+                        $blocs,
+                        $prochainBlocId,
+                        $joursUtilisesParUnite,
+                        $nbPremiereHeurePrefereeParUnite,
+                        $budgetSecondeChance,
+                    );
+
+                    if ($resultat['heures'] > 0) {
+                        $heuresPlaceesTotal += $resultat['heures'];
+                        $resultatsUnites[$index] = new UnitResult($unite->libelle, $unite->heures, $resultat['heures'], []);
+                    } else {
+                        $resteDesIncompletes = true;
+                    }
+                }
+
+                if (!$resteDesIncompletes) {
+                    break;
+                }
             }
 
             // Le registre de blocs est la seule source de vérité fiable pour les
