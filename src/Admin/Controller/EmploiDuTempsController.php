@@ -7,6 +7,7 @@ namespace App\Admin\Controller;
 use App\Academic\Repository\AnneeScolaireRepository;
 use App\Academic\Repository\ClasseRepository;
 use App\Academic\Repository\SalleRepository;
+use App\Scheduling\Entity\Creneau;
 use App\Scheduling\Enum\JourSemaine;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Repository\CreneauRepository;
@@ -39,10 +40,15 @@ class EmploiDuTempsController extends AbstractController
             $classeId = $classes[0]->getId();
         }
 
+        $classeObj     = null;
+        $enseignantObj = null;
+
         if ($enseignantId) {
-            $seances = $seanceRepo->findByEnseignant($enseignantId);
+            $seances       = $seanceRepo->findByEnseignant($enseignantId);
+            $enseignantObj = $enseignantRepo->find($enseignantId);
         } elseif ($classeId) {
-            $seances = $seanceRepo->findByClasse($classeId);
+            $seances   = $seanceRepo->findByClasse($classeId);
+            $classeObj = $classeRepo->find($classeId);
         } else {
             $seances = [];
         }
@@ -74,6 +80,8 @@ class EmploiDuTempsController extends AbstractController
             'enseignants'           => $enseignants,
             'classeSelectionnee'    => $classeId,
             'enseignantSelectionne' => $enseignantId,
+            'classeObj'             => $classeObj,
+            'enseignantObj'         => $enseignantObj,
             'grille'                => $grille,
             'creneauxParJour'       => $creneauxParJour,
             'joursAffiches'         => $joursAffiches,
@@ -118,13 +126,68 @@ class EmploiDuTempsController extends AbstractController
         ));
         usort($joursAffiches, static fn (JourSemaine $a, JourSemaine $b) => $a->ordre() <=> $b->ordre());
 
+        [$reserveRowspan, $reserveContinuation] = $this->calculerRunsReserves($creneauxParJour);
+
         return $this->render('admin/edt/globale.html.twig', [
-            'annee'           => $annee,
-            'classes'         => $classes,
-            'grille'          => $grille,
-            'creneauxParJour' => $creneauxParJour,
-            'joursAffiches'   => $joursAffiches,
+            'annee'               => $annee,
+            'classes'             => $classes,
+            'grille'              => $grille,
+            'creneauxParJour'     => $creneauxParJour,
+            'joursAffiches'       => $joursAffiches,
+            'reserveRowspan'      => $reserveRowspan,
+            'reserveContinuation' => $reserveContinuation,
         ]);
+    }
+
+    /**
+     * Détecte les créneaux réservés consécutifs (même jour, même libellé, ordre qui se
+     * suit) pour les fusionner visuellement en une seule cellule sur plusieurs lignes
+     * (ex. DEVOIR/PLEINAIRE mardi/mercredi, qui occupent les 6ᵉ et 7ᵉ heures) plutôt que
+     * de répéter le libellé sur chaque ligne.
+     *
+     * @param array<string, array<int, Creneau>> $creneauxParJour
+     * @return array{0: array<string, array<int, int>>, 1: array<string, array<int, true>>}
+     */
+    private function calculerRunsReserves(array $creneauxParJour): array
+    {
+        $rowspan      = [];
+        $continuation = [];
+
+        foreach ($creneauxParJour as $jour => $parOrdre) {
+            ksort($parOrdre);
+            $ordres = array_keys($parOrdre);
+            $n      = count($ordres);
+            $i      = 0;
+
+            while ($i < $n) {
+                $ordre   = $ordres[$i];
+                $creneau = $parOrdre[$ordre];
+
+                if (!$creneau->isReserve()) {
+                    $i++;
+                    continue;
+                }
+
+                $longueur = 1;
+                while (
+                    $i + $longueur < $n
+                    && $ordres[$i + $longueur] === $ordre + $longueur
+                    && $parOrdre[$ordres[$i + $longueur]]->isReserve()
+                    && $parOrdre[$ordres[$i + $longueur]]->getLibelleReserve() === $creneau->getLibelleReserve()
+                ) {
+                    $longueur++;
+                }
+
+                $rowspan[$jour][$ordre] = $longueur;
+                for ($k = 1; $k < $longueur; $k++) {
+                    $continuation[$jour][$ordres[$i + $k]] = true;
+                }
+
+                $i += $longueur;
+            }
+        }
+
+        return [$rowspan, $continuation];
     }
 
     #[Route('/generer', name: 'generate', methods: ['GET', 'POST'])]

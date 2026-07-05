@@ -445,4 +445,26 @@
     table {
         font-size: .8rem;
     }
+
+    /* Grilles d'emploi du temps : bordures plus marquées et texte secondaire assombri
+       pour rester lisible en photocopie noir et blanc (le gris clair d'écran disparaît
+       souvent à l'impression). */
+    .edt-grid {
+        font-size: .72rem !important;
+    }
+
+    .edt-grid,
+    .edt-grid th,
+    .edt-grid td {
+        border-color: #333 !important;
+    }
+
+    .edt-grid .text-muted,
+    .edt-grid .edt-cell-meta {
+        color: #333 !important;
+    }
+
+    .edt-grid tr {
+        break-inside: avoid;
+    }
 }

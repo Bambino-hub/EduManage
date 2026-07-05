@@ -29,8 +29,9 @@ class SeedCreneauxCommand extends Command
      * Lundi et Jeudi vont jusqu'à la 8ème heure (utilisée par le lycée uniquement —
      * le collège ne dépasse jamais la 7ème heure, règle appliquée par le générateur,
      * pas par cette grille). Mardi et Mercredi s'arrêtent après la 5ème heure puis
-     * un bloc réservé tout-établissement (DEVOIR / PLEINAIRE) occupe la fin d'après-midi,
-     * non attribuable à une matière. Vendredi s'arrête à la 7ème heure pour tout le monde.
+     * un bloc réservé tout-établissement (DEVOIR / PLEINAIRE) occupe la fin d'après-midi
+     * sur 2 périodes (6ème et 7ème heure, comme le document officiel), non attribuable
+     * à une matière. Vendredi s'arrête à la 7ème heure pour tout le monde.
      *
      * @var list<array{jour: JourSemaine, ordre: int, debut: string, fin: string, reserve: ?string}>
      */
@@ -45,21 +46,23 @@ class SeedCreneauxCommand extends Command
         ['jour' => JourSemaine::LUNDI, 'ordre' => 7, 'debut' => '15:55', 'fin' => '16:50', 'reserve' => null],
         ['jour' => JourSemaine::LUNDI, 'ordre' => 8, 'debut' => '16:50', 'fin' => '17:45', 'reserve' => null],
 
-        // MARDI — 1-5 puis bloc DEVOIR
+        // MARDI — 1-5 puis bloc DEVOIR (sur 2 périodes 6ᵉ/7ᵉ, comme le document officiel)
         ['jour' => JourSemaine::MARDI, 'ordre' => 1, 'debut' => '07:00', 'fin' => '07:55', 'reserve' => null],
         ['jour' => JourSemaine::MARDI, 'ordre' => 2, 'debut' => '07:55', 'fin' => '08:50', 'reserve' => null],
         ['jour' => JourSemaine::MARDI, 'ordre' => 3, 'debut' => '08:50', 'fin' => '09:45', 'reserve' => null],
         ['jour' => JourSemaine::MARDI, 'ordre' => 4, 'debut' => '10:10', 'fin' => '11:05', 'reserve' => null],
         ['jour' => JourSemaine::MARDI, 'ordre' => 5, 'debut' => '11:05', 'fin' => '12:00', 'reserve' => null],
-        ['jour' => JourSemaine::MARDI, 'ordre' => 6, 'debut' => '15:00', 'fin' => '16:50', 'reserve' => 'DEVOIR'],
+        ['jour' => JourSemaine::MARDI, 'ordre' => 6, 'debut' => '15:00', 'fin' => '15:55', 'reserve' => 'DEVOIR'],
+        ['jour' => JourSemaine::MARDI, 'ordre' => 7, 'debut' => '15:55', 'fin' => '16:50', 'reserve' => 'DEVOIR'],
 
-        // MERCREDI — 1-5 puis bloc PLEINAIRE
+        // MERCREDI — 1-5 puis bloc PLEINAIRE (sur 2 périodes 6ᵉ/7ᵉ, comme le document officiel)
         ['jour' => JourSemaine::MERCREDI, 'ordre' => 1, 'debut' => '07:00', 'fin' => '07:55', 'reserve' => null],
         ['jour' => JourSemaine::MERCREDI, 'ordre' => 2, 'debut' => '07:55', 'fin' => '08:50', 'reserve' => null],
         ['jour' => JourSemaine::MERCREDI, 'ordre' => 3, 'debut' => '08:50', 'fin' => '09:45', 'reserve' => null],
         ['jour' => JourSemaine::MERCREDI, 'ordre' => 4, 'debut' => '10:10', 'fin' => '11:05', 'reserve' => null],
         ['jour' => JourSemaine::MERCREDI, 'ordre' => 5, 'debut' => '11:05', 'fin' => '12:00', 'reserve' => null],
-        ['jour' => JourSemaine::MERCREDI, 'ordre' => 6, 'debut' => '15:00', 'fin' => '16:50', 'reserve' => 'PLEINAIRE'],
+        ['jour' => JourSemaine::MERCREDI, 'ordre' => 6, 'debut' => '15:00', 'fin' => '15:55', 'reserve' => 'PLEINAIRE'],
+        ['jour' => JourSemaine::MERCREDI, 'ordre' => 7, 'debut' => '15:55', 'fin' => '16:50', 'reserve' => 'PLEINAIRE'],
 
         // JEUDI — collège 1-7, lycée 1-8 (identique à Lundi)
         ['jour' => JourSemaine::JEUDI, 'ordre' => 1, 'debut' => '07:00', 'fin' => '07:55', 'reserve' => null],
@@ -99,6 +102,7 @@ class SeedCreneauxCommand extends Command
         $dryRun = (bool) $input->getOption('dry-run');
 
         $created   = 0;
+        $updated   = 0;
         $unchanged = 0;
 
         foreach (self::GRILLE as $ligne) {
@@ -107,13 +111,30 @@ class SeedCreneauxCommand extends Command
                 'ordre'       => $ligne['ordre'],
             ]);
 
+            $label = sprintf('%s %s-%s%s', $ligne['jour']->label(), $ligne['debut'], $ligne['fin'],
+                $ligne['reserve'] ? " ({$ligne['reserve']})" : '');
+
             if ($existant) {
-                $unchanged++;
+                // Idempotent en mise à jour (pas seulement en création) : si la grille change
+                // (ex. ajout de la 7ᵉ heure mardi/mercredi), relancer la commande corrige les
+                // créneaux déjà seedés au lieu de les ignorer silencieusement.
+                $differe = $existant->getHeureDebut()?->format('H:i') !== $ligne['debut']
+                    || $existant->getHeureFin()?->format('H:i') !== $ligne['fin']
+                    || $existant->getLibelleReserve() !== $ligne['reserve'];
+
+                if (!$differe) {
+                    $unchanged++;
+                    continue;
+                }
+
+                $io->writeln("  ~ {$label}");
+                $existant->setHeureDebut(new \DateTimeImmutable($ligne['debut']));
+                $existant->setHeureFin(new \DateTimeImmutable($ligne['fin']));
+                $existant->setLibelleReserve($ligne['reserve']);
+                $updated++;
                 continue;
             }
 
-            $label = sprintf('%s %s-%s%s', $ligne['jour']->label(), $ligne['debut'], $ligne['fin'],
-                $ligne['reserve'] ? " ({$ligne['reserve']})" : '');
             $io->writeln("  + {$label}");
 
             $creneau = new Creneau();
@@ -132,7 +153,7 @@ class SeedCreneauxCommand extends Command
             $this->em->flush();
         }
 
-        $io->success(sprintf('%d créneaux créés, %d déjà existants.', $created, $unchanged));
+        $io->success(sprintf('%d créneaux créés, %d mis à jour, %d déjà à jour.', $created, $updated, $unchanged));
 
         return Command::SUCCESS;
     }

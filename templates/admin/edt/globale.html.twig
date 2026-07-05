@@ -30,9 +30,18 @@
         </div>
     </div>
 {% else %}
+    <div class="alert alert-info no-print d-flex gap-2 mb-3" style="font-size:.8rem">
+        <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+        <div>
+            Une case « · » signifie qu'aucune heure n'a pu être placée à ce créneau pour cette classe lors de la
+            dernière génération (conflit enseignant/salle, ou volume horaire de la classe supérieur aux créneaux
+            disponibles dans la semaine). Le détail par classe est dans le
+            <a href="{{ path('admin_edt_generate') }}">bilan de génération</a>.
+        </div>
+    </div>
     <div class="admin-card">
         <div class="admin-card-body p-0" style="overflow-x:auto">
-            <table class="table table-bordered align-middle mb-0 text-center" style="font-size:.68rem">
+            <table class="table table-bordered align-middle mb-0 text-center edt-grid" style="font-size:.68rem">
                 <thead class="table-light">
                     <tr>
                         <th style="min-width:60px">Jour</th>
@@ -47,6 +56,7 @@
                         {% set ordresJour = creneauxParJour[jour.value]|keys %}
                         {% for ordre in ordresJour %}
                             {% set creneau = creneauxParJour[jour.value][ordre] %}
+                            {% set estContinuation = reserveContinuation[jour.value][ordre] ?? false %}
                             <tr>
                                 {% if loop.first %}
                                     <td class="fw-bold bg-light align-middle text-uppercase" rowspan="{{ ordresJour|length }}">
@@ -54,21 +64,24 @@
                                     </td>
                                 {% endif %}
                                 <td class="text-muted fw-semibold bg-light">{{ ordre }}ᵉ</td>
-                                {% if creneau.reserve %}
-                                    <td colspan="{{ classes|length }}" class="fw-semibold text-muted fst-italic">
-                                        {{ creneau.libelleReserve }}
-                                    </td>
-                                {% else %}
-                                    {% for classe in classes %}
-                                        {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
-                                        <td>
-                                            {% if seancesCase is not empty %}
-                                                <span class="fw-semibold">{% for s in seancesCase %}{{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{% endfor %}</span>
-                                            {% else %}
-                                                <span class="text-muted">·</span>
-                                            {% endif %}
+                                {% if not estContinuation %}
+                                    {% if creneau.reserve %}
+                                        <td colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}"
+                                            class="fw-semibold text-muted fst-italic align-middle">
+                                            {{ creneau.libelleReserve }}
                                         </td>
-                                    {% endfor %}
+                                    {% else %}
+                                        {% for classe in classes %}
+                                            {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
+                                            <td>
+                                                {% if seancesCase is not empty %}
+                                                    <span class="fw-semibold">{% for s in seancesCase %}{{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{% endfor %}</span>
+                                                {% else %}
+                                                    <span class="text-muted">·</span>
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    {% endif %}
                                 {% endif %}
                             </tr>
                         {% endfor %}

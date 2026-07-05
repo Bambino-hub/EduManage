@@ -4,12 +4,17 @@
 {% block page_title %}Emplois du temps{% endblock %}
 
 {% block admin_content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
     <div>
         <h1 class="h4 mb-1">Emplois du temps</h1>
         <p class="text-muted mb-0" style="font-size:.85rem">Vue en lecture seule, par classe ou par enseignant.</p>
     </div>
     <div class="d-flex gap-2">
+        {% if classeSelectionnee or enseignantSelectionne %}
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer-fill me-1"></i>Imprimer
+            </button>
+        {% endif %}
         <a href="{{ path('admin_edt_globale') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-grid-3x3-gap-fill me-1"></i>Vue globale
         </a>
@@ -19,33 +24,43 @@
     </div>
 </div>
 
-<div class="admin-card mb-4">
+{% if classeObj or enseignantObj %}
+    <h1 class="h4 mb-4 d-none d-print-block">
+        Emploi du temps — {{ classeObj ? classeObj.nom ~ ' — ' ~ classeObj.anneeScolaire.libelle : enseignantObj.nomComplet }}
+    </h1>
+{% endif %}
+
+<div class="admin-card mb-4 no-print">
     <div class="admin-card-body">
-        <form method="get" class="row g-3 align-items-end">
+        <div class="row g-3 align-items-end">
             <div class="col-md-5">
-                <label class="form-label small fw-semibold">Par classe</label>
-                <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">— Choisir une classe —</option>
-                    {% for classe in classes %}
-                        <option value="{{ classe.id }}" {{ classeSelectionnee == classe.id ? 'selected' }}>
-                            {{ classe.nom }} — {{ classe.anneeScolaire.libelle }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <form method="get">
+                    <label class="form-label small fw-semibold">Par classe</label>
+                    <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">— Choisir une classe —</option>
+                        {% for classe in classes %}
+                            <option value="{{ classe.id }}" {{ classeSelectionnee == classe.id ? 'selected' }}>
+                                {{ classe.nom }} — {{ classe.anneeScolaire.libelle }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
             <div class="col-md-1 text-center text-muted small">ou</div>
             <div class="col-md-5">
-                <label class="form-label small fw-semibold">Par enseignant</label>
-                <select name="enseignant" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">— Choisir un enseignant —</option>
-                    {% for enseignant in enseignants %}
-                        <option value="{{ enseignant.id }}" {{ enseignantSelectionne == enseignant.id ? 'selected' }}>
-                            {{ enseignant.nomComplet }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <form method="get">
+                    <label class="form-label small fw-semibold">Par enseignant</label>
+                    <select name="enseignant" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">— Choisir un enseignant —</option>
+                        {% for enseignant in enseignants %}
+                            <option value="{{ enseignant.id }}" {{ enseignantSelectionne == enseignant.id ? 'selected' }}>
+                                {{ enseignant.nomComplet }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -59,7 +74,7 @@
 {% else %}
     <div class="admin-card">
         <div class="admin-card-body p-0" style="overflow-x:auto">
-            <table class="table table-bordered align-middle mb-0 text-center" style="font-size:.8rem">
+            <table class="table table-bordered align-middle mb-0 text-center edt-grid" style="font-size:.8rem">
                 <thead class="table-light">
                     <tr>
                         <th style="width:70px">Heure</th>
@@ -83,19 +98,18 @@
                                     {% elseif seancesCase is not empty %}
                                         {% for seance in seancesCase %}
                                             {% if not loop.first %}<hr class="my-1">{% endif %}
-                                            <div class="d-flex align-items-center justify-content-center gap-1 fw-semibold">
-                                                <span class="rounded-circle border d-inline-block flex-shrink-0"
-                                                      style="width:8px;height:8px;background:{{ seance.attribution.matiere.couleur }}"></span>
+                                            <div class="d-flex align-items-center justify-content-center gap-1 fw-semibold edt-cell-matiere"
+                                                 style="border-left:4px solid {{ seance.attribution.matiere.couleur }};padding-left:4px">
                                                 {{ seance.attribution.matiere.code }}
                                             </div>
-                                            <div class="text-muted" style="font-size:.72rem">
+                                            <div class="text-muted edt-cell-meta" style="font-size:.72rem">
                                                 {% if enseignantSelectionne %}
                                                     {{ seance.attribution.classe.nom }}
                                                 {% else %}
                                                     {{ seance.attribution.enseignant.nomComplet }}
                                                 {% endif %}
                                             </div>
-                                            <div class="text-muted" style="font-size:.7rem">{{ seance.salle.nom }}</div>
+                                            <div class="text-muted edt-cell-meta" style="font-size:.7rem">{{ seance.salle.nom }}</div>
                                         {% endfor %}
                                     {% else %}
                                         <span class="text-muted">·</span>

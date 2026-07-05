@@ -84,6 +84,43 @@
                         </div>
                     </div>
 
+                    {% set classesEcart = resultat.classesAvecEcart %}
+                    {% if classesEcart is not empty %}
+                        <h6 class="fw-semibold mb-2">Classes avec un écart d'heures</h6>
+                        <table class="table table-sm mb-4">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Classe</th>
+                                    <th class="text-center">Demandées</th>
+                                    <th class="text-center">Placées</th>
+                                    <th class="text-center">Créneaux dispo.</th>
+                                    <th>Écart</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in classesEcart %}
+                                    <tr>
+                                        <td>{{ c.classeNom }}</td>
+                                        <td class="text-center">{{ c.heuresDemandees }}h</td>
+                                        <td class="text-center">{{ c.heuresPlacees }}h</td>
+                                        <td class="text-center">{{ c.capaciteCreneaux }}h</td>
+                                        <td class="small">
+                                            {% if c.excedentStructurel > 0 %}
+                                                <span class="badge text-bg-danger">
+                                                    Excès : {{ c.excedentStructurel }}h de plus que les créneaux disponibles (problème de volume horaire, pas un bug de génération)
+                                                </span>
+                                            {% else %}
+                                                <span class="badge text-bg-warning text-dark">
+                                                    Défaut : {{ c.heuresManquantes }}h non casées faute de créneau libre (conflit enseignant/salle)
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+
                     {% set incompletes = resultat.unitesIncompletes %}
                     {% if incompletes is empty %}
                         <div class="alert alert-success mb-0">
