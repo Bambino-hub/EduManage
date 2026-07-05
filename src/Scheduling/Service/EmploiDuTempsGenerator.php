@@ -28,10 +28,14 @@ use Doctrine\ORM\EntityManagerInterface;
  * (ou groupe d'Attributions parallèles / fusionnées), place son volume horaire dans des
  * créneaux libres, sans conflit enseignant/classe/salle.
  *
- * Algorithme "meilleur effort" : plusieurs tentatives avec un ordre aléatoire des
- * unités et des créneaux candidats ; on conserve la tentative qui place le plus
- * d'heures. Pas de garantie de solution complète — les unités non placées sont
- * remontées dans le rapport pour correction manuelle des données (salles/attributions).
+ * Algorithme "meilleur effort" avec réparation locale : plusieurs tentatives avec un
+ * ordre aléatoire (pondéré par difficulté) des unités et des créneaux candidats ; quand
+ * un bloc ne trouve aucun créneau totalement libre, on tente de déplacer les séances
+ * déjà posées qui le bloquent (jamais pour un conflit de salle) pour leur trouver une
+ * autre place, en cascade sur une profondeur bornée — plutôt que d'abandonner
+ * immédiatement. On conserve la tentative qui place le plus d'heures. Pas de garantie
+ * de solution complète — les unités non placées sont remontées dans le rapport pour
+ * correction manuelle des données (salles/attributions/répartition des enseignants).
  */
 class EmploiDuTempsGenerator
 {
@@ -42,6 +46,20 @@ class EmploiDuTempsGenerator
         JourSemaine::JEUDI,
         JourSemaine::VENDREDI,
     ];
+
+    /**
+     * Profondeur maximale d'une chaîne de réparation (déplacer A pour faire de la place
+     * à B peut nécessiter de déplacer C pour faire de la place à A, etc.) — bornée pour
+     * garder un temps de calcul raisonnable et éviter les cascades sans fin.
+     */
+    private const PROFONDEUR_MAX_REPARATION = 3;
+
+    /**
+     * Nombre maximal de tentatives de réparation (éviction + re-placement) par
+     * génération complète d'une tentative — filet de sécurité pour borner le travail
+     * total même dans un scénario pathologique, indépendamment de la profondeur.
+     */
+    private const BUDGET_REPARATION_PAR_TENTATIVE = 4000;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -91,18 +109,22 @@ class EmploiDuTempsGenerator
         }
         $classeSalleMap = $this->assignerSallesAttitrees(array_values($classes), $sallesParType[TypeSalle::STANDARD->value]);
 
-        $meilleur           = null;
+        $meilleur             = null;
         $tentativesEffectuees = 0;
 
         for ($tentative = 1; $tentative <= $maxRestarts; $tentative++) {
             $tentativesEffectuees = $tentative;
 
-            $classeBusy      = [];
-            $enseignantBusy  = [];
-            $salleBusy       = [];
-            $placementsTotal = [];
-            $resultatsUnites = [];
-            $heuresPlaceesTotal = 0;
+            $classeBusy                      = [];
+            $enseignantBusy                  = [];
+            $salleBusy                       = [];
+            $blocs                           = [];
+            $prochainBlocId                  = 0;
+            $joursUtilisesParUnite           = [];
+            $nbPremiereHeurePrefereeParUnite = [];
+            $budgetReparation                = self::BUDGET_REPARATION_PAR_TENTATIVE;
+            $resultatsUnites                 = [];
+            $heuresPlaceesTotal              = 0;
 
             // La marge entre heures demandées et créneaux disponibles est quasi nulle
             // (collège 31h/31, lycée 32-33h/33) : un ordre purement aléatoire laisse trop
@@ -127,15 +149,27 @@ class EmploiDuTempsGenerator
                     $classeBusy,
                     $enseignantBusy,
                     $salleBusy,
+                    $blocs,
+                    $prochainBlocId,
+                    $joursUtilisesParUnite,
+                    $nbPremiereHeurePrefereeParUnite,
+                    $budgetReparation,
                 );
 
                 $heuresPlaceesTotal += $resultat['heures'];
-                array_push($placementsTotal, ...$resultat['placements']);
 
                 $raisons = $resultat['heures'] < $unite->heures
                     ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
                     : [];
                 $resultatsUnites[] = new UnitResult($unite->libelle, $unite->heures, $resultat['heures'], $raisons);
+            }
+
+            // Le registre de blocs est la seule source de vérité fiable pour les
+            // placements finaux : la réparation locale peut avoir déplacé le placement
+            // d'une unité déjà traitée plus tôt dans cette même tentative.
+            $placementsTotal = [];
+            foreach ($blocs as $blocData) {
+                array_push($placementsTotal, ...$blocData['placements']);
             }
 
             if ($meilleur === null || $heuresPlaceesTotal > $meilleur['heuresPlacees']) {
@@ -410,6 +444,23 @@ class EmploiDuTempsGenerator
         return array_values(array_filter($eligibles, static fn (Creneau $c) => !in_array($c->getOrdre(), [4, 5], true)));
     }
 
+    /**
+     * Créneaux éligibles pour une unité donnée : filtre cycle + FHR + EPS déjà
+     * appliqués. Recalculé à chaque appel (pas cher — les filtres opèrent sur ~35
+     * créneaux) plutôt que mis en cache, car la réparation locale a besoin de
+     * recalculer les éligibles d'une unité "victime" différente de l'unité en cours.
+     *
+     * @param array<string, Creneau[]> $creneauxEligiblesParCycle
+     * @return Creneau[]
+     */
+    private function eligiblesPourUnite(GenerationUnit $unite, array $creneauxEligiblesParCycle): array
+    {
+        $cycle     = $unite->classes[0]->getNiveau()->getCycle()->getType();
+        $eligibles = $this->filtrerFHR($unite, $creneauxEligiblesParCycle[$cycle->value]);
+
+        return $this->filtrerEPS($unite, $eligibles);
+    }
+
     /** L'unité contient-elle une Attribution de la matière au code donné ? */
     private function estMatiereCode(GenerationUnit $unite, string $code): bool
     {
@@ -575,6 +626,40 @@ class EmploiDuTempsGenerator
     }
 
     /**
+     * Identifiants de blocs (dédupliqués) qui occupent, pour cette unité, une ressource
+     * classe ou enseignant sur ce groupe de créneaux — jamais un bloc de l'unité
+     * elle-même (impossible par construction : son jour est déjà exclu avant l'appel).
+     * Les conflits de salle ne sont jamais recherchés ici : ils ne se réparent pas.
+     *
+     * @param Creneau[] $groupeCreneaux
+     * @param array<string, int> $classeBusy
+     * @param array<string, int> $enseignantBusy
+     * @return int[]
+     */
+    private function blocsEnConflit(GenerationUnit $unite, array $groupeCreneaux, array $classeBusy, array $enseignantBusy): array
+    {
+        $ids = [];
+        foreach ($groupeCreneaux as $creneau) {
+            $cId = $creneau->getId();
+
+            foreach ($unite->classes as $classe) {
+                $cle = "{$classe->getId()}:{$cId}";
+                if (isset($classeBusy[$cle])) {
+                    $ids[$classeBusy[$cle]] = true;
+                }
+            }
+            foreach ($unite->attributions as $attribution) {
+                $cle = "{$attribution->getEnseignant()->getId()}:{$cId}";
+                if (isset($enseignantBusy[$cle])) {
+                    $ids[$enseignantBusy[$cle]] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
      * Résout une salle par Attribution du groupe (attitrée pour les matières standards,
      * cherchée dans le pool spécialisé sinon), libre sur TOUS les créneaux du bloc. Si
      * deux attributions du groupe partagent le même enseignant (ex. classes fusionnées
@@ -651,15 +736,19 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Place une unité (tous ses blocs) ou annule tout ce qu'elle a commis pour cette
-     * tentative si un seul bloc ne trouve pas de créneau libre. Chaque bloc de l'unité
-     * tombe sur un jour distinct des autres (sauf le cas spécial collège 6h/semaine,
-     * seul cas où un même jour porte 2 séances — voir placerUniteCollegeSixHeures).
+     * Place une unité (tous ses blocs) ou annule tout ce qu'elle a commis — y compris
+     * d'éventuelles réparations locales déclenchées en cours de route — si un seul bloc
+     * reste impossible à placer même après réparation. Chaque bloc de l'unité tombe sur
+     * un jour distinct des autres (sauf le cas spécial collège 6h/semaine, seul cas où
+     * un même jour porte 2 séances — voir placerUniteCollegeSixHeures).
      *
      * @param array<string, Creneau[]> $creneauxEligiblesParCycle
      * @param array<int, Salle> $classeSalleMap
      * @param array<string, Salle[]> $sallesParType
-     * @return array{heures: int, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>}
+     * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @return array{heures: int}
      */
     private function placerUnite(
         GenerationUnit $unite,
@@ -669,75 +758,216 @@ class EmploiDuTempsGenerator
         array &$classeBusy,
         array &$enseignantBusy,
         array &$salleBusy,
+        array &$blocs,
+        int &$prochainBlocId,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+        int &$budgetReparation,
     ): array {
-        $cycle     = $unite->classes[0]->getNiveau()->getCycle()->getType();
-        $eligibles = $this->filtrerFHR($unite, $creneauxEligiblesParCycle[$cycle->value]);
-        $eligibles = $this->filtrerEPS($unite, $eligibles);
+        $cycle = $unite->classes[0]->getNiveau()->getCycle()->getType();
 
         if ($cycle === TypeCycle::COLLEGE && $unite->heures === 6) {
-            return $this->placerUniteCollegeSixHeures($unite, $eligibles, $classeSalleMap, $sallesParType, $classeBusy, $enseignantBusy, $salleBusy);
+            return $this->placerUniteCollegeSixHeures(
+                $unite,
+                $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle),
+                $classeSalleMap,
+                $sallesParType,
+                $classeBusy,
+                $enseignantBusy,
+                $salleBusy,
+                $blocs,
+                $prochainBlocId,
+                $joursUtilisesParUnite,
+                $nbPremiereHeurePrefereeParUnite,
+            );
         }
 
-        $blocs = $this->decomposerHeures($unite, $unite->heures, $cycle);
+        $blocsTailles = $this->decomposerHeures($unite, $unite->heures, $cycle);
+        $journal      = [];
 
-        $placementsTotal         = [];
-        $clesCommitees           = [];
-        $joursUtilises           = [];
-        $nbPremiereHeurePreferee = 0;
+        foreach ($blocsTailles as $taille) {
+            $id = $this->placerBlocAvecReparation(
+                $unite,
+                $taille,
+                $creneauxEligiblesParCycle,
+                $classeSalleMap,
+                $sallesParType,
+                $classeBusy,
+                $enseignantBusy,
+                $salleBusy,
+                $blocs,
+                $prochainBlocId,
+                $joursUtilisesParUnite,
+                $nbPremiereHeurePrefereeParUnite,
+                $journal,
+                $budgetReparation,
+                0,
+            );
 
-        foreach ($blocs as $taille) {
-            $candidats = $taille === 1
-                ? array_map(static fn (Creneau $c) => [$c], $this->shuffleArray($eligibles))
-                : $this->shuffleArray($this->trouverBlocsCandidats($this->creneauxParJour($eligibles), $taille));
+            if ($id === null) {
+                $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
 
-            $candidats = $this->trierParPreference($unite, $candidats, $nbPremiereHeurePreferee);
-
-            $blocPlace = false;
-
-            foreach ($candidats as $groupeCreneaux) {
-                $jour = $groupeCreneaux[0]->getJourSemaine()->value;
-                if (isset($joursUtilises[$jour])) {
-                    continue;
-                }
-                if (!$this->candidatValide($unite, $groupeCreneaux, $classeBusy, $enseignantBusy)) {
-                    continue;
-                }
-                $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $sallesParType, $salleBusy);
-                if ($salles === null) {
-                    continue;
-                }
-
-                [$placements, $cles] = $this->commitPlacement($unite, $groupeCreneaux, $salles, $classeBusy, $enseignantBusy, $salleBusy);
-                $placementsTotal      = [...$placementsTotal, ...$placements];
-                $clesCommitees        = [...$clesCommitees, ...$cles];
-                $joursUtilises[$jour] = true;
-                $blocPlace            = true;
-
-                if ($this->matchPreferencePremiereHeureMaths3eme($unite, $groupeCreneaux)) {
-                    $nbPremiereHeurePreferee++;
-                }
-
-                break;
-            }
-
-            if (!$blocPlace) {
-                $this->rollback($clesCommitees, $classeBusy, $enseignantBusy, $salleBusy);
-                return ['heures' => 0, 'placements' => []];
+                return ['heures' => 0];
             }
         }
 
-        return ['heures' => $unite->heures, 'placements' => $placementsTotal];
+        return ['heures' => $unite->heures];
+    }
+
+    /**
+     * Tente de placer un bloc de $taille créneaux pour $unite. Essaie d'abord un
+     * candidat totalement libre (chemin normal, rapide) ; si aucun n'existe, tente une
+     * réparation locale : pour un candidat bloqué uniquement par des blocs d'AUTRES
+     * unités (jamais un conflit de salle, jamais un bloc de l'unité elle-même), évince
+     * temporairement ces blocs et essaie de les replacer ailleurs — récursivement,
+     * jusqu'à self::PROFONDEUR_MAX_REPARATION niveaux, avec un budget total
+     * d'opérations pour borner le travail par tentative. Toute action (pose ou
+     * éviction) est enregistrée dans $journal pour permettre une annulation complète et
+     * cohérente si la chaîne de réparation échoue en cours de route.
+     *
+     * @param array<string, Creneau[]> $creneauxEligiblesParCycle
+     * @param array<int, Salle> $classeSalleMap
+     * @param array<string, Salle[]> $sallesParType
+     * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @param list<array{action: string, id: int, data?: array}> $journal
+     * @return int|null l'id du bloc posé, ou null si impossible (le journal n'a alors
+     *                   subi aucun effet net résiduel)
+     */
+    private function placerBlocAvecReparation(
+        GenerationUnit $unite,
+        int $taille,
+        array $creneauxEligiblesParCycle,
+        array $classeSalleMap,
+        array $sallesParType,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        int &$prochainBlocId,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+        array &$journal,
+        int &$budgetReparation,
+        int $profondeur,
+    ): ?int {
+        $uniteId       = spl_object_id($unite);
+        $eligibles     = $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle);
+        $joursUtilises = $joursUtilisesParUnite[$uniteId] ?? [];
+
+        $candidats = $taille === 1
+            ? array_map(static fn (Creneau $c) => [$c], $this->shuffleArray($eligibles))
+            : $this->shuffleArray($this->trouverBlocsCandidats($this->creneauxParJour($eligibles), $taille));
+
+        $candidats = $this->trierParPreference($unite, $candidats, $nbPremiereHeurePrefereeParUnite[$uniteId] ?? 0);
+
+        // Passe 1 : un candidat totalement libre — résout la grande majorité des blocs
+        // sans jamais toucher à la réparation.
+        foreach ($candidats as $groupeCreneaux) {
+            $jour = $groupeCreneaux[0]->getJourSemaine()->value;
+            if (isset($joursUtilises[$jour]) || !$this->candidatValide($unite, $groupeCreneaux, $classeBusy, $enseignantBusy)) {
+                continue;
+            }
+            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $sallesParType, $salleBusy);
+            if ($salles === null) {
+                continue;
+            }
+
+            return $this->commitBloc($unite, $groupeCreneaux, $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+        }
+
+        if ($profondeur >= self::PROFONDEUR_MAX_REPARATION) {
+            return null;
+        }
+
+        // Passe 2 : réparation locale. Un candidat n'est éligible que si tous ses
+        // conflits sont des blocs d'AUTRES unités (la salle ne se répare jamais ici).
+        foreach ($candidats as $groupeCreneaux) {
+            if ($budgetReparation <= 0) {
+                return null;
+            }
+
+            $jour = $groupeCreneaux[0]->getJourSemaine()->value;
+            if (isset($joursUtilises[$jour])) {
+                continue;
+            }
+
+            $blocIdsConflit = $this->blocsEnConflit($unite, $groupeCreneaux, $classeBusy, $enseignantBusy);
+            if ($blocIdsConflit === []) {
+                continue; // déjà tenté en passe 1 (aucun conflit classe/enseignant, seule la salle bloquait)
+            }
+            $budgetReparation--;
+
+            $pointDeReprise = count($journal);
+            $victimes       = [];
+            foreach ($blocIdsConflit as $blocId) {
+                $victimes[] = $this->evincerBloc($blocId, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+            }
+
+            // La salle se résout APRÈS éviction : une salle libérée par une victime doit
+            // compter comme disponible pour le nouveau bloc.
+            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $sallesParType, $salleBusy);
+            if ($salles === null) {
+                $this->annulerDepuis($journal, $pointDeReprise, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+                continue; // conflit de salle en plus du conflit classe/enseignant : pas réparable ici
+            }
+
+            $nouvelId = $this->commitBloc($unite, $groupeCreneaux, $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+
+            $reparationReussie = true;
+            foreach ($victimes as $victime) {
+                $idReplace = $this->placerBlocAvecReparation(
+                    $victime['unite'],
+                    count($victime['groupeCreneaux']),
+                    $creneauxEligiblesParCycle,
+                    $classeSalleMap,
+                    $sallesParType,
+                    $classeBusy,
+                    $enseignantBusy,
+                    $salleBusy,
+                    $blocs,
+                    $prochainBlocId,
+                    $joursUtilisesParUnite,
+                    $nbPremiereHeurePrefereeParUnite,
+                    $journal,
+                    $budgetReparation,
+                    $profondeur + 1,
+                );
+                if ($idReplace === null) {
+                    $reparationReussie = false;
+                    break;
+                }
+            }
+
+            if ($reparationReussie) {
+                return $nouvelId;
+            }
+
+            // La chaîne de réparation a échoué quelque part : tout annuler (la pose, les
+            // évictions, et toute réparation partielle déjà réussie pour les victimes)
+            // et essayer le candidat suivant.
+            $this->annulerDepuis($journal, $pointDeReprise, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+        }
+
+        return null;
     }
 
     /**
      * Cas spécial collège = 6h/semaine (seul volume collège qui dépasse les 5 jours
      * disponibles) : un jour porte 2 séances (1h le matin + 1h l'après-midi — jamais
-     * adjacentes vu la coupure repas), les 4 autres jours portent chacun 1 séance.
+     * adjacentes vu la coupure repas), les 4 autres jours portent chacun 1 séance. Pas
+     * de réparation locale ici (cas marginal, une seule matière concernée) : les blocs
+     * posés restent néanmoins dans le même registre et peuvent être évincés comme
+     * victimes par la réparation d'une AUTRE unité.
      *
      * @param Creneau[] $eligibles
      * @param array<int, Salle> $classeSalleMap
      * @param array<string, Salle[]> $sallesParType
-     * @return array{heures: int, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>}
+     * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @return array{heures: int}
      */
     private function placerUniteCollegeSixHeures(
         GenerationUnit $unite,
@@ -747,6 +977,10 @@ class EmploiDuTempsGenerator
         array &$classeBusy,
         array &$enseignantBusy,
         array &$salleBusy,
+        array &$blocs,
+        int &$prochainBlocId,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
     ): array {
         $parJour = $this->creneauxParJour($eligibles);
         $jours   = $this->shuffleArray(array_keys($parJour));
@@ -759,29 +993,46 @@ class EmploiDuTempsGenerator
                 continue;
             }
 
-            $double = $this->tenterPlacerJourDouble(
-                $unite,
-                $this->shuffleArray($matin),
-                $this->shuffleArray($apresMidi),
-                $classeSalleMap,
-                $sallesParType,
-                $classeBusy,
-                $enseignantBusy,
-                $salleBusy,
-            );
-            if ($double === null) {
+            $journal = [];
+
+            $idMatin = null;
+            foreach ($this->shuffleArray($matin) as $creneauMatin) {
+                if (!$this->candidatValide($unite, [$creneauMatin], $classeBusy, $enseignantBusy)) {
+                    continue;
+                }
+                $salles = $this->resoudreSalles($unite, [$creneauMatin], $classeSalleMap, $sallesParType, $salleBusy);
+                if ($salles === null) {
+                    continue;
+                }
+                $idMatin = $this->commitBloc($unite, [$creneauMatin], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+                break;
+            }
+            if ($idMatin === null) {
                 continue;
             }
-            [$placementsDouble, $clesDouble] = $double;
 
-            $autresJours      = array_values(array_filter($jours, static fn ($j) => $j !== $jourDouble));
-            $placementsAutres = [];
-            $clesAutres       = [];
-            $succes           = true;
+            $idPm = null;
+            foreach ($this->shuffleArray($apresMidi) as $creneauPm) {
+                if (!$this->candidatValide($unite, [$creneauPm], $classeBusy, $enseignantBusy)) {
+                    continue;
+                }
+                $salles = $this->resoudreSalles($unite, [$creneauPm], $classeSalleMap, $sallesParType, $salleBusy);
+                if ($salles === null) {
+                    continue;
+                }
+                $idPm = $this->commitBloc($unite, [$creneauPm], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+                break;
+            }
+            if ($idPm === null) {
+                $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+                continue;
+            }
+
+            $autresJours = array_values(array_filter($jours, static fn ($j) => $j !== $jourDouble));
+            $succes      = true;
 
             foreach ($autresJours as $jour) {
-                $trouve = false;
-
+                $place = false;
                 foreach ($this->shuffleArray($parJour[$jour]) as $creneau) {
                     if (!$this->candidatValide($unite, [$creneau], $classeBusy, $enseignantBusy)) {
                         continue;
@@ -790,123 +1041,210 @@ class EmploiDuTempsGenerator
                     if ($salles === null) {
                         continue;
                     }
-
-                    [$placements, $cles] = $this->commitPlacement($unite, [$creneau], $salles, $classeBusy, $enseignantBusy, $salleBusy);
-                    $placementsAutres = [...$placementsAutres, ...$placements];
-                    $clesAutres       = [...$clesAutres, ...$cles];
-                    $trouve           = true;
+                    $this->commitBloc($unite, [$creneau], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
+                    $place = true;
                     break;
                 }
-
-                if (!$trouve) {
+                if (!$place) {
                     $succes = false;
                     break;
                 }
             }
 
             if ($succes) {
-                return ['heures' => 6, 'placements' => [...$placementsDouble, ...$placementsAutres]];
+                return ['heures' => 6];
             }
 
-            $this->rollback([...$clesDouble, ...$clesAutres], $classeBusy, $enseignantBusy, $salleBusy);
+            $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
         }
 
-        return ['heures' => 0, 'placements' => []];
+        return ['heures' => 0];
     }
 
     /**
-     * @param Creneau[] $matin
-     * @param Creneau[] $apresMidi
-     * @param array<int, Salle> $classeSalleMap
-     * @param array<string, Salle[]> $sallesParType
-     * @return array{0: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, 1: list<array{arr: string, cle: string}>}|null
+     * Enregistre un nouveau bloc dans le registre et le journal (action réversible).
+     *
+     * @param Creneau[] $groupeCreneaux
+     * @param array<int, Salle> $salles clé = id de l'Attribution
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @param list<array{action: string, id: int, data?: array}> $journal
      */
-    private function tenterPlacerJourDouble(
+    private function commitBloc(
         GenerationUnit $unite,
-        array $matin,
-        array $apresMidi,
-        array $classeSalleMap,
-        array $sallesParType,
+        array $groupeCreneaux,
+        array $salles,
         array &$classeBusy,
         array &$enseignantBusy,
         array &$salleBusy,
-    ): ?array {
-        foreach ($matin as $creneauMatin) {
-            if (!$this->candidatValide($unite, [$creneauMatin], $classeBusy, $enseignantBusy)) {
-                continue;
-            }
-            $sallesMatin = $this->resoudreSalles($unite, [$creneauMatin], $classeSalleMap, $sallesParType, $salleBusy);
-            if ($sallesMatin === null) {
-                continue;
-            }
-
-            foreach ($apresMidi as $creneauPm) {
-                if (!$this->candidatValide($unite, [$creneauPm], $classeBusy, $enseignantBusy)) {
-                    continue;
-                }
-                $sallesPm = $this->resoudreSalles($unite, [$creneauPm], $classeSalleMap, $sallesParType, $salleBusy);
-                if ($sallesPm === null) {
-                    continue;
-                }
-
-                [$placementsMatin, $clesMatin] = $this->commitPlacement($unite, [$creneauMatin], $sallesMatin, $classeBusy, $enseignantBusy, $salleBusy);
-                [$placementsPm, $clesPm]       = $this->commitPlacement($unite, [$creneauPm], $sallesPm, $classeBusy, $enseignantBusy, $salleBusy);
-
-                return [[...$placementsMatin, ...$placementsPm], [...$clesMatin, ...$clesPm]];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param Creneau[] $groupeCreneaux
-     * @param array<int, Salle> $salles clé = id de l'Attribution
-     * @return array{0: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, 1: list<array{arr: string, cle: string}>}
-     */
-    private function commitPlacement(GenerationUnit $unite, array $groupeCreneaux, array $salles, array &$classeBusy, array &$enseignantBusy, array &$salleBusy): array
-    {
-        $placements = [];
-        $cles       = [];
+        array &$blocs,
+        int &$prochainBlocId,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+        array &$journal,
+    ): int {
+        $placements     = [];
+        $clesClasse     = [];
+        $clesEnseignant = [];
+        $clesSalle      = [];
 
         foreach ($groupeCreneaux as $creneau) {
             $cId = $creneau->getId();
 
             foreach ($unite->classes as $classe) {
-                $classeCle              = "{$classe->getId()}:{$cId}";
-                $classeBusy[$classeCle] = true;
-                $cles[]                 = ['arr' => 'classe', 'cle' => $classeCle];
+                $clesClasse[] = "{$classe->getId()}:{$cId}";
             }
 
             foreach ($unite->attributions as $attribution) {
-                $ensCle                  = "{$attribution->getEnseignant()->getId()}:{$cId}";
-                $enseignantBusy[$ensCle] = true;
-                $cles[]                  = ['arr' => 'enseignant', 'cle' => $ensCle];
+                $clesEnseignant[] = "{$attribution->getEnseignant()->getId()}:{$cId}";
 
-                $salle                = $salles[$attribution->getId()];
-                $salleCle              = "{$salle->getId()}:{$cId}";
-                $salleBusy[$salleCle]  = true;
-                $cles[]                = ['arr' => 'salle', 'cle' => $salleCle];
+                $salle       = $salles[$attribution->getId()];
+                $clesSalle[] = "{$salle->getId()}:{$cId}";
 
                 $placements[] = ['attribution' => $attribution, 'creneau' => $creneau, 'salle' => $salle];
             }
         }
 
-        return [$placements, $cles];
+        $id       = $prochainBlocId++;
+        $blocData = [
+            'unite'          => $unite,
+            'uniteId'        => spl_object_id($unite),
+            'groupeCreneaux' => $groupeCreneaux,
+            'jour'           => $groupeCreneaux[0]->getJourSemaine()->value,
+            'placements'     => $placements,
+            'clesClasse'     => $clesClasse,
+            'clesEnseignant' => $clesEnseignant,
+            'clesSalle'      => $clesSalle,
+        ];
+
+        $this->insererBlocBrut($id, $blocData, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+        $journal[] = ['action' => 'insert', 'id' => $id];
+
+        return $id;
     }
 
-    /** @param list<array{arr: string, cle: string}> $cles */
-    private function rollback(array $cles, array &$classeBusy, array &$enseignantBusy, array &$salleBusy): void
-    {
-        foreach ($cles as $c) {
-            if ($c['arr'] === 'classe') {
-                unset($classeBusy[$c['cle']]);
-            } elseif ($c['arr'] === 'enseignant') {
-                unset($enseignantBusy[$c['cle']]);
+    /**
+     * Retire un bloc du registre pour faire de la place à un autre (réparation) et
+     * l'enregistre dans le journal pour pouvoir le restaurer si la réparation échoue.
+     *
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @param list<array{action: string, id: int, data?: array}> $journal
+     * @return array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: array, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}
+     */
+    private function evincerBloc(
+        int $id,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+        array &$journal,
+    ): array {
+        $blocData  = $this->retirerBlocBrut($id, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+        $journal[] = ['action' => 'remove', 'id' => $id, 'data' => $blocData];
+
+        return $blocData;
+    }
+
+    /**
+     * Annule toutes les opérations du journal depuis l'index $depuis (inclus), dans
+     * l'ordre inverse : une pose est défaite en retirant le bloc, un retrait est défait
+     * en réinsérant le bloc tel qu'il était. Rejouer en ordre inverse garantit que
+     * chaque réinsertion retrouve son créneau libre (les opérations plus récentes qui
+     * auraient pu le réoccuper sont défaites en premier).
+     *
+     * @param list<array{action: string, id: int, data?: array}> $journal
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     */
+    private function annulerDepuis(
+        array &$journal,
+        int $depuis,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+    ): void {
+        while (count($journal) > $depuis) {
+            $op = array_pop($journal);
+            if ($op['action'] === 'insert') {
+                $this->retirerBlocBrut($op['id'], $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
             } else {
-                unset($salleBusy[$c['cle']]);
+                $this->insererBlocBrut($op['id'], $op['data'], $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
             }
         }
+    }
+
+    /**
+     * @param array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: array, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]} $blocData
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     */
+    private function insererBlocBrut(
+        int $id,
+        array $blocData,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+    ): void {
+        $blocs[$id] = $blocData;
+
+        foreach ($blocData['clesClasse'] as $cle) {
+            $classeBusy[$cle] = $id;
+        }
+        foreach ($blocData['clesEnseignant'] as $cle) {
+            $enseignantBusy[$cle] = $id;
+        }
+        foreach ($blocData['clesSalle'] as $cle) {
+            $salleBusy[$cle] = $id;
+        }
+        $joursUtilisesParUnite[$blocData['uniteId']][$blocData['jour']] = true;
+
+        if ($this->matchPreferencePremiereHeureMaths3eme($blocData['unite'], $blocData['groupeCreneaux'])) {
+            $nbPremiereHeurePrefereeParUnite[$blocData['uniteId']] = ($nbPremiereHeurePrefereeParUnite[$blocData['uniteId']] ?? 0) + 1;
+        }
+    }
+
+    /**
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @return array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: array, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}
+     */
+    private function retirerBlocBrut(
+        int $id,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+    ): array {
+        $blocData = $blocs[$id];
+        unset($blocs[$id]);
+
+        foreach ($blocData['clesClasse'] as $cle) {
+            unset($classeBusy[$cle]);
+        }
+        foreach ($blocData['clesEnseignant'] as $cle) {
+            unset($enseignantBusy[$cle]);
+        }
+        foreach ($blocData['clesSalle'] as $cle) {
+            unset($salleBusy[$cle]);
+        }
+        unset($joursUtilisesParUnite[$blocData['uniteId']][$blocData['jour']]);
+
+        if ($this->matchPreferencePremiereHeureMaths3eme($blocData['unite'], $blocData['groupeCreneaux'])) {
+            $nbPremiereHeurePrefereeParUnite[$blocData['uniteId']] = max(0, ($nbPremiereHeurePrefereeParUnite[$blocData['uniteId']] ?? 1) - 1);
+        }
+
+        return $blocData;
     }
 
     /**
@@ -947,7 +1285,7 @@ class EmploiDuTempsGenerator
             }
         }
 
-        return 'Aucun créneau disponible sans conflit après plusieurs tentatives (salle/enseignant/classe déjà pris).';
+        return 'Aucun créneau disponible même après tentative de réparation locale (déplacement d\'autres séances) — conflit enseignant/classe trop contraint.';
     }
 
     /**
@@ -971,11 +1309,18 @@ class EmploiDuTempsGenerator
             }
         }
 
-        $placeParClasse = [];
+        // Compte les créneaux DISTINCTS occupés, pas les lignes de placement brutes : une
+        // matière parallèle (ex. ALL/ESP) produit 2 placements sur le MÊME créneau pour
+        // la même classe (1 par attribution), qui ne doivent compter que pour 1h reçue
+        // par l'élève — comme $unite->heures le fait déjà côté demande (déduplication
+        // par min() dans uniteDepuisAttributions()).
+        $creneauxParClasse = [];
         foreach ($placements as $p) {
-            $classeId = $p['attribution']->getClasse()->getId();
-            $placeParClasse[$classeId] = ($placeParClasse[$classeId] ?? 0) + 1;
+            $classeId  = $p['attribution']->getClasse()->getId();
+            $creneauId = $p['creneau']->getId();
+            $creneauxParClasse[$classeId][$creneauId] = true;
         }
+        $placeParClasse = array_map('count', $creneauxParClasse);
 
         $classesTriees = array_values($classes);
         usort($classesTriees, static function (Classe $a, Classe $b) {
