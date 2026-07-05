@@ -855,6 +855,7 @@ class EmploiDuTempsGenerator
             return $this->placerUniteCollegeSixHeures(
                 $unite,
                 $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle),
+                $creneauxEligiblesParCycle,
                 $classeSalleMap,
                 $sallesParType,
                 $classeBusy,
@@ -864,6 +865,7 @@ class EmploiDuTempsGenerator
                 $prochainBlocId,
                 $joursUtilisesParUnite,
                 $nbPremiereHeurePrefereeParUnite,
+                $budgetReparation,
             );
         }
 
@@ -917,6 +919,12 @@ class EmploiDuTempsGenerator
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
      * @param list<array{action: string, id: int, data?: array}> $journal
+     * @param Creneau[]|null $eligiblesForcees Si fourni, remplace le calcul normal des
+     *        éligibles (utilisé par placerUniteCollegeSixHeures() pour restreindre à un
+     *        jour/demi-journée précis).
+     * @param bool $ignorerJourUtilise Ignore l'exclusion "1 bloc par jour" — utilisé par
+     *        placerUniteCollegeSixHeures() pour poser 2 séances (matin + après-midi) le
+     *        même jour, seule exception à la règle générale.
      * @return int|null l'id du bloc posé, ou null si impossible (le journal n'a alors
      *                   subi aucun effet net résiduel)
      */
@@ -936,10 +944,12 @@ class EmploiDuTempsGenerator
         array &$journal,
         int &$budgetReparation,
         int $profondeur,
+        ?array $eligiblesForcees = null,
+        bool $ignorerJourUtilise = false,
     ): ?int {
         $uniteId       = spl_object_id($unite);
-        $eligibles     = $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle);
-        $joursUtilises = $joursUtilisesParUnite[$uniteId] ?? [];
+        $eligibles     = $eligiblesForcees ?? $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle);
+        $joursUtilises = $ignorerJourUtilise ? [] : ($joursUtilisesParUnite[$uniteId] ?? []);
 
         $candidats = $taille === 1
             ? array_map(static fn (Creneau $c) => [$c], $this->shuffleArray($eligibles))
@@ -1057,6 +1067,7 @@ class EmploiDuTempsGenerator
     private function placerUniteCollegeSixHeures(
         GenerationUnit $unite,
         array $eligibles,
+        array $creneauxEligiblesParCycle,
         array $classeSalleMap,
         array $sallesParType,
         array &$classeBusy,
@@ -1066,6 +1077,7 @@ class EmploiDuTempsGenerator
         int &$prochainBlocId,
         array &$joursUtilisesParUnite,
         array &$nbPremiereHeurePrefereeParUnite,
+        int &$budgetReparation,
     ): array {
         $parJour = $this->creneauxParJour($eligibles);
         $jours   = $this->shuffleArray(array_keys($parJour));
@@ -1080,34 +1092,27 @@ class EmploiDuTempsGenerator
 
             $journal = [];
 
-            $idMatin = null;
-            foreach ($this->shuffleArray($matin) as $creneauMatin) {
-                if (!$this->candidatValide($unite, [$creneauMatin], $classeBusy, $enseignantBusy)) {
-                    continue;
-                }
-                $salles = $this->resoudreSalles($unite, [$creneauMatin], $classeSalleMap, $sallesParType, $salleBusy);
-                if ($salles === null) {
-                    continue;
-                }
-                $idMatin = $this->commitBloc($unite, [$creneauMatin], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
-                break;
-            }
+            // Matin et après-midi partagent le même jour (jourDouble) : seule exception à
+            // la règle "1 bloc par jour", d'où ignorerJourUtilise sur ces deux appels.
+            $idMatin = $this->placerBlocAvecReparation(
+                $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal, $budgetReparation, 0,
+                eligiblesForcees: $matin,
+                ignorerJourUtilise: true,
+            );
             if ($idMatin === null) {
+                $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
                 continue;
             }
 
-            $idPm = null;
-            foreach ($this->shuffleArray($apresMidi) as $creneauPm) {
-                if (!$this->candidatValide($unite, [$creneauPm], $classeBusy, $enseignantBusy)) {
-                    continue;
-                }
-                $salles = $this->resoudreSalles($unite, [$creneauPm], $classeSalleMap, $sallesParType, $salleBusy);
-                if ($salles === null) {
-                    continue;
-                }
-                $idPm = $this->commitBloc($unite, [$creneauPm], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
-                break;
-            }
+            $idPm = $this->placerBlocAvecReparation(
+                $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal, $budgetReparation, 0,
+                eligiblesForcees: $apresMidi,
+                ignorerJourUtilise: true,
+            );
             if ($idPm === null) {
                 $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
                 continue;
@@ -1117,20 +1122,13 @@ class EmploiDuTempsGenerator
             $succes      = true;
 
             foreach ($autresJours as $jour) {
-                $place = false;
-                foreach ($this->shuffleArray($parJour[$jour]) as $creneau) {
-                    if (!$this->candidatValide($unite, [$creneau], $classeBusy, $enseignantBusy)) {
-                        continue;
-                    }
-                    $salles = $this->resoudreSalles($unite, [$creneau], $classeSalleMap, $sallesParType, $salleBusy);
-                    if ($salles === null) {
-                        continue;
-                    }
-                    $this->commitBloc($unite, [$creneau], $salles, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal);
-                    $place = true;
-                    break;
-                }
-                if (!$place) {
+                $id = $this->placerBlocAvecReparation(
+                    $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                    $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                    $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal, $budgetReparation, 0,
+                    eligiblesForcees: $parJour[$jour],
+                );
+                if ($id === null) {
                     $succes = false;
                     break;
                 }
