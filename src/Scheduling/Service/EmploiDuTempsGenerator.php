@@ -333,15 +333,21 @@ class EmploiDuTempsGenerator
      * d'1h ; le seul volume horaire collège qui dépasse les 5 jours disponibles (6h,
      * ex. Français) est traité à part par placerUniteCollegeSixHeures().
      *
+     * EPS échappe à la règle lycée : toujours des séances isolées d'1h, jamais 2h
+     * consécutives dans la même journée, quel que soit le cycle (règle explicite de
+     * l'établissement — chaque bloc atterrit de toute façon sur un jour distinct des
+     * autres via placerUnite(), donc l'isolement en 1h garantit 1 seule séance d'EPS par
+     * jour, jamais 2h d'affilée).
+     *
      * @return int[]
      */
-    private function decomposerHeures(int $heures, TypeCycle $cycle): array
+    private function decomposerHeures(GenerationUnit $unite, int $heures, TypeCycle $cycle): array
     {
         if ($heures <= 0) {
             return [];
         }
 
-        if ($cycle === TypeCycle::COLLEGE) {
+        if ($cycle === TypeCycle::COLLEGE || $this->estMatiereCode($unite, 'EPS')) {
             return array_fill(0, $heures, 1);
         }
 
@@ -672,7 +678,7 @@ class EmploiDuTempsGenerator
             return $this->placerUniteCollegeSixHeures($unite, $eligibles, $classeSalleMap, $sallesParType, $classeBusy, $enseignantBusy, $salleBusy);
         }
 
-        $blocs = $this->decomposerHeures($unite->heures, $cycle);
+        $blocs = $this->decomposerHeures($unite, $unite->heures, $cycle);
 
         $placementsTotal         = [];
         $clesCommitees           = [];
