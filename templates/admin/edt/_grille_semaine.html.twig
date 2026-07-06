@@ -1,0 +1,56 @@
+{#
+    Grille hebdomadaire d'un emploi du temps (classe OU enseignant), réutilisée par
+    index.html.twig, imprimer_classes.html.twig et imprimer_enseignants.html.twig.
+
+    Paramètres attendus :
+    - joursAffiches, ordreMax, creneauxParJour : structure des créneaux (identique pour tout le monde)
+    - grille : grille[jour][ordre] = Seance[] pour la classe/l'enseignant affiché
+    - contexte : 'classe' ou 'enseignant' — ce que représente CETTE grille ; la case
+      affiche alors l'autre ressource (contexte=classe -> affiche l'enseignant, et
+      inversement) pour qu'on sache toujours "qui" ou "quelle classe" sans se répéter.
+#}
+<table class="table table-bordered align-middle mb-0 text-center edt-grid" style="font-size:.8rem">
+    <thead class="table-light">
+        <tr>
+            <th style="width:70px">Heure</th>
+            {% for jour in joursAffiches %}
+                <th>{{ jour.label() }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for ordre in 1..ordreMax %}
+            <tr>
+                <td class="text-muted fw-semibold bg-light">{{ ordre }}</td>
+                {% for jour in joursAffiches %}
+                    {% set creneau = creneauxParJour[jour.value][ordre] ?? null %}
+                    {% set seancesCase = grille[jour.value][ordre] ?? [] %}
+                    <td class="{{ creneau and creneau.reserve ? 'bg-light' }}" style="min-width:130px">
+                        {% if creneau is null %}
+                            <span class="text-muted">—</span>
+                        {% elseif creneau.reserve %}
+                            <span class="text-muted fst-italic small">{{ creneau.libelleReserve }}</span>
+                        {% elseif seancesCase is not empty %}
+                            {% for seance in seancesCase %}
+                                {% if not loop.first %}<hr class="my-1">{% endif %}
+                                <div class="d-flex align-items-center justify-content-center gap-1 fw-semibold edt-cell-matiere"
+                                     style="border-left:4px solid {{ seance.attribution.matiere.couleur }};padding-left:4px">
+                                    {{ seance.attribution.matiere.code }}
+                                </div>
+                                <div class="text-muted edt-cell-meta" style="font-size:.72rem">
+                                    {% if contexte == 'classe' %}
+                                        {{ seance.attribution.enseignant.nom }}
+                                    {% else %}
+                                        {{ seance.attribution.classe.nom }}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">·</span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,56 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Imprimer — toutes les classes — EduManage{% endblock %}
+{% block page_title %}Imprimer — toutes les classes{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h1 class="h4 mb-1">Imprimer — toutes les classes</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            Une classe par page{{ annee ? ' — ' ~ annee.libelle : '' }}. "Exporter PDF" est recommandé : rendu
+            identique quel que soit le navigateur. Le bouton Imprimer ouvre la boîte de dialogue du navigateur, dont
+            la pagination peut varier selon le navigateur utilisé (Firefox notamment).
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_edt_imprimer_classes_export_pdf') }}" class="btn btn-sm" style="background:var(--college-orange);color:#fff">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
+        </a>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i>Imprimer
+        </button>
+        <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+{% if classes is empty %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
+            Aucune classe pour l'année active.
+        </div>
+    </div>
+{% else %}
+    {% for classe in classes %}
+        <div class="edt-print-page">
+            <h1 class="h4 mb-3">
+                Emploi du temps — {{ classe.nom }}{{ annee ? ' — ' ~ annee.libelle : '' }}
+            </h1>
+            <div class="admin-card mb-4">
+                <div class="admin-card-body p-0" style="overflow-x:auto">
+                    {% include 'admin/edt/_grille_semaine.html.twig' with {
+                        joursAffiches: joursAffiches,
+                        ordreMax: ordreMax,
+                        creneauxParJour: creneauxParJour,
+                        grille: grillesParClasse[classe.id] ?? [],
+                        contexte: 'classe',
+                    } only %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+{% endblock %}

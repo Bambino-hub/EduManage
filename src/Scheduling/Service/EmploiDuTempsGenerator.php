@@ -55,6 +55,17 @@ class EmploiDuTempsGenerator
     private const PROFONDEUR_MAX_REPARATION = 3;
 
     /**
+     * Écart (en minutes) toléré entre la fin d'un créneau et le début du suivant pour
+     * qu'ils comptent comme "d'affilée" au sein d'un même bloc de plusieurs heures. Fixé
+     * à 0 : aussi bien la pause déjeuner (5ème → 6ème heure, 12h00 → 15h00) que la
+     * récréation du matin (3ème → 4ème heure, 25min, cf. SeedCreneauxCommand) doivent
+     * interrompre un bloc — un cours de 2h coupé par une pause, même courte, pendant
+     * laquelle les élèves quittent la salle, n'est pas professionnel. Un bloc de
+     * plusieurs heures n'est donc valide qu'entre créneaux réellement dos-à-dos.
+     */
+    private const ECART_MAX_ENCHAINEMENT_MINUTES = 0;
+
+    /**
      * Nombre maximal de tentatives de réparation (éviction + re-placement) par
      * génération complète d'une tentative — filet de sécurité pour borner le travail
      * total même dans un scénario pathologique, indépendamment de la profondeur.
@@ -108,7 +119,7 @@ class EmploiDuTempsGenerator
             return new GenerationResult(0, 0, 0, [], []);
         }
 
-        $regroupementParClasseEtMatiere = $this->indexerRegroupements();
+        $regroupementParClasseEtMatiere = $this->regroupementRepo->indexerParClasseEtMatiere();
         $unites               = $this->construireUnites($attributions, $regroupementParClasseEtMatiere);
         $heuresTotalDemandees = array_sum(array_map(fn (GenerationUnit $u) => $u->heures, $unites));
 
@@ -354,26 +365,6 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Index [classeId][matiereId] => regroupementId, pour retrouver rapidement si une
-     * Attribution (classe × matière) fait partie d'un regroupement de classes fusionnées.
-     *
-     * @return array<int, array<int, int>>
-     */
-    private function indexerRegroupements(): array
-    {
-        $index = [];
-        foreach ($this->regroupementRepo->findAllAvecRelations() as $regroupement) {
-            foreach ($regroupement->getClasses() as $classe) {
-                foreach ($regroupement->getMatieres() as $matiere) {
-                    $index[$classe->getId()][$matiere->getId()] = $regroupement->getId();
-                }
-            }
-        }
-
-        return $index;
-    }
-
-    /**
      * @param Attribution[] $attributions
      * @param array<int, array<int, int>> $regroupementParClasseEtMatiere
      * @return GenerationUnit[]
@@ -482,17 +473,11 @@ class EmploiDuTempsGenerator
     /** @param Creneau[] $creneaux @return Creneau[] */
     private function filtrerEligibles(array $creneaux, TypeCycle $cycle): array
     {
-        return array_values(array_filter($creneaux, function (Creneau $c) use ($cycle) {
-            if ($c->isReserve()) {
-                return false;
-            }
-            if ($c->getOrdre() < 8) {
-                return true;
-            }
-            // 8ème heure : réservée au lycée, uniquement lundi et jeudi
-            return $cycle === TypeCycle::LYCEE
-                && in_array($c->getJourSemaine(), [JourSemaine::LUNDI, JourSemaine::JEUDI], true);
-        }));
+        return array_values(array_filter(
+            $creneaux,
+            static fn (Creneau $c) => !$c->isReserve()
+                && ($c->getOrdre() < 8 || ReglesPlacementCreneau::ordre8Eligible($cycle, $c->getJourSemaine())),
+        ));
     }
 
     /**
@@ -506,11 +491,10 @@ class EmploiDuTempsGenerator
             return $eligibles;
         }
 
-        return array_values(array_filter($eligibles, static function (Creneau $c) {
-            $vendrediApresMidi = $c->getJourSemaine() === JourSemaine::VENDREDI
-                && (int) $c->getHeureDebut()->format('H') >= 13;
-            return !$vendrediApresMidi;
-        }));
+        return array_values(array_filter(
+            $eligibles,
+            static fn (Creneau $c) => !ReglesPlacementCreneau::fhrInterdit($c->getJourSemaine(), $c->getHeureDebut()),
+        ));
     }
 
     /**
@@ -526,7 +510,7 @@ class EmploiDuTempsGenerator
             return $eligibles;
         }
 
-        return array_values(array_filter($eligibles, static fn (Creneau $c) => !in_array($c->getOrdre(), [4, 5], true)));
+        return array_values(array_filter($eligibles, static fn (Creneau $c) => !ReglesPlacementCreneau::epsInterdit($c->getOrdre())));
     }
 
     /**
@@ -653,7 +637,9 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Groupes de $taille créneaux consécutifs (même jour, ordre qui se suit sans trou).
+     * Groupes de $taille créneaux consécutifs (même jour, ordre qui se suit sans trou et
+     * sans la moindre pause — voir ECART_MAX_ENCHAINEMENT_MINUTES — entre deux créneaux
+     * du groupe : seuls des créneaux réellement dos-à-dos peuvent former un même bloc).
      *
      * @param array<string, Creneau[]> $creneauxParJour
      * @return list<Creneau[]>
@@ -667,7 +653,10 @@ class EmploiDuTempsGenerator
                 $groupe = array_slice($liste, $i, $taille);
                 $ok     = true;
                 for ($j = 1; $j < $taille; $j++) {
-                    if ($groupe[$j]->getOrdre() !== $groupe[$j - 1]->getOrdre() + 1) {
+                    if (
+                        $groupe[$j]->getOrdre() !== $groupe[$j - 1]->getOrdre() + 1
+                        || $this->separesParUnePause($groupe[$j - 1], $groupe[$j])
+                    ) {
                         $ok = false;
                         break;
                     }
@@ -679,6 +668,25 @@ class EmploiDuTempsGenerator
         }
 
         return $candidats;
+    }
+
+    /**
+     * Deux créneaux d'ordre consécutif sont-ils séparés par une pause (récréation ou
+     * déjeuner) qui interrompt l'enchaînement pour un bloc de plusieurs heures ? Cf.
+     * ECART_MAX_ENCHAINEMENT_MINUTES.
+     */
+    private function separesParUnePause(Creneau $precedent, Creneau $suivant): bool
+    {
+        $fin    = $precedent->getHeureFin();
+        $debut  = $suivant->getHeureDebut();
+
+        if ($fin === null || $debut === null) {
+            return false;
+        }
+
+        $ecartMinutes = ($debut->getTimestamp() - $fin->getTimestamp()) / 60;
+
+        return $ecartMinutes > self::ECART_MAX_ENCHAINEMENT_MINUTES;
     }
 
     /** @template T @param T[] $tableau @return T[] */
@@ -890,6 +898,31 @@ class EmploiDuTempsGenerator
                 $budgetReparation,
                 0,
             );
+
+            if ($id === null && $taille === 2) {
+                // Repli : aucun bloc de 2h d'affilée disponible (planning déjà très tendu —
+                // cf. décompte "quasi nulle" en tête de generer()), y compris après
+                // réparation locale. Plutôt que d'abandonner tout le volume horaire de
+                // l'unité pour ce seul bloc, on tente 2 séances isolées d'1h (qui tombent
+                // naturellement sur 2 jours distincts, cf. règle "1 bloc par jour").
+                // Toujours mieux qu'un volume à 0h, même si un vrai bloc de 2h reste
+                // pédagogiquement préférable.
+                $id = $this->placerBlocAvecReparation(
+                    $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                    $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                    $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal,
+                    $budgetReparation, 0,
+                );
+
+                if ($id !== null) {
+                    $id = $this->placerBlocAvecReparation(
+                        $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                        $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                        $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal,
+                        $budgetReparation, 0,
+                    );
+                }
+            }
 
             if ($id === null) {
                 $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);

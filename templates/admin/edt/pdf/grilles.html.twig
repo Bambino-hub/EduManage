@@ -1,0 +1,74 @@
+{#
+    Rendu PDF (dompdf) d'une ou plusieurs grilles hebdomadaires — classe(s) et/ou
+    enseignant(s). CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
+
+    Paramètre attendu : `pages` = liste de {titre: string, grille: ..., contexte: 'classe'|'enseignant'}
+    + joursAffiches/ordreMax/creneauxParJour partagés (identiques pour toutes les pages).
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+    th, td { border: 1px solid #333; padding: 5px; text-align: center; vertical-align: middle; }
+    th { background: #eef0f5; font-weight: bold; }
+    td.heure { background: #f7f7fb; font-weight: bold; color: #555; width: 34px; }
+    td.reserve { background: #f7f7fb; font-style: italic; color: #555; }
+    .matiere { font-weight: bold; border-left: 3px solid #999; padding-left: 3px; }
+    .meta { color: #666; font-size: 8px; margin-top: 2px; }
+    hr { border: none; border-top: 1px solid #ccc; margin: 3px 0; }
+    .page-suivante { page-break-before: always; }
+</style>
+</head>
+<body>
+{% for page in pages %}
+    <div{{ not loop.first ? ' class="page-suivante"' }}>
+        <h1>{{ page.titre }}</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:34px">Heure</th>
+                    {% for jour in joursAffiches %}<th>{{ jour.label() }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordre in 1..ordreMax %}
+                    <tr>
+                        <td class="heure">{{ ordre }}</td>
+                        {% for jour in joursAffiches %}
+                            {% set creneau = creneauxParJour[jour.value][ordre] ?? null %}
+                            {% set seancesCase = page.grille[jour.value][ordre] ?? [] %}
+                            {% if creneau is null %}
+                                <td>—</td>
+                            {% elseif creneau.reserve %}
+                                <td class="reserve">{{ creneau.libelleReserve }}</td>
+                            {% elseif seancesCase is not empty %}
+                                <td>
+                                    {% for seance in seancesCase %}
+                                        {% if not loop.first %}<hr>{% endif %}
+                                        <div class="matiere" style="border-left-color:{{ seance.attribution.matiere.couleur }}">{{ seance.attribution.matiere.code }}</div>
+                                        <div class="meta">
+                                            {% if page.contexte == 'classe' %}
+                                                {{ seance.attribution.enseignant.nom }}
+                                            {% else %}
+                                                {{ seance.attribution.classe.nom }}
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            {% else %}
+                                <td>·</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endfor %}
+</body>
+</html>

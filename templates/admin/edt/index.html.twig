@@ -14,7 +14,23 @@
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
                 <i class="bi bi-printer-fill me-1"></i>Imprimer
             </button>
+            <a href="{{ path('admin_edt_export_pdf', classeSelectionnee ? {classe: classeSelectionnee} : {enseignant: enseignantSelectionne}) }}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
+            </a>
         {% endif %}
+        <div class="dropdown">
+            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-printer me-1"></i>Imprimer en masse
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_classes') }}">Toutes les classes — aperçu</a></li>
+                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_classes_export_pdf') }}">Toutes les classes — PDF</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_enseignants') }}">Tous les enseignants — aperçu</a></li>
+                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_enseignants_export_pdf') }}">Tous les enseignants — PDF</a></li>
+            </ul>
+        </div>
         <a href="{{ path('admin_edt_globale') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-grid-3x3-gap-fill me-1"></i>Vue globale
         </a>
@@ -74,52 +90,13 @@
 {% else %}
     <div class="admin-card">
         <div class="admin-card-body p-0" style="overflow-x:auto">
-            <table class="table table-bordered align-middle mb-0 text-center edt-grid" style="font-size:.8rem">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width:70px">Heure</th>
-                        {% for jour in joursAffiches %}
-                            <th>{{ jour.label() }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ordre in 1..ordreMax %}
-                        <tr>
-                            <td class="text-muted fw-semibold bg-light">{{ ordre }}</td>
-                            {% for jour in joursAffiches %}
-                                {% set creneau = creneauxParJour[jour.value][ordre] ?? null %}
-                                {% set seancesCase = grille[jour.value][ordre] ?? [] %}
-                                <td class="{{ creneau and creneau.reserve ? 'bg-light' }}" style="min-width:130px">
-                                    {% if creneau is null %}
-                                        <span class="text-muted">—</span>
-                                    {% elseif creneau.reserve %}
-                                        <span class="text-muted fst-italic small">{{ creneau.libelleReserve }}</span>
-                                    {% elseif seancesCase is not empty %}
-                                        {% for seance in seancesCase %}
-                                            {% if not loop.first %}<hr class="my-1">{% endif %}
-                                            <div class="d-flex align-items-center justify-content-center gap-1 fw-semibold edt-cell-matiere"
-                                                 style="border-left:4px solid {{ seance.attribution.matiere.couleur }};padding-left:4px">
-                                                {{ seance.attribution.matiere.code }}
-                                            </div>
-                                            <div class="text-muted edt-cell-meta" style="font-size:.72rem">
-                                                {% if enseignantSelectionne %}
-                                                    {{ seance.attribution.classe.nom }}
-                                                {% else %}
-                                                    {{ seance.attribution.enseignant.nomComplet }}
-                                                {% endif %}
-                                            </div>
-                                            <div class="text-muted edt-cell-meta" style="font-size:.7rem">{{ seance.salle.nom }}</div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <span class="text-muted">·</span>
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% include 'admin/edt/_grille_semaine.html.twig' with {
+                joursAffiches: joursAffiches,
+                ordreMax: ordreMax,
+                creneauxParJour: creneauxParJour,
+                grille: grille,
+                contexte: enseignantSelectionne ? 'enseignant' : 'classe',
+            } only %}
         </div>
     </div>
 {% endif %}

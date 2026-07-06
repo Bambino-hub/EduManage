@@ -29,4 +29,27 @@ class RegroupementClasseRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Index [classeId][matiereId] => regroupementId, pour retrouver rapidement si une
+     * Attribution (classe × matière) fait partie d'un regroupement de classes
+     * fusionnées. Partagé entre le générateur d'EDT, l'éditeur manuel de permutations et
+     * l'affichage de la vue globale — un seul endroit pour cette indexation évite qu'elle
+     * diverge entre ces 3 usages.
+     *
+     * @return array<int, array<int, int>>
+     */
+    public function indexerParClasseEtMatiere(): array
+    {
+        $index = [];
+        foreach ($this->findAllAvecRelations() as $regroupement) {
+            foreach ($regroupement->getClasses() as $classe) {
+                foreach ($regroupement->getMatieres() as $matiere) {
+                    $index[$classe->getId()][$matiere->getId()] = $regroupement->getId();
+                }
+            }
+        }
+
+        return $index;
+    }
 }

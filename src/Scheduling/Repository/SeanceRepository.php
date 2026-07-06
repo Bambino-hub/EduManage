@@ -32,7 +32,15 @@ class SeanceRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** Toutes les séances de l'année, pour la vue globale (toutes classes côte à côte). @return Seance[] */
+    /**
+     * Toutes les séances de l'année, pour la vue globale (toutes classes côte à côte),
+     * l'impression groupée (toutes les classes / tous les enseignants) et la permutation
+     * manuelle (EmploiDuTempsPermutationService) — une seule requête avec tout le
+     * nécessaire déjà chargé (classe, matière, enseignant, créneau, salle) plutôt qu'une
+     * requête par classe/enseignant ou un lazy-load par séance.
+     *
+     * @return Seance[]
+     */
     public function findByAnneeScolaire(int $anneeScolaireId): array
     {
         return $this->createQueryBuilder('s')
@@ -42,8 +50,12 @@ class SeanceRepository extends ServiceEntityRepository
             ->addSelect('cl')
             ->join('a.matiere', 'm')
             ->addSelect('m')
+            ->join('a.enseignant', 'e')
+            ->addSelect('e')
             ->join('s.creneau', 'c')
             ->addSelect('c')
+            ->join('s.salle', 'sa')
+            ->addSelect('sa')
             ->where('cl.anneeScolaire = :anneeId')
             ->setParameter('anneeId', $anneeScolaireId)
             ->getQuery()

@@ -1,0 +1,69 @@
+{#
+    Rendu PDF (dompdf) de la vue globale (toutes les classes côte à côte). CSS
+    volontairement simple (pas de flexbox/grid) + table-layout:fixed pour que les ~27
+    colonnes tiennent sur une seule page A4 paysage, comme la version imprimée navigateur
+    (voir mémoire projet sur ce sujet) — sauf que le rendu est ici identique quel que soit
+    le navigateur utilisé pour cliquer sur "Exporter PDF".
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 0.8cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 6.5px; }
+    th, td { border: 1px solid #333; padding: 1px 2px; text-align: center; vertical-align: middle; }
+    th { background: #eef0f5; font-weight: bold; }
+    td.jour { background: #f7f7fb; font-weight: bold; text-transform: uppercase; }
+    td.heure { background: #f7f7fb; color: #555; }
+    td.reserve { background: #f7f7fb; font-style: italic; color: #555; }
+</style>
+</head>
+<body>
+    <h1>Emploi du temps — {{ annee ? annee.libelle : '' }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th style="width:24px">Jour</th>
+                <th style="width:18px">Hres</th>
+                {% for classe in classes %}<th>{{ classe.nom }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for jour in joursAffiches %}
+                {% set ordresJour = creneauxParJour[jour.value]|keys %}
+                {% for ordre in ordresJour %}
+                    {% set creneau = creneauxParJour[jour.value][ordre] %}
+                    {% set estContinuation = reserveContinuation[jour.value][ordre] ?? false %}
+                    <tr>
+                        {% if loop.first %}
+                            <td class="jour" rowspan="{{ ordresJour|length }}">{{ jour.label() }}</td>
+                        {% endif %}
+                        <td class="heure">{{ ordre }}</td>
+                        {% if not estContinuation %}
+                            {% if creneau.reserve %}
+                                <td class="reserve" colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}">
+                                    {{ creneau.libelleReserve }}
+                                </td>
+                            {% else %}
+                                {% for classe in classes %}
+                                    {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
+                                    <td>
+                                        {% if seancesCase is not empty %}
+                                            {% for s in seancesCase %}{{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{% endfor %}
+                                        {% else %}
+                                            ·
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                            {% endif %}
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -412,6 +412,64 @@
 }
 
 /* =============================================================
+   VUE GLOBALE EDT — permutation manuelle (contrôleur Stimulus edt-globale)
+   ============================================================= */
+
+.edt-seance-item {
+    cursor: pointer;
+}
+
+/* Séparateur entre matières parallèles (ex. ALL/ESP) dans une même case — généré en CSS
+   plutôt qu'en texte dans le HTML : reste correct même après un glisser-déposer qui
+   déplace les <span> d'une case à l'autre (pas de "/" orphelin laissé derrière). */
+[data-edt-globale-target="item"] + [data-edt-globale-target="item"]::before {
+    content: '/';
+    margin: 0 1px;
+}
+
+.edt-seance-item:hover {
+    text-decoration: underline;
+}
+
+.edt-selected {
+    outline: 2px solid var(--college-navy);
+    outline-offset: 1px;
+    border-radius: 3px;
+}
+
+.edt-dragging {
+    opacity: 0.4;
+}
+
+/* Case occupée par le même enseignant que la séance sélectionnée — repère visuel,
+   jamais une cible de dépôt. */
+.edt-prof-busy {
+    background: #fdf0ea !important;
+}
+
+/* Case où déposer/cliquer est autorisé pour la séance sélectionnée. */
+.edt-drop-valid {
+    background: #e6f6ee !important;
+    box-shadow: inset 0 0 0 2px var(--college-green);
+    cursor: pointer;
+}
+
+/* Case cible occupée : le dépôt échangera les 2 séances plutôt que de simplement
+   déplacer la sélectionnée. */
+.edt-drop-swap::after {
+    content: '⇄';
+    display: block;
+    font-size: .65rem;
+    color: var(--college-green);
+    line-height: 1;
+}
+
+.edt-pending {
+    box-shadow: inset 0 0 0 2px var(--college-orange);
+    border-radius: 3px;
+}
+
+/* =============================================================
    IMPRESSION — masque la navigation, garde le contenu pleine largeur.
    Générique : réutilisable sur n'importe quelle page admin (marquer les
    éléments à masquer avec .no-print, ex. boutons d'action, colonne Actions).
@@ -448,15 +506,21 @@
 
     /* Grilles d'emploi du temps : bordures plus marquées et texte secondaire assombri
        pour rester lisible en photocopie noir et blanc (le gris clair d'écran disparaît
-       souvent à l'impression). */
+       souvent à l'impression). border-collapse fusionne les bordures adjacentes en une
+       seule ligne partagée ; Chrome perd fréquemment ces lignes fusionnées à l'impression
+       (arrondi de sous-pixel lors du passage à la résolution papier). On repasse donc en
+       border-collapse:separate pour que chaque cellule dessine sa propre bordure, ce qui
+       évite complètement ce bug de rendu. */
     .edt-grid {
         font-size: .72rem !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
     }
 
     .edt-grid,
     .edt-grid th,
     .edt-grid td {
-        border-color: #333 !important;
+        border: 1px solid #333 !important;
     }
 
     .edt-grid .text-muted,
@@ -464,7 +528,47 @@
         color: #333 !important;
     }
 
+    /* Vue globale : 25 classes en colonnes + Jour/Hres dépasse largement la largeur
+       imprimable, même en paysage — coupé sur plusieurs pages sinon. table-layout:fixed
+       + width:100% force le tableau à tenir dans la largeur de la page (les colonnes se
+       répartissent la largeur disponible à parts égales, le contenu passe à la ligne
+       plutôt que de déborder) ; on neutralise aussi les min-width en dur du template
+       (pensés pour l'écran) et on réduit fortement police/marges pour que les ~27
+       colonnes et ~35 lignes tiennent sur une seule page. */
+    .edt-grid.edt-grid-globale {
+        table-layout: fixed;
+        width: 100% !important;
+        font-size: 8px !important;
+    }
+
+    .edt-grid.edt-grid-globale th,
+    .edt-grid.edt-grid-globale td {
+        width: auto !important;
+        min-width: 0 !important;
+        padding: 0.5px 1.5px !important;
+        overflow-wrap: break-word;
+    }
+
     .edt-grid tr {
         break-inside: avoid;
+    }
+
+    /* Impression groupée (toutes les classes / tous les enseignants) : une page par
+       classe/enseignant. `break-inside: avoid` sur le bloc ENTIER (titre + tableau,
+       pas juste chaque ligne) empêche qu'un tableau qui ne tient pas exactement dans
+       la page se scinde au milieu (le reliquat de quelques lignes sur la page suivante
+       produisait une page quasi vide juste avant le saut forcé) — s'il ne rentre pas
+       dans l'espace restant, tout le bloc bascule en un seul morceau page suivante.
+       Le saut de page est posé via le sélecteur adjacent (+) plutôt qu'un <div> marqueur
+       séparé après chaque bloc : moins fragile, pas de risque qu'un marqueur vide se
+       retrouve compté comme une page à lui tout seul selon le moteur d'impression. */
+    .edt-print-page,
+    .edt-print-page table {
+        break-inside: avoid;
+    }
+
+    .edt-print-page + .edt-print-page {
+        break-before: page;
+        page-break-before: always;
     }
 }

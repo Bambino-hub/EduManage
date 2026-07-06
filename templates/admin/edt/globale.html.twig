@@ -4,91 +4,157 @@
 {% block page_title %}Emploi du temps — vue globale{% endblock %}
 
 {% block admin_content %}
-<div class="d-flex justify-content-between align-items-center mb-4 no-print">
-    <div>
-        <h1 class="h4 mb-1">Emploi du temps — vue globale</h1>
-        <p class="text-muted mb-0" style="font-size:.85rem">
-            Toutes les classes {{ annee ? 'de ' ~ annee.libelle : '' }} côte à côte, une ligne par créneau.
-        </p>
-    </div>
-    <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-            <i class="bi bi-printer-fill me-1"></i>Imprimer
-        </button>
-        <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Vue par classe/enseignant
-        </a>
-    </div>
-</div>
-<h1 class="h4 mb-4 d-none d-print-block">Emploi du temps {{ annee ? '— ' ~ annee.libelle : '' }}</h1>
-
-{% if classes is empty %}
-    <div class="admin-card">
-        <div class="admin-card-body text-center text-muted py-5">
-            <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
-            Aucune classe pour l'année active.
-        </div>
-    </div>
-{% else %}
-    <div class="alert alert-info no-print d-flex gap-2 mb-3" style="font-size:.8rem">
-        <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+<div
+    data-controller="edt-globale"
+    data-edt-globale-save-url-value="{{ path('admin_edt_globale_permuter') }}"
+    data-edt-globale-token-value="{{ csrf_token('edt_globale_permuter') }}"
+>
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print flex-wrap gap-2">
         <div>
-            Une case « · » signifie qu'aucune heure n'a pu être placée à ce créneau pour cette classe lors de la
-            dernière génération (conflit enseignant/salle, ou volume horaire de la classe supérieur aux créneaux
-            disponibles dans la semaine). Le détail par classe est dans le
-            <a href="{{ path('admin_edt_generate') }}">bilan de génération</a>.
+            <h1 class="h4 mb-1">Emploi du temps — vue globale</h1>
+            <p class="text-muted mb-0" style="font-size:.85rem">
+                Toutes les classes {{ annee ? 'de ' ~ annee.libelle : '' }} côte à côte, une ligne par créneau.
+                Cliquez sur une matière (ou glissez-la) pour voir les créneaux où elle peut être déplacée.
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small" data-edt-globale-target="pendingCount"></span>
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                data-edt-globale-target="cancelButton"
+                data-action="edt-globale#annuler"
+                disabled
+            >
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Annuler les modifications
+            </button>
+            <button
+                type="button"
+                class="btn btn-sm"
+                style="background:var(--college-green);color:#fff"
+                data-edt-globale-target="saveButton"
+                data-action="edt-globale#enregistrer"
+                disabled
+            >
+                <i class="bi bi-check-lg me-1"></i>Enregistrer les modifications
+            </button>
+            <a href="{{ path('admin_edt_globale_export_pdf') }}" class="btn btn-sm" style="background:var(--college-orange);color:#fff">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
+            </a>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer-fill me-1"></i>Imprimer
+            </button>
+            <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Vue par classe/enseignant
+            </a>
         </div>
     </div>
-    <div class="admin-card">
-        <div class="admin-card-body p-0" style="overflow-x:auto">
-            <table class="table table-bordered align-middle mb-0 text-center edt-grid" style="font-size:.68rem">
-                <thead class="table-light">
-                    <tr>
-                        <th style="min-width:60px">Jour</th>
-                        <th style="min-width:40px">Hres</th>
-                        {% for classe in classes %}
-                            <th style="min-width:58px">{{ classe.nom }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for jour in joursAffiches %}
-                        {% set ordresJour = creneauxParJour[jour.value]|keys %}
-                        {% for ordre in ordresJour %}
-                            {% set creneau = creneauxParJour[jour.value][ordre] %}
-                            {% set estContinuation = reserveContinuation[jour.value][ordre] ?? false %}
-                            <tr>
-                                {% if loop.first %}
-                                    <td class="fw-bold bg-light align-middle text-uppercase" rowspan="{{ ordresJour|length }}">
-                                        {{ jour.label() }}
-                                    </td>
-                                {% endif %}
-                                <td class="text-muted fw-semibold bg-light">{{ ordre }}ᵉ</td>
-                                {% if not estContinuation %}
-                                    {% if creneau.reserve %}
-                                        <td colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}"
-                                            class="fw-semibold text-muted fst-italic align-middle">
-                                            {{ creneau.libelleReserve }}
+    <h1 class="h4 mb-4 d-none d-print-block">Emploi du temps {{ annee ? '— ' ~ annee.libelle : '' }}</h1>
+
+    <div class="alert alert-danger d-none no-print" data-edt-globale-target="alert"></div>
+
+    {% if classes is empty %}
+        <div class="admin-card">
+            <div class="admin-card-body text-center text-muted py-5">
+                <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
+                Aucune classe pour l'année active.
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info no-print d-flex gap-2 mb-3" style="font-size:.8rem">
+            <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+            <div>
+                Une case « · » signifie qu'aucune heure n'a pu être placée à ce créneau pour cette classe lors de la
+                dernière génération (conflit enseignant/salle, ou volume horaire de la classe supérieur aux créneaux
+                disponibles dans la semaine). Le détail par classe est dans le
+                <a href="{{ path('admin_edt_generate') }}">bilan de génération</a>. Les matières parallèles (ex.
+                Allemand/Espagnol, Travail Manuel/Enseignement Ménager) se déplacent ensemble, vers un créneau libre
+                pour les 2 — pas d'échange possible avec une autre matière depuis cette vue. Les classes fusionnées ne
+                peuvent pas être déplacées ici.
+            </div>
+        </div>
+        <div class="admin-card">
+            <div class="admin-card-body p-0" style="overflow-x:auto">
+                <table class="table table-bordered align-middle mb-0 text-center edt-grid edt-grid-globale" style="font-size:.68rem">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:60px">Jour</th>
+                            <th style="min-width:40px">Hres</th>
+                            {% for classe in classes %}
+                                <th style="min-width:58px">{{ classe.nom }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for jour in joursAffiches %}
+                            {% set ordresJour = creneauxParJour[jour.value]|keys %}
+                            {% for ordre in ordresJour %}
+                                {% set creneau = creneauxParJour[jour.value][ordre] %}
+                                {% set estContinuation = reserveContinuation[jour.value][ordre] ?? false %}
+                                <tr>
+                                    {% if loop.first %}
+                                        <td class="fw-bold bg-light align-middle text-uppercase" rowspan="{{ ordresJour|length }}">
+                                            {{ jour.label() }}
                                         </td>
-                                    {% else %}
-                                        {% for classe in classes %}
-                                            {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
-                                            <td>
-                                                {% if seancesCase is not empty %}
-                                                    <span class="fw-semibold">{% for s in seancesCase %}{{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{% endfor %}</span>
-                                                {% else %}
-                                                    <span class="text-muted">·</span>
-                                                {% endif %}
-                                            </td>
-                                        {% endfor %}
                                     {% endif %}
-                                {% endif %}
-                            </tr>
+                                    <td class="text-muted fw-semibold bg-light">{{ ordre }}ᵉ</td>
+                                    {% if not estContinuation %}
+                                        {% if creneau.reserve %}
+                                            <td colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}"
+                                                class="fw-semibold text-muted fst-italic align-middle">
+                                                {{ creneau.libelleReserve }}
+                                            </td>
+                                        {% else %}
+                                            {% for classe in classes %}
+                                                {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
+                                                <td
+                                                    data-edt-globale-target="cell"
+                                                    data-classe-id="{{ classe.id }}"
+                                                    data-creneau-id="{{ creneau.id }}"
+                                                    data-jour="{{ jour.value }}"
+                                                    data-ordre="{{ ordre }}"
+                                                    data-cycle="{{ classe.niveau.cycle.type.value }}"
+                                                    data-apres-midi="{{ (creneau.heureDebut is not null and creneau.heureDebut|date('H') >= 13) ? '1' : '0' }}"
+                                                    data-action="click->edt-globale#cellClick dragover->edt-globale#dragOver dragenter->edt-globale#dragOver drop->edt-globale#drop"
+                                                >
+                                                    {% if seancesCase is empty %}
+                                                        <span class="text-muted edt-empty">·</span>
+                                                    {% else %}
+                                                        {% for s in seancesCase %}
+                                                            {% set fusionnee = (regroupementParClasseEtMatiere[classe.id][s.attribution.matiere.id] ?? null) is not null %}
+                                                            <span
+                                                                class="fw-semibold{{ fusionnee ? '' : ' edt-seance-item' }}"
+                                                                data-edt-globale-target="item"
+                                                                data-seance-id="{{ s.id }}"
+                                                                data-classe-id="{{ classe.id }}"
+                                                                data-creneau-id="{{ creneau.id }}"
+                                                                data-enseignant-id="{{ s.attribution.enseignant.id }}"
+                                                                data-salle-id="{{ s.salle.id }}"
+                                                                data-matiere-code="{{ s.attribution.matiere.code }}"
+                                                                data-fusion="{{ fusionnee ? '1' : '0' }}"
+                                                                {% if fusionnee %}
+                                                                    title="{{ s.attribution.matiere.nom }} — {{ s.attribution.enseignant.nomComplet }} — classes fusionnées, non déplaçable ici"
+                                                                {% else %}
+                                                                    draggable="true"
+                                                                    role="button"
+                                                                    tabindex="0"
+                                                                    title="{{ s.attribution.matiere.nom }} — {{ s.attribution.enseignant.nomComplet }} — {{ seancesCase|length > 1 ? 'cliquer ou glisser pour déplacer le groupe (matières parallèles) vers un autre créneau' : 'cliquer ou glisser pour permuter' }}"
+                                                                    data-action="click->edt-globale#toggleSelect dragstart->edt-globale#dragStart dragend->edt-globale#dragEnd keydown.enter->edt-globale#toggleSelect"
+                                                                {% endif %}
+                                                            >{{ s.attribution.matiere.code }}</span>
+                                                        {% endfor %}
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-{% endif %}
+    {% endif %}
+</div>
 {% endblock %}
