@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Staff\Repository;
 
 use App\Staff\Entity\Enseignant;
+use App\Staff\Enum\TypePersonnel;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -23,6 +24,17 @@ class EnseignantRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('e')
             ->where('e.actif = true')
+            ->orderBy('e.nom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Personnel "classique" (hors stagiaires, qui ont leur propre page). @return Enseignant[] */
+    public function findHorsStagiaires(): array
+    {
+        return $this->createQueryBuilder('e')
+            ->where('e.type != :stagiaire')
+            ->setParameter('stagiaire', TypePersonnel::STAGIAIRE)
             ->orderBy('e.nom', 'ASC')
             ->getQuery()
             ->getResult();

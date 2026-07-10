@@ -5,7 +5,7 @@
 {% block page_title %}Enseignants{% endblock %}
 
 {% block admin_content %}
-<div data-controller="list-filter" data-list-filter-total-value="{{ enseignants|length }}">
+<div data-controller="list-filter" data-list-filter-total-value="{{ enseignants|length }}" data-list-filter-label-value="enseignant">
 <div class="d-flex justify-content-between align-items-center mb-4 no-print">
     <div>
         <h1 class="h4 mb-1">Enseignants</h1>
@@ -92,7 +92,7 @@
                     </td>
                     <td class="text-muted small">{{ e.cycle ?? '—' }}</td>
                     <td class="text-muted small">
-                        {{ e.email }}<br>{{ e.telephone ?? '—' }}
+                        {{ e.email ?? '—' }}<br>{{ e.telephone ?? '—' }}
                     </td>
                     <td class="no-print">
                         {{ ui.actions(

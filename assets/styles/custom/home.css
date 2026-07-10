@@ -40,15 +40,20 @@
 }
 
 /* ----------------------------------------------------------------
-   1. HERO : bandeau institutionnel, dégradé profond violet → nuit.
-   La devise y est affichée FIXE et soignée (plus de défilement).
+   1. HERO : bandeau institutionnel, photo de l'établissement en fond,
+   voilée d'un dégradé violet → nuit pour garder le texte blanc lisible
+   (les deux couches sont superposées via plusieurs "background-image").
 
-   TODO photo : pour ajouter une photo de fond, déposer le fichier
-   dans assets/images/ puis, dans la règle .home-hero, compléter
-   "background-image" avec un voile sombre PUIS l'image (via la fonction
-   CSS d'image de fond). IMPORTANT : ne jamais référencer un fichier image
-   inexistant, même en commentaire — AssetMapper analyse ces références
-   et provoque une erreur 500.
+   La photo source (hero-bienvenue.jpg, 1152×864, ratio 4:3) est plus
+   "carrée" qu'un bandeau large : affichée telle quelle en "cover" sur
+   un grand écran, elle imposerait soit un rognage (haut/bas), soit une
+   hauteur énorme pour rester entière (voir historique du fichier).
+   On utilise donc hero-bienvenue-wide.jpg : la même photo, recentrée
+   sur un canevas élargi dont les bords sont un agrandissement flouté
+   de la photo elle-même (aucun contenu inventé, juste un fondu de ses
+   propres couleurs). "cover" peut alors remplir n'importe quelle
+   largeur d'écran sans jamais rogner le bâtiment (seul le flou, sans
+   intérêt, peut être légèrement coupé sur un écran ultra-large).
    ---------------------------------------------------------------- */
 .home-hero {
     position: relative;
@@ -57,9 +62,34 @@
     text-align: center;
     background-color: var(--college-purple);
     background-image: linear-gradient(135deg,
-        var(--college-purple) 0%,
-        var(--college-purple-dark) 55%,
-        var(--college-navy) 100%);
+            rgba(106, 44, 145, 0.30) 0%,
+            rgba(79, 32, 112, 0.25) 55%,
+            rgba(37, 36, 94, 0.35) 100%),
+        url('../../images/hero-bienvenue-wide.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* À partir des écrans plus larges (tablette/desktop) : on adopte le
+   ratio EXACT de hero-bienvenue-wide.jpg (2600×864). "cover" n'a alors
+   plus jamais besoin de rogner (le ratio du bandeau = celui de la
+   photo), et la hauteur qui en résulte reste raisonnable à n'importe
+   quelle largeur d'écran courante (ex. ~638px à 1920px de large, contre
+   1440px avec l'ancien ratio 4:3). max-height ne sert plus que de
+   garde-fou pour les écrans ultra-larges (> 2600px). */
+@media (min-width: 768px) {
+    .home-hero {
+        width: 100%;
+        aspect-ratio: 2600 / 864;
+        max-height: min(88vh, 860px);
+        padding-top: 0;
+        padding-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
 }
 
 /* Petite étiquette de localisation au-dessus du titre. */
@@ -68,14 +98,18 @@
     letter-spacing: 0.25em;
     font-size: 0.85rem;
     opacity: 0.85;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
-/* Titre de bienvenue : grand, serif. Le <h1> de la page. */
+/* Titre de bienvenue : grand, serif. Le <h1> de la page.
+   Voile ayant été éclairci pour laisser voir la photo, le texte
+   a besoin d'une ombre portée pour rester lisible en toutes zones. */
 .home-hero__welcome {
     font-family: var(--college-heading-font);
     font-weight: 700;
     font-size: clamp(2rem, 5.5vw, 3.5rem);
     margin-bottom: 1.25rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 /* La devise : accroche fixe (aucune animation), encadrée de deux filets. */
@@ -92,6 +126,11 @@
     padding: 1rem 0;
     border-top: 1px solid rgba(255, 255, 255, 0.35);
     border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.home-hero .lead {
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
 /* ----------------------------------------------------------------
@@ -108,18 +147,66 @@
     box-shadow: 0 0.75rem 1.5rem rgba(37, 36, 94, 0.12);
 }
 
+/* Médaillon portrait au-dessus de chaque carte "parcours".
+   Format 140×170 volontairement modeste : les photos sources ne sont
+   jamais agrandies au-delà de leur résolution native (pas de flou),
+   quelle que soit leur orientation d'origine. */
+.formation-card__photo {
+    display: block;
+    width: 140px;
+    height: 170px;
+    object-fit: cover;
+    object-position: center;
+    margin: 0 auto 1.25rem;
+    border-radius: 0.75rem;
+    border: 3px solid #fff;
+    outline: 2px solid var(--college-purple);
+    outline-offset: 2px;
+    box-shadow: 0 0.5rem 1rem rgba(37, 36, 94, 0.15);
+}
+
 /* ----------------------------------------------------------------
-   3. PHOTO DE PRÉSENTATION — placeholder en attendant la vraie image.
+   3. CARROUSEL PHOTOS DE L'ÉTABLISSEMENT — composant Bootstrap,
+   habillé aux couleurs de la charte.
    ---------------------------------------------------------------- */
-.photo-placeholder {
-    min-height: 320px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--college-light);
-    color: #6c757d;
-    border: 1px dashed #c9bedd;
+.etablissement-carousel {
     border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 0.5rem 1.5rem rgba(37, 36, 94, 0.12);
+}
+/* Ratio identique à celui des photos sources (1152×864 = 4:3) : "cover"
+   n'a alors plus jamais besoin de rogner, quelle que soit la largeur
+   de la colonne (mobile, tablette, desktop). */
+.etablissement-carousel img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+/* Indicateurs (les petits points) : couleur de la charte + zone cliquable confortable. */
+.etablissement-carousel .carousel-indicators [data-bs-target] {
+    background-color: var(--college-purple);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+/* Flèches précédent/suivant : pastille sombre pour rester visibles sur toute photo. */
+.etablissement-carousel .carousel-control-prev,
+.etablissement-carousel .carousel-control-next {
+    width: 3rem;
+    height: 3rem;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    background-color: rgba(37, 36, 94, 0.45);
+    border-radius: 50%;
+}
+.etablissement-carousel .carousel-control-prev {
+    left: 1rem;
+}
+.etablissement-carousel .carousel-control-next {
+    right: 1rem;
 }
 
 /* ----------------------------------------------------------------

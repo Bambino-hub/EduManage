@@ -14,3 +14,16 @@ body {
 main {
     flex: 1 0 auto;
 }
+
+/* Liens de la barre de navigation : couleur de la charte (même bleu nuit
+   que les titres de section, ex. "Trouver votre formation"), plus franche
+   que le gris par défaut de Bootstrap. */
+.navbar .nav-link {
+    color: var(--college-navy);
+    font-weight: 500;
+}
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .nav-link.show {
+    color: var(--college-purple);
+}

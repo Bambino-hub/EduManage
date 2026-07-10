@@ -7,9 +7,11 @@ namespace App\Staff\Entity;
 use App\Shared\Entity\TimestampableTrait;
 use App\Staff\Enum\Sexe;
 use App\Staff\Enum\TypePersonnel;
+use App\Staff\Enum\TypeStage;
 use App\Staff\Repository\EnseignantRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EnseignantRepository::class)]
@@ -30,8 +32,8 @@ class Enseignant
     #[ORM\Column(length: 80)]
     private string $prenom = '';
 
-    #[ORM\Column(length: 120, unique: true)]
-    private string $email = '';
+    #[ORM\Column(length: 120, unique: true, nullable: true)]
+    private ?string $email = null;
 
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $telephone = null;
@@ -57,6 +59,36 @@ class Enseignant
     /** Cycle(s) où l'agent intervient habituellement : "1", "2" ou "1/2". Informatif, indépendant des Attributions. */
     #[ORM\Column(length: 10, nullable: true)]
     private ?string $cycle = null;
+
+    /* --------------------------------------------------------------
+       Champs "stage" : pertinents uniquement quand $type = STAGIAIRE
+       (stage pédagogique en classe OU stage administratif de bureau).
+       -------------------------------------------------------------- */
+
+    #[ORM\Column(length: 20, nullable: true, enumType: TypeStage::class)]
+    private ?TypeStage $typeStage = null;
+
+    /** École, université ou centre de formation d'origine du stagiaire. */
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $etablissementOrigine = null;
+
+    /** Niveau d'études / filière suivie (ex. "Licence 3 SVT", "CAPES 2e année"). */
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $niveauEtudes = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $dateDebutStage = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $dateFinStage = null;
+
+    /** Encadrant/tuteur au sein du collège (un autre membre du personnel). */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(name: 'tuteur_id', nullable: true, onDelete: 'SET NULL')]
+    private ?self $tuteur = null;
+
+    #[ORM\Column]
+    private bool $conventionSignee = false;
 
     #[ORM\OneToMany(targetEntity: \App\Scheduling\Entity\Attribution::class, mappedBy: 'enseignant')]
     private Collection $attributions;
@@ -93,12 +125,12 @@ class Enseignant
         return $this;
     }
 
-    public function getEmail(): string
+    public function getEmail(): ?string
     {
         return $this->email;
     }
 
-    public function setEmail(string $email): static
+    public function setEmail(?string $email): static
     {
         $this->email = $email;
         return $this;
@@ -212,6 +244,83 @@ class Enseignant
     public function setCycle(?string $cycle): static
     {
         $this->cycle = $cycle;
+        return $this;
+    }
+
+    public function getTypeStage(): ?TypeStage
+    {
+        return $this->typeStage;
+    }
+
+    public function setTypeStage(?TypeStage $typeStage): static
+    {
+        $this->typeStage = $typeStage;
+        return $this;
+    }
+
+    public function getEtablissementOrigine(): ?string
+    {
+        return $this->etablissementOrigine;
+    }
+
+    public function setEtablissementOrigine(?string $etablissementOrigine): static
+    {
+        $this->etablissementOrigine = $etablissementOrigine;
+        return $this;
+    }
+
+    public function getNiveauEtudes(): ?string
+    {
+        return $this->niveauEtudes;
+    }
+
+    public function setNiveauEtudes(?string $niveauEtudes): static
+    {
+        $this->niveauEtudes = $niveauEtudes;
+        return $this;
+    }
+
+    public function getDateDebutStage(): ?\DateTimeImmutable
+    {
+        return $this->dateDebutStage;
+    }
+
+    public function setDateDebutStage(?\DateTimeImmutable $dateDebutStage): static
+    {
+        $this->dateDebutStage = $dateDebutStage;
+        return $this;
+    }
+
+    public function getDateFinStage(): ?\DateTimeImmutable
+    {
+        return $this->dateFinStage;
+    }
+
+    public function setDateFinStage(?\DateTimeImmutable $dateFinStage): static
+    {
+        $this->dateFinStage = $dateFinStage;
+        return $this;
+    }
+
+    public function getTuteur(): ?self
+    {
+        return $this->tuteur;
+    }
+
+    public function setTuteur(?self $tuteur): static
+    {
+        $this->tuteur = $tuteur;
+        return $this;
+    }
+
+    public function isConventionSignee(): bool
+    {
+        return $this->conventionSignee;
+    }
+
+    public function setConventionSignee(bool $conventionSignee): static
+    {
+        $this->conventionSignee = $conventionSignee;
         return $this;
     }
 

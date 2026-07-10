@@ -1,0 +1,81 @@
+/* ================================================================
+   Pages "cycle" du site vitrine (Collège, puis Lycée).
+   Bandeau institutionnel léger (pas de photo, contrairement au hero
+   de l'accueil) + tableau des frais de scolarité.
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   1. BANDEAU DE PAGE : titre + fil d'Ariane, sur fond dégradé uni
+   (aucune photo -> page légère, cohérent avec la charte).
+   ---------------------------------------------------------------- */
+.page-hero {
+    padding: 3.5rem 1rem 3rem;
+    color: #fff;
+    text-align: center;
+    background-color: var(--college-navy);
+    background-image: linear-gradient(135deg, var(--college-purple) 0%, var(--college-navy) 100%);
+}
+.page-hero__eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+.page-hero h1 {
+    font-family: var(--college-heading-font);
+    font-weight: 700;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin: 0.5rem 0 0.75rem;
+}
+.page-hero p {
+    max-width: 40rem;
+    margin: 0 auto;
+    opacity: 0.95;
+}
+
+/* ----------------------------------------------------------------
+   2. TABLEAU DES FRAIS DE SCOLARITÉ : en-tête colorée, chiffres clés
+   (Total) mis en avant.
+   ---------------------------------------------------------------- */
+.fees-table thead th {
+    background-color: var(--college-navy);
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.fees-table td, .fees-table th {
+    vertical-align: middle;
+}
+.fees-table .fees-table__total {
+    font-weight: 700;
+    color: var(--college-purple);
+    white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------
+   3. LISTES À PUCE PERSONNALISÉES (documents requis, tenue scolaire) :
+   puce carrée aux couleurs de la charte, plus institutionnelle que
+   la puce ronde par défaut.
+   ---------------------------------------------------------------- */
+.info-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+.info-list li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.6rem;
+}
+.info-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.35em;
+    width: 0.6rem;
+    height: 0.6rem;
+    background-color: var(--college-green);
+}
+.info-list li:last-child {
+    margin-bottom: 0;
+}

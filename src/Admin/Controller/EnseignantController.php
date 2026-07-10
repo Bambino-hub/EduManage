@@ -23,15 +23,15 @@ class EnseignantController extends AbstractController
     public function index(EnseignantRepository $repo): Response
     {
         return $this->render('admin/enseignant/index.html.twig', [
-            'enseignants' => $repo->findBy([], ['nom' => 'ASC']),
-            'typePersonnel' => TypePersonnel::cases(),
+            'enseignants' => $repo->findHorsStagiaires(),
+            'typePersonnel' => array_filter(TypePersonnel::cases(), fn(TypePersonnel $t) => $t !== TypePersonnel::STAGIAIRE),
         ]);
     }
 
     #[Route('/export/word', name: 'export_word')]
     public function exportWord(EnseignantRepository $repo, EnseignantWordExporter $exporter): Response
     {
-        $contenu = $exporter->exporter($repo->findBy([], ['nom' => 'ASC']));
+        $contenu = $exporter->exporter($repo->findHorsStagiaires());
 
         return new Response($contenu, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -42,7 +42,7 @@ class EnseignantController extends AbstractController
     #[Route('/export/pdf', name: 'export_pdf')]
     public function exportPdf(EnseignantRepository $repo, EnseignantPdfExporter $exporter): Response
     {
-        $contenu = $exporter->exporter($repo->findBy([], ['nom' => 'ASC']));
+        $contenu = $exporter->exporter($repo->findHorsStagiaires());
 
         return new Response($contenu, 200, [
             'Content-Type' => 'application/pdf',

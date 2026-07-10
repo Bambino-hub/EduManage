@@ -1,0 +1,243 @@
+{# ================================================================
+   PAGE "COLLÈGE" du site vitrine (route website_college, URL "/college").
+   Contenu basé sur la fiche de renseignement officielle du Collège Adèle
+   (inscription, tenue scolaire, frais de scolarité, internat) — on ne
+   garde ici que ce qui concerne le cycle Collège (6e à 3e) ; le cycle
+   Lycée aura sa propre page.
+   ================================================================ #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Le Collège — Collège Adèle{% endblock %}
+
+{% block body %}
+    {# ----------------------------------------------------------------
+       1. BANDEAU DE PAGE.
+       ---------------------------------------------------------------- #}
+    <section class="page-hero">
+        <div class="container-fluid px-4 px-lg-5">
+            <p class="page-hero__eyebrow mb-1">Cycle 1 — de la 6<sup>e</sup> à la 3<sup>e</sup></p>
+            <h1>Le Collège</h1>
+            <p class="mb-4">
+                Un cadre structurant pour acquérir des bases solides et préparer
+                le BEPC avec sérénité.
+            </p>
+            {# Fiche de renseignement officielle (inscription, tenue, frais, internat) —
+               couvre le Collège ET le Lycée, également proposée sur la page Lycée. #}
+            <a href="{{ asset('documents/fiche-renseignement-college-adele.pdf') }}"
+               class="btn btn-light" download>
+                Télécharger la fiche de renseignement (PDF)
+            </a>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       2. COMMENT INTÉGRER LE COLLÈGE ADÈLE.
+       ---------------------------------------------------------------- #}
+    <section class="container-fluid px-4 px-lg-5 py-5">
+        <div class="section-title">
+            <span class="eyebrow">Admission</span>
+            <h2>Comment intégrer le Collège Adèle</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple">Admission en 6<sup>e</sup></h3>
+                        <p>
+                            Tout élève nouvellement admis en 6<sup>e</sup> peut s'inscrire
+                            directement au Collège Adèle dès la publication des résultats
+                            du CEPD. Le dossier doit comporter :
+                        </p>
+                        <ul class="info-list">
+                            <li>une photocopie légalisée du relevé de notes du CEPD ;</li>
+                            <li>une photocopie légalisée de la pièce de naissance ;</li>
+                            <li>le livret scolaire.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple">Classes intermédiaires (5<sup>e</sup>, 4<sup>e</sup>, 3<sup>e</sup>)</h3>
+                        <p class="mb-0">
+                            Le Collège Adèle ne recrute habituellement pas dans les classes
+                            intermédiaires. Une exception peut être étudiée pour les élèves
+                            dont les parents sont nouvellement affectés à Kara, après étude
+                            du dossier.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple">Élèves de 3<sup>e</sup> (examen)</h3>
+                        <p class="mb-2">Pièces à fournir pour l'examen :</p>
+                        <ul class="info-list">
+                            <li>une copie légalisée de l'attestation du CEPD ;</li>
+                            <li>une copie légalisée de la pièce de naissance ;</li>
+                            <li>1 000 FCFA pour la carte scolaire.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple">Frais d'inscription</h3>
+                        <p class="display-6 text-college-navy fw-bold mb-1">5 000 FCFA</p>
+                        <p class="mb-0 text-muted">Non remboursable.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       3. TENUE SCOLAIRE (1er cycle).
+       ---------------------------------------------------------------- #}
+    <section class="bg-college-light py-5">
+        <div class="container-fluid px-4 px-lg-5">
+            <div class="section-title">
+                <span class="eyebrow">Vie scolaire</span>
+                <h2>Tenue scolaire</h2>
+            </div>
+            <div class="row g-4">
+                <div class="col-12 col-lg-6">
+                    <ul class="info-list">
+                        <li>Garçons : complet kaki.</li>
+                        <li>Filles : corsage blanc et jupe kaki.</li>
+                        <li>Cheveux courts pour tous (pas de coiffures fantaisistes).</li>
+                    </ul>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <ul class="info-list">
+                        <li>Deux tenues obligatoires : la tenue ci-dessus et le tissu logos,
+                            payé à l'inscription — toutes deux doivent comporter le logo du collège.</li>
+                        <li>Frais payés à l'inscription : carte scolaire (1 000 FCFA) et
+                            logos (3 × 1 000 FCFA).</li>
+                        <li>Modèles consultables au secrétariat.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       4. FRAIS DE SCOLARITÉ — Premier cycle (6e à 3e).
+       ---------------------------------------------------------------- #}
+    <section class="container-fluid px-4 px-lg-5 py-5">
+        <div class="section-title">
+            <span class="eyebrow">Budget</span>
+            <h2>Frais de scolarité — Premier cycle</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle text-center fees-table">
+                <thead>
+                    <tr>
+                        <th scope="col" class="text-start">Élèves</th>
+                        <th scope="col">Inscription</th>
+                        <th scope="col">1<sup>ère</sup> tranche</th>
+                        <th scope="col">2<sup>ème</sup> tranche</th>
+                        <th scope="col">3<sup>ème</sup> tranche</th>
+                        <th scope="col">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row" class="text-start">Nouveaux élèves</th>
+                        <td>5 000 F</td>
+                        <td>30 500 F</td>
+                        <td>20 000 F</td>
+                        <td>10 000 F</td>
+                        <td class="fees-table__total">65 500 F</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="text-start">Anciens élèves</th>
+                        <td>—</td>
+                        <td>30 500 F</td>
+                        <td>20 000 F</td>
+                        <td>10 000 F</td>
+                        <td class="fees-table__total">60 500 F</td>
+                    </tr>
+                    <tr class="table-light">
+                        <th scope="row" class="text-start">Période</th>
+                        <td>À l'inscription</td>
+                        <td>Rentrée</td>
+                        <td>Fin janvier</td>
+                        <td>Fin mars</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mb-1">
+            Les bulletins des élèves qui n'auront pas payé dans les délais requis
+            seront retenus à la fin du trimestre.
+        </p>
+        <p class="text-muted small mb-0">
+            Élèves étrangers : droit d'inscription supplémentaire de 13 000 FCFA
+            + 500 FCFA par matière facultative.
+        </p>
+    </section>
+
+    {# ----------------------------------------------------------------
+       5. INTERNAT (filles, 6e à 3e).
+       ---------------------------------------------------------------- #}
+    <section class="bg-college-light py-5">
+        <div class="container-fluid px-4 px-lg-5">
+            <div class="section-title">
+                <span class="eyebrow">Hébergement</span>
+                <h2>Internat (filles)</h2>
+            </div>
+            <div class="row g-4">
+                <div class="col-12 col-lg-6">
+                    <ul class="info-list">
+                        <li>Ouvert aux élèves filles de la 6<sup>e</sup> à la 3<sup>e</sup>.</li>
+                        <li>Frais annuels : 50 000 FCFA, payables en deux tranches
+                            (30 000 FCFA à la rentrée, 20 000 FCFA fin mars).</li>
+                        <li>Un tuteur en ville est obligatoire ; il est présenté par les
+                            parents à la responsable du foyer.</li>
+                        <li>L'internat reste fermé pendant tous les congés et vacances.</li>
+                    </ul>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <ul class="info-list">
+                        <li>Une cantine gérée par les Sœurs assure les repas de midi et
+                            du soir, pour 25 000 FCFA par mois.</li>
+                        <li>Le petit déjeuner reste à la charge des parents.</li>
+                        <li>La cantine est obligatoire pour toutes les internes (pas de
+                            cuisine possible sur place).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       6. FOURNITURES SCOLAIRES + CONTACT.
+       ---------------------------------------------------------------- #}
+    <section class="container-fluid px-4 px-lg-5 py-5">
+        <div class="row g-4">
+            <div class="col-12 col-lg-6">
+                <h2 class="h4 text-college-navy">Fournitures scolaires</h2>
+                <p class="mb-0">
+                    Chaque professeur indique les cahiers nécessaires à la rentrée.
+                </p>
+            </div>
+            <div class="col-12 col-lg-6">
+                <h2 class="h4 text-college-navy">Nous contacter</h2>
+                <p class="mb-0">
+                    Collège Adèle, Kara — B.P. 788<br>
+                    Tél. : 26 60 13 84 / 92 16 82 17
+                </p>
+            </div>
+        </div>
+        <div class="text-center mt-5">
+            <a href="{{ path('website_home') }}" class="btn btn-outline-primary btn-lg px-4">
+                Retour à l'accueil
+            </a>
+        </div>
+    </section>
+{% endblock %}

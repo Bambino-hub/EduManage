@@ -1,0 +1,82 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Stagiaires — EduManage{% endblock %}
+{% block page_title %}Stagiaires{% endblock %}
+
+{% block admin_content %}
+<div data-controller="list-filter" data-list-filter-total-value="{{ stagiaires|length }}" data-list-filter-label-value="stagiaire">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h1 class="h4 mb-1">Stagiaires</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem" data-list-filter-target="count">
+            {{ stagiaires|length }} stagiaire{{ stagiaires|length > 1 ? 's' : '' }}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_stagiaire_new') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Ajouter un stagiaire
+        </a>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body border-bottom py-3 no-print">
+        <div class="flex-grow-1" style="max-width:320px">
+            <input type="search" class="form-control form-control-sm" placeholder="Rechercher un nom, une matière…"
+                   data-list-filter-target="search" data-action="input->list-filter#search">
+        </div>
+    </div>
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>NOM ET PRÉNOMS</th>
+                    <th>SEXE</th>
+                    <th>CYCLE</th>
+                    <th>MATIÈRE DE STAGE</th>
+                    <th>ENCADRANT</th>
+                    <th>DÉBUT</th>
+                    <th>FIN</th>
+                    <th>TÉLÉPHONE</th>
+                    <th class="text-end no-print">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stagiaires %}
+                <tr data-list-filter-target="row"
+                    data-search="{{ (s.nomComplet ~ ' ' ~ s.specialite)|lower }}">
+                    <td class="fw-semibold">{{ s.nomComplet }}</td>
+                    <td class="text-muted small">{{ s.sexe ? s.sexe.value : '—' }}</td>
+                    <td class="text-muted small">{{ s.cycle ?? '—' }}</td>
+                    <td class="text-muted small">{{ s.specialite ?? '—' }}</td>
+                    <td class="text-muted small">{{ s.tuteur ? s.tuteur.nomComplet : '—' }}</td>
+                    <td class="text-muted small">{{ s.dateDebutStage ? s.dateDebutStage|date('d/m/Y') : '—' }}</td>
+                    <td class="text-muted small">{{ s.dateFinStage ? s.dateFinStage|date('d/m/Y') : '—' }}</td>
+                    <td class="text-muted small">{{ s.telephone ?? '—' }}</td>
+                    <td class="no-print">
+                        {{ ui.actions(
+                            path('admin_stagiaire_edit', {id: s.id}),
+                            path('admin_stagiaire_delete', {id: s.id}),
+                            s.id,
+                            'Supprimer ' ~ s.nomComplet ~ ' ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(9, 'Aucun stagiaire enregistré.') }}
+                {% endfor %}
+                {% if stagiaires is not empty %}
+                    <tr data-list-filter-target="empty" hidden>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-search fs-3 d-block mb-2 opacity-50"></i>
+                            Aucun stagiaire ne correspond à la recherche.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

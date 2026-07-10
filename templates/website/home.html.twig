@@ -41,32 +41,36 @@
             <div class="col-12 col-md-4">
                 <div class="card formation-card h-100 text-center">
                     <div class="card-body d-flex flex-column p-4">
+                        <img src="{{ asset('images/parcours-college.jpg') }}" alt="Élève du collège"
+                             class="formation-card__photo">
                         <h3 class="h5 card-title text-college-navy">Je suis collégien</h3>
                         <p class="card-text text-muted flex-grow-1">
                             De la 6<sup>e</sup> à la 3<sup>e</sup>, un cadre structurant
                             pour acquérir des bases solides et préparer le BEPC.
                         </p>
-                        {# TODO : route de la future page du cycle Collège. #}
-                        <a href="#" class="btn btn-outline-primary mt-3">Découvrir</a>
+                        <a href="{{ path('website_college') }}" class="btn btn-outline-primary mt-3">Découvrir</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-4">
                 <div class="card formation-card h-100 text-center">
                     <div class="card-body d-flex flex-column p-4">
+                        <img src="{{ asset('images/parcours-lycee.jpg') }}" alt="Élève du lycée"
+                             class="formation-card__photo">
                         <h3 class="h5 card-title text-college-navy">Je suis lycéen</h3>
                         <p class="card-text text-muted flex-grow-1">
                             De la 2<sup>nde</sup> à la Terminale, une préparation au
                             baccalauréat dans les séries D, C et A4.
                         </p>
-                        {# TODO : route de la future page du cycle Lycée. #}
-                        <a href="#" class="btn btn-outline-primary mt-3">Découvrir</a>
+                        <a href="{{ path('website_lycee') }}" class="btn btn-outline-primary mt-3">Découvrir</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-4">
                 <div class="card formation-card h-100 text-center">
                     <div class="card-body d-flex flex-column p-4">
+                        <img src="{{ asset('images/parcours-stylisme.jpg') }}" alt="Élève de la filière stylisme"
+                             class="formation-card__photo">
                         <h3 class="h5 card-title text-college-navy">Je suis styliste</h3>
                         <p class="card-text text-muted flex-grow-1">
                             Une filière dédiée aux métiers de la mode et du stylisme,
@@ -102,12 +106,39 @@
                     </p>
                 </div>
                 <div class="col-12 col-lg-6 order-1 order-lg-2">
-                    {# TODO photo : remplacer ce bloc par
-                       <img src="{{ asset('images/etablissement.jpg') }}"
-                            alt="Le Collège Adèle" class="img-fluid rounded shadow-sm">
-                       une fois la photo fournie. #}
-                    <div class="photo-placeholder">
-                        <span>Photo de l'établissement (à venir)</span>
+                    <div id="etablissementCarousel" class="carousel slide etablissement-carousel" data-bs-ride="carousel">
+                        <div class="carousel-indicators">
+                            <button type="button" data-bs-target="#etablissementCarousel" data-bs-slide-to="0"
+                                    class="active" aria-current="true" aria-label="Photo 1"></button>
+                            <button type="button" data-bs-target="#etablissementCarousel" data-bs-slide-to="1"
+                                    aria-label="Photo 2"></button>
+                            <button type="button" data-bs-target="#etablissementCarousel" data-bs-slide-to="2"
+                                    aria-label="Photo 3"></button>
+                            <button type="button" data-bs-target="#etablissementCarousel" data-bs-slide-to="3"
+                                    aria-label="Photo 4"></button>
+                        </div>
+                        <div class="carousel-inner">
+                            <div class="carousel-item active">
+                                <img src="{{ asset('images/etablissement-1.jpg') }}" alt="Bâtiment du Collège Adèle">
+                            </div>
+                            <div class="carousel-item">
+                                <img src="{{ asset('images/etablissement-2.jpg') }}" alt="Cour intérieure du Collège Adèle">
+                            </div>
+                            <div class="carousel-item">
+                                <img src="{{ asset('images/etablissement-3.jpg') }}" alt="Vue de la cour du Collège Adèle">
+                            </div>
+                            <div class="carousel-item">
+                                <img src="{{ asset('images/etablissement-4.jpg') }}" alt="Bâtiment et cour du Collège Adèle">
+                            </div>
+                        </div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#etablissementCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Précédent</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#etablissementCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Suivant</span>
+                        </button>
                     </div>
                 </div>
             </div>

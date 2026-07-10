@@ -9,7 +9,7 @@ import { Controller } from '@hotwired/stimulus';
  */
 export default class extends Controller {
     static targets = ['row', 'search', 'empty', 'count'];
-    static values = { total: Number };
+    static values = { total: Number, label: { type: String, default: 'élément' } };
 
     connect() {
         this.filters = {};
@@ -48,8 +48,8 @@ export default class extends Controller {
 
         if (this.hasCountTarget) {
             this.countTarget.textContent = visible === this.totalValue
-                ? `${visible} enseignant${visible > 1 ? 's' : ''}`
-                : `${visible} / ${this.totalValue} enseignant${this.totalValue > 1 ? 's' : ''}`;
+                ? `${visible} ${this.labelValue}${visible > 1 ? 's' : ''}`
+                : `${visible} / ${this.totalValue} ${this.labelValue}${this.totalValue > 1 ? 's' : ''}`;
         }
 
         if (this.hasEmptyTarget) {
