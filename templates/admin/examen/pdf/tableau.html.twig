@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; }
+    h1 { font-size: 15px; margin: 0 0 2px; text-align: center; text-transform: uppercase; }
+    .sous-titre { color: #555; font-size: 10px; margin: 0 0 12px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: fixed; }
+    th, td { border: 1px solid #333; padding: 4px; text-align: center; vertical-align: top; }
+    th { background: #eef0f5; font-weight: bold; }
+    td.jour { font-weight: bold; text-transform: uppercase; width: 70px; }
+    td.heure { font-weight: bold; width: 55px; white-space: nowrap; }
+    .matiere { font-weight: bold; }
+</style>
+</head>
+<body>
+    <h1>Programme des devoirs — {{ cycle.nom }}</h1>
+    <p class="sous-titre">{{ entete ?: (annee ? 'Année scolaire ' ~ annee.libelle : '') }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:70px">Jours</th>
+                <th style="width:55px">Heures</th>
+                {% for niveau in cycle.niveaux %}<th>{{ niveau.nomComplet }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in lignes %}
+                <tr>
+                    <td class="jour">{{ ligne.jourSemaine ? ligne.jourSemaine.label()|upper : '' }} {{ ligne.date|date('d/m') }}</td>
+                    <td class="heure">{{ ligne.heureDebut|date('H:i') }}-{{ ligne.heureFin|date('H:i') }}</td>
+                    {% for niveau in cycle.niveaux %}
+                        {% set examensNiveau = ligne.examensParNiveau[niveau.id] ?? [] %}
+                        <td>
+                            {% if examensNiveau is empty %}
+                                —
+                            {% else %}
+                                {% for examen in examensNiveau %}
+                                    {% if not loop.first %}<br>{% endif %}
+                                    <span class="matiere">{{ examen.matiere.code }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -129,6 +129,25 @@
                 Génération auto
             </a>
 
+            {# — Examens — #}
+            <div class="sidebar-section-label">Examens</div>
+
+            <a href="{{ path('admin_examen_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_examen' %}active{% endif %}">
+                <i class="bi bi-journal-text"></i>
+                Examens
+            </a>
+            <a href="{{ path('admin_surveillance_index') }}"
+               class="sidebar-link sidebar-link-accent {% if currentRoute starts with 'admin_surveillance' %}active{% endif %}">
+                <i class="bi bi-shield-check"></i>
+                Tableau de surveillance
+            </a>
+            <a href="{{ path('admin_regroupement_surveillance_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_regroupement_surveillance' %}active{% endif %}">
+                <i class="bi bi-people-fill"></i>
+                Regroupements surveillance
+            </a>
+
             {# — Administration — #}
             <div class="sidebar-section-label">Administration</div>
 

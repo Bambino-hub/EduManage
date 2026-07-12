@@ -39,4 +39,22 @@ class EnseignantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Pool mobilisable par la génération auto du tableau de surveillance : enseignants
+     * internes et stagiaires actifs — les vacataires ("externe") et le personnel
+     * non-enseignant ("autre") en sont exclus.
+     *
+     * @return Enseignant[]
+     */
+    public function findEligiblesSurveillance(): array
+    {
+        return $this->createQueryBuilder('e')
+            ->where('e.actif = true')
+            ->andWhere('e.type IN (:types)')
+            ->setParameter('types', [TypePersonnel::INTERNE, TypePersonnel::STAGIAIRE])
+            ->orderBy('e.nom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

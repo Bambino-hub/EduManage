@@ -1,0 +1,104 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Examens — {{ cycle.nom }} — EduManage{% endblock %}
+{% block page_title %}Examens — {{ cycle.nom }}{% endblock %}
+
+{% block admin_content %}
+<style>
+    .exam-program-table th, .exam-program-table td { border: 1px solid #dee2e6 !important; vertical-align: top; }
+    .exam-program-table thead th { background: #f8f9fb; text-transform: uppercase; font-weight: 700; font-size: .78rem; text-align: center; }
+    .exam-program-day { font-weight: 700; font-size: .82rem; text-transform: uppercase; white-space: nowrap; }
+    .exam-program-slot { font-weight: 600; font-size: .82rem; white-space: nowrap; }
+    .exam-entry { padding: .35rem; border: 1px solid #e4e7ec; border-radius: .3rem; margin-bottom: .35rem; }
+    .exam-entry:last-child { margin-bottom: 0; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">{{ entete ?: 'Programme des devoirs — ' ~ cycle.nom }}</h1>
+        <p class="text-muted mb-0 small">{{ annee ? 'Année scolaire ' ~ annee.libelle : 'Aucune année scolaire active' }}</p>
+    </div>
+</div>
+
+<form method="get" class="card card-body mb-3 border-0 shadow-sm" style="background:#f8f9fb">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-9">
+            <label class="form-label fw-semibold" for="entete">En-tête personnalisé</label>
+            <input id="entete" name="entete" class="form-control" value="{{ entete }}" placeholder="Texte libre (optionnel)">
+        </div>
+        <div class="col-lg-3 d-grid">
+            <button class="btn btn-dark" type="submit">Appliquer</button>
+        </div>
+    </div>
+</form>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ path('admin_examen_new', {cycle: cycle.id}) }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Créer un examen
+    </a>
+    <a href="{{ path('admin_examen_export_pdf', {cycle: cycle.id, entete: entete}) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter les examens en PDF
+    </a>
+    <a href="{{ path('admin_surveillance_tableau', {cycle: cycle.id, entete: entete}) }}" class="btn btn-info btn-sm">
+        <i class="bi bi-shield-check me-1"></i>Tableau de surveillance
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body">
+        <div class="text-center mb-3">
+            <h5 class="fw-bold mb-1">PROGRAMME DES DEVOIRS</h5>
+            <div class="text-muted small">CYCLE : {{ cycle.nom|upper }}</div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table exam-program-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="min-width:150px">Jours</th>
+                        <th style="min-width:100px">Heures</th>
+                        {% for niveau in cycle.niveaux %}
+                            <th>{{ niveau.nomComplet }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                        <tr>
+                            <td class="exam-program-day">
+                                {{ ligne.jourSemaine ? ligne.jourSemaine.label()|upper : '' }}<br>
+                                {{ ligne.date|date('d/m/Y') }}
+                            </td>
+                            <td class="exam-program-slot">{{ ligne.heureDebut|date('H:i') }} - {{ ligne.heureFin|date('H:i') }}</td>
+                            {% for niveau in cycle.niveaux %}
+                                <td>
+                                    {% set examensNiveau = ligne.examensParNiveau[niveau.id] ?? [] %}
+                                    {% if examensNiveau is empty %}
+                                        <span class="text-muted">-</span>
+                                    {% else %}
+                                        {% for examen in examensNiveau %}
+                                            <div class="exam-entry">
+                                                <div class="fw-semibold">{{ examen.matiere.code }}</div>
+                                                <div class="d-flex gap-2 mt-2">
+                                                    <a href="{{ path('admin_examen_edit', {cycle: cycle.id, examen: examen.id}) }}" class="btn btn-sm btn-warning">Modifier</a>
+                                                    <form method="post" action="{{ path('admin_examen_delete', {cycle: cycle.id, examen: examen.id}) }}" onsubmit="return confirm('Supprimer cet examen ?');">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ examen.id) }}">
+                                                        <button class="btn btn-sm btn-danger" type="submit">Supprimer</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% else %}
+                        {{ ui.empty_row(2 + cycle.niveaux|length, 'Aucun examen programmé pour ce cycle.') }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

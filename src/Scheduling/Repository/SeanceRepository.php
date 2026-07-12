@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Scheduling\Repository;
 
 use App\Scheduling\Entity\Seance;
+use App\Scheduling\Enum\JourSemaine;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -74,6 +75,34 @@ class SeanceRepository extends ServiceEntityRepository
             ->addOrderBy('c.heureDebut', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * IDs des enseignants ayant cours un jour de la semaine donné sur un horaire qui chevauche
+     * [heureDebut, heureFin[ — utilisé par SurveillanceGenerator (module Exam) pour ne pas
+     * mobiliser en surveillance un enseignant déjà en classe au moment d'une épreuve.
+     *
+     * @return int[]
+     */
+    public function findEnseignantIdsOccupes(
+        JourSemaine $jour,
+        \DateTimeImmutable $heureDebut,
+        \DateTimeImmutable $heureFin,
+    ): array {
+        $rows = $this->createQueryBuilder('s')
+            ->select('DISTINCT IDENTITY(a.enseignant) as enseignantId')
+            ->join('s.attribution', 'a')
+            ->join('s.creneau', 'c')
+            ->where('c.jourSemaine = :jour')
+            ->andWhere('c.heureDebut < :heureFin')
+            ->andWhere('c.heureFin > :heureDebut')
+            ->setParameter('jour', $jour)
+            ->setParameter('heureFin', $heureFin)
+            ->setParameter('heureDebut', $heureDebut)
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn(array $r) => (int) $r['enseignantId'], $rows);
     }
 
     /** Détecte si un créneau est déjà pris pour une salle donnée */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Academic\Entity;
 
+use App\Academic\Enum\DomaineMatiere;
 use App\Academic\Enum\GroupeOptionnel;
 use App\Academic\Enum\TypeSalle;
 use App\Academic\Repository\MatiereRepository;
@@ -38,6 +39,13 @@ class Matiere
 
     #[ORM\Column(length: 20, nullable: true, enumType: TypeSalle::class)]
     private ?TypeSalle $salleRequise = null;
+
+    /**
+     * Classification utilisée par la génération auto du tableau de surveillance : priorise les
+     * enseignants/stagiaires du même domaine pour les épreuves scientifiques (Maths, SVT, PC...).
+     */
+    #[ORM\Column(length: 20, nullable: true, enumType: DomaineMatiere::class)]
+    private ?DomaineMatiere $domaine = null;
 
     #[ORM\OneToMany(
         targetEntity: MatiereNiveau::class,
@@ -95,6 +103,14 @@ class Matiere
     public function setSalleRequise(?TypeSalle $salleRequise): static
     {
         $this->salleRequise = $salleRequise;
+        return $this;
+    }
+
+    public function getDomaine(): ?DomaineMatiere { return $this->domaine; }
+
+    public function setDomaine(?DomaineMatiere $domaine): static
+    {
+        $this->domaine = $domaine;
         return $this;
     }
 

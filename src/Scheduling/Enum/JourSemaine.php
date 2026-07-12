@@ -29,4 +29,23 @@ enum JourSemaine: string
             self::SAMEDI   => 6,
         };
     }
+
+    /**
+     * Jour de la semaine correspondant à une date calendaire (null le dimanche, jour sans
+     * grille de cours). Source unique de cette correspondance — utilisée à la fois par le
+     * module Exam (Examen::getJourSemaine()) pour croiser une date d'examen avec la grille
+     * hebdomadaire Creneau, et pour l'affichage des tableaux par cycle.
+     */
+    public static function depuisDate(\DateTimeImmutable $date): ?self
+    {
+        return match ((int) $date->format('N')) {
+            1 => self::LUNDI,
+            2 => self::MARDI,
+            3 => self::MERCREDI,
+            4 => self::JEUDI,
+            5 => self::VENDREDI,
+            6 => self::SAMEDI,
+            default => null,
+        };
+    }
 }

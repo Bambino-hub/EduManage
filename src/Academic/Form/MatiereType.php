@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Academic\Form;
 
 use App\Academic\Entity\Matiere;
+use App\Academic\Enum\DomaineMatiere;
 use App\Academic\Enum\GroupeOptionnel;
 use App\Academic\Enum\TypeSalle;
 use Symfony\Component\Form\AbstractType;
@@ -51,6 +52,15 @@ class MatiereType extends AbstractType
                 'required'    => false,
                 'help'        => 'À renseigner si cette matière nécessite une salle spécialisée '
                     .'(labo, salle info, gymnase) au lieu de la salle habituelle de la classe.',
+            ])
+            ->add('domaine', EnumType::class, [
+                'label'       => 'Domaine',
+                'class'       => DomaineMatiere::class,
+                'choice_label' => fn(DomaineMatiere $d) => $d->label(),
+                'placeholder' => 'Non classé',
+                'required'    => false,
+                'help'        => 'Utilisé par la génération auto du tableau de surveillance pour '
+                    .'prioriser les enseignants du même domaine sur les épreuves scientifiques.',
             ])
             ->add('matiereNiveaux', CollectionType::class, [
                 'entry_type'   => MatiereNiveauType::class,
