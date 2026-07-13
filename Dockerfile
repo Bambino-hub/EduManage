@@ -1,8 +1,3 @@
-FROM composer:2 AS composer_stage
-WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
-
 FROM php:8.4-apache
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -12,11 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     unzip \
     git \
-    && docker-php-ext-install intl pdo_mysql zip gd opcache \
+    && docker-php-ext-install intl pdo_mysql zip gd mbstring opcache \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer_stage /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
@@ -26,13 +21,18 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 
 WORKDIR /var/www/html
 
-COPY --from=composer_stage /app/vendor ./vendor
-COPY . .
-
 # APP_ENV/APP_SECRET par défaut pour que le build (asset-mapper:compile) puisse
 # démarrer le kernel ; Render écrase ces valeurs à l'exécution avec les vraies.
 ENV APP_ENV=prod
 ENV APP_SECRET=build_time_placeholder
+
+# Copié avant le reste du code pour profiter du cache Docker tant que
+# composer.json/lock ne changent pas. Les extensions PHP sont déjà installées
+# ici, donc Composer peut vérifier les platform requirements correctement.
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+COPY . .
 
 RUN composer dump-autoload --optimize --no-dev \
     && php bin/console asset-mapper:compile \
