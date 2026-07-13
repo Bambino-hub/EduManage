@@ -35,6 +35,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 COPY . .
 
 RUN composer dump-autoload --optimize --no-dev \
+    && php bin/console importmap:install \
     && php bin/console asset-map:compile \
     && mkdir -p var/cache var/log \
     && chown -R www-data:www-data var public/documents
