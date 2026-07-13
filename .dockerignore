@@ -1,0 +1,9 @@
+.git
+var/
+vendor/
+node_modules/
+.env.local
+.env.local.php
+.env.*.local
+public/assets/
+assets/vendor/
