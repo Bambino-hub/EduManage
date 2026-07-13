@@ -28,7 +28,7 @@
 
 .admin-sidebar {
     width: var(--admin-sidebar-w);
-    min-height: 100vh;
+    height: 100vh;
     background: linear-gradient(175deg, var(--admin-sidebar-bg) 0%, var(--admin-sidebar-bg2) 100%);
     position: fixed;
     top: 0;

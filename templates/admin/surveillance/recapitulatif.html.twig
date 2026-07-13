@@ -1,0 +1,87 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Récapitulatif des surveillants — EduManage{% endblock %}
+{% block page_title %}Récapitulatif des surveillants{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">Récapitulatif des surveillants</h1>
+        <p class="text-muted mb-0 small">
+            Nombre total de surveillances par enseignant, tous cycles et examens confondus — pour repérer un déséquilibre en un coup d'œil.
+        </p>
+    </div>
+    <a href="{{ path('admin_surveillance_index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="admin-card text-center py-3">
+            <div class="fs-4 fw-bold">{{ lignes|length }}</div>
+            <div class="text-muted small">Surveillants</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="admin-card text-center py-3">
+            <div class="fs-4 fw-bold">{{ total }}</div>
+            <div class="text-muted small">Surveillances au total</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="admin-card text-center py-3">
+            <div class="fs-4 fw-bold">{{ moyenne|round(1) }}</div>
+            <div class="text-muted small">Moyenne par enseignant</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="admin-card text-center py-3">
+            <div class="fs-4 fw-bold">{{ min }} – {{ max }}</div>
+            <div class="text-muted small">Écart min – max</div>
+        </div>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>NOM ET PRÉNOMS</th>
+                        <th>FONCTION</th>
+                        <th>STATUT</th>
+                        <th>CYCLE</th>
+                        <th>TOTAL SURVEILLANCES</th>
+                        <th class="text-end no-print">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                        <tr>
+                            <td class="fw-semibold">{{ ligne.enseignant.nomComplet }}</td>
+                            <td class="text-muted small">{{ ligne.enseignant.poste ?? '—' }}</td>
+                            <td><span class="badge bg-secondary">{{ ligne.enseignant.type.label() }}</span></td>
+                            <td class="text-muted small">{{ ligne.enseignant.cycle ?? '—' }}</td>
+                            <td>
+                                <span class="badge {{ ligne.charge == 0 ? 'bg-danger' : 'bg-primary' }} fs-6">
+                                    {{ ligne.charge }}
+                                </span>
+                            </td>
+                            <td class="text-end no-print">
+                                <a href="{{ path('admin_enseignant_show', {id: ligne.enseignant.id}) }}" class="btn btn-sm btn-outline-secondary" title="Voir">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        {{ ui.empty_row(6, 'Aucun surveillant éligible pour l\'instant.') }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

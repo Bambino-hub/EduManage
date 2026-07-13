@@ -63,6 +63,7 @@
                     <th>SEXE</th>
                     <th>MATRICULE</th>
                     <th>STATUT</th>
+                    <th>FONCTION</th>
                     <th>DISCIPLINE</th>
                     <th>CYCLE</th>
                     <th>CONTACT</th>
@@ -79,6 +80,7 @@
                     <td class="text-muted small">{{ e.sexe ? e.sexe.value : '—' }}</td>
                     <td class="text-muted small">{{ e.matricule ?? 'Privé' }}</td>
                     <td><span class="badge bg-secondary">{{ e.type.label() }}</span></td>
+                    <td class="text-muted small">{{ e.poste ?? '—' }}</td>
                     <td>
                         {% if e.disciplines is not empty %}
                             <div class="d-flex flex-wrap gap-1">
@@ -99,16 +101,17 @@
                             path('admin_enseignant_edit', {id: e.id}),
                             path('admin_enseignant_delete', {id: e.id}),
                             e.id,
-                            'Supprimer ' ~ e.nomComplet ~ ' ?'
+                            'Supprimer ' ~ e.nomComplet ~ ' ?',
+                            path('admin_enseignant_show', {id: e.id})
                         ) }}
                     </td>
                 </tr>
                 {% else %}
-                    {{ ui.empty_row(8, 'Aucun enseignant enregistré.') }}
+                    {{ ui.empty_row(9, 'Aucun enseignant enregistré.') }}
                 {% endfor %}
                 {% if enseignants is not empty %}
                     <tr data-list-filter-target="empty" hidden>
-                        <td colspan="8" class="text-center text-muted py-5">
+                        <td colspan="9" class="text-center text-muted py-5">
                             <i class="bi bi-search fs-3 d-block mb-2 opacity-50"></i>
                             Aucun enseignant ne correspond à la recherche.
                         </td>

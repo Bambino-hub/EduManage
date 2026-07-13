@@ -1,5 +1,10 @@
-{% macro actions(edit_path, delete_path, delete_id, confirm_msg) %}
+{% macro actions(edit_path, delete_path, delete_id, confirm_msg, view_path) %}
 <div class="d-flex gap-1 justify-content-end">
+    {% if view_path is defined and view_path %}
+        <a href="{{ view_path }}" class="btn btn-sm btn-outline-secondary" title="Voir">
+            <i class="bi bi-eye"></i>
+        </a>
+    {% endif %}
     <a href="{{ edit_path }}" class="btn btn-sm btn-outline-primary" title="Modifier">
         <i class="bi bi-pencil"></i>
     </a>

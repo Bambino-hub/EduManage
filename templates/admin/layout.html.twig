@@ -138,9 +138,14 @@
                 Examens
             </a>
             <a href="{{ path('admin_surveillance_index') }}"
-               class="sidebar-link sidebar-link-accent {% if currentRoute starts with 'admin_surveillance' %}active{% endif %}">
+               class="sidebar-link sidebar-link-accent {% if currentRoute starts with 'admin_surveillance' and currentRoute != 'admin_surveillance_recapitulatif' %}active{% endif %}">
                 <i class="bi bi-shield-check"></i>
                 Tableau de surveillance
+            </a>
+            <a href="{{ path('admin_surveillance_recapitulatif') }}"
+               class="sidebar-link {% if currentRoute == 'admin_surveillance_recapitulatif' %}active{% endif %}">
+                <i class="bi bi-bar-chart-fill"></i>
+                Récapitulatif surveillants
             </a>
             <a href="{{ path('admin_regroupement_surveillance_index') }}"
                class="sidebar-link {% if currentRoute starts with 'admin_regroupement_surveillance' %}active{% endif %}">

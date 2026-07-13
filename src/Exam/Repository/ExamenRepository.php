@@ -64,4 +64,26 @@ class ExamenRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Examens donnés par id, avec niveaux déjà chargés — utilisé par la permutation manuelle
+     * pour résoudre les examens d'origine et de destination d'un lot de changements.
+     *
+     * @param int[] $ids
+     * @return Examen[]
+     */
+    public function findByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('e')
+            ->join('e.niveaux', 'n')
+            ->addSelect('n')
+            ->where('e.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+    }
 }

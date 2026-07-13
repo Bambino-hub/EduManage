@@ -18,7 +18,6 @@ use App\Exam\Repository\SurveillanceRepository;
 use App\Exam\Service\Dto\GenerationResultSurveillance;
 use App\Exam\Service\Dto\PosteNonPourvu;
 use App\Scheduling\Repository\AttributionRepository;
-use App\Scheduling\Repository\SeanceRepository;
 use App\Staff\Entity\Enseignant;
 use App\Staff\Repository\EnseignantRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,46 +26,110 @@ use Doctrine\ORM\EntityManagerInterface;
  * Génère automatiquement le tableau de surveillance : affecte des enseignants aux classes de
  * chaque examen de l'année scolaire, **tous cycles confondus en un seul passage** (voir
  * décision ci-dessous), en respectant :
- *  - la disponibilité réelle (pas déjà en cours normal à ce moment, croisé avec la grille
- *    Creneau existante via Examen::getJourSemaine()) — contrainte dure ;
- *  - le pool éligible : enseignants **internes et stagiaires actifs** (ni externes, ni
- *    personnel non-enseignant) ;
- *  - la priorité, dans l'ordre, à (1) un enseignant de la matière exacte de l'examen, (2) à
- *    défaut un enseignant du même domaine (scientifique/littéraire), (3) à défaut n'importe
- *    quel enseignant du pool — avec un **quota minimum ciblé** (jusqu'à 3) d'enseignants de la
- *    matière exacte forcé en priorité absolue sur l'ensemble de l'examen (toutes classes
- *    confondues), tant qu'il reste des candidats de cette matière disponibles ;
- *  - la priorité aux enseignants du **même cycle** que l'examen (déduit des niveaux de
- *    l'examen), complétée par l'autre cycle en cas de manque, sans jamais casser l'équilibrage
- *    au-delà d'une tolérance ;
+ *  - la seule contrainte de disponibilité réelle en période d'examens : ne pas déjà surveiller
+ *    un AUTRE examen dont l'horaire chevauche (`Examen::chevauche()`) — les cours normaux sont
+ *    suspendus pendant les examens, donc la grille Creneau habituelle n'est plus pertinente ici
+ *    (vérifiée jusqu'au 2026-07-13, retirée ce jour-là — voir décision "cours suspendus" ci-dessous) ;
+ *  - le pool éligible : enseignants **internes dont le poste est un poste d'enseignement, et
+ *    stagiaires actifs** (ni externes, ni personnel non-enseignant même de type "interne" —
+ *    Censeur, Économe, Secrétaire, etc.) ;
+ *  - l'ÉQUITÉ DE CHARGE avant tout : à chaque poste à pourvoir, seuls les candidats dont la
+ *    charge actuelle est au plus `TOLERANCE_EQUILIBRAGE` au-dessus du minimum parmi les
+ *    disponibles ("bande d'équité") sont considérés — jamais quelqu'un de plus chargé, quelle
+ *    que soit sa pertinence de matière (voir décision "priorité à l'équité" ci-dessous) ;
+ *  - à l'intérieur de cette bande d'équité seulement, priorité à (1) un enseignant de la
+ *    matière exacte de l'examen, (2) à défaut un enseignant du même domaine
+ *    (scientifique/littéraire), (3) à défaut n'importe qui de la bande ;
+ *  - la règle de cycle DURE (voir décision ci-dessous) : un enseignant rattaché à un seul cycle
+ *    (`Enseignant::cycle` = "1" ou "2") ne surveille JAMAIS l'autre cycle ; un enseignant partagé
+ *    ("1/2", ou cycle non renseigné) peut surveiller les deux ;
  *  - l'équilibrage du nombre de surveillances entre enseignants sur **toute l'année, les deux
  *    cycles confondus** ;
  *  - les classes réunies via `RegroupementSurveillance` (ex. 1ère C + 1ère D1, physiquement
  *    dans la même salle) reçoivent toujours le(s) même(s) surveillant(s) — un seul jeu de
  *    postes pour le groupe, pas un par classe.
  *
- * DÉCISION : générer cycle par cycle indépendamment a été essayé puis abandonné (mesuré le
- * 2026-07-12) — le cycle généré EN PREMIER atteignait systématiquement ~100% de postes pourvus
- * tandis que le second, généré avec un pool déjà partiellement consommé par des enseignants
- * "1/2" (partagés entre les deux cycles), plafonnait à ~65-70%. Un seul passage sur TOUS les
- * examens de l'année (mélangés, pas traités cycle par cycle) élimine cet effet d'ordre : les
- * deux cycles sont alors en compétition équitable pour le même pool partagé pendant toute la
- * génération, au lieu que l'un monopolise les enseignants "1/2" avant que l'autre ne démarre.
+ * DÉCISION (cycle par cycle vs global) : générer cycle par cycle indépendamment a été essayé
+ * puis abandonné (mesuré le 2026-07-12) — le cycle généré EN PREMIER atteignait systématiquement
+ * ~100% de postes pourvus tandis que le second, généré avec un pool déjà partiellement consommé
+ * par des enseignants "1/2" (partagés entre les deux cycles), plafonnait à ~65-70%. Un seul
+ * passage sur TOUS les examens de l'année (mélangés, pas traités cycle par cycle) élimine cet
+ * effet d'ordre : les deux cycles sont alors en compétition équitable pour le même pool partagé
+ * pendant toute la génération, au lieu que l'un monopolise les enseignants "1/2" avant que
+ * l'autre ne démarre.
+ *
+ * DÉCISION (règle de cycle dure + suppression de la vérification EDT, 2026-07-13) : l'utilisateur
+ * a demandé si bloquer STRICTEMENT un enseignant mono-cycle sur son propre cycle améliorerait
+ * l'équité de charge. Mesuré (générateur dupliqué temporairement, code supprimé après coup) : en
+ * gardant la vérification EDT normale, la règle dure faisait chuter le remplissage à 181/223
+ * postes (42 non pourvus, concentrés sur le cycle 2 dont le pool dédié est trop petit face à sa
+ * charge). L'utilisateur a alors fait remarquer que les cours normaux sont SUSPENDUS pendant les
+ * examens — la vérification EDT (grille Creneau habituelle) n'a donc plus lieu d'être : seul le
+ * non-chevauchement avec une AUTRE surveillance reste une vraie contrainte. Une fois la
+ * vérification EDT retirée, la règle dure atteint 223/223 (100%) ET améliore l'écart-type de
+ * charge par rapport à la préférence souple précédente — mais voir la décision suivante : cet
+ * écart-type restait trompeur, l'écart RÉEL min/max était encore trop grand pour être perçu
+ * comme juste par un humain qui compte les postes un par un.
+ *
+ * DÉCISION (priorité à l'équité, refonte 2026-07-13, même session) : l'utilisateur a compté
+ * lui-même le nombre de surveillances par enseignant et signalé une vraie injustice — certains à
+ * 3, d'autres à 6-7, "si c'est une surveillance de surplus c'est acceptable, au-delà c'est
+ * injuste". Root cause identifiée en deux temps :
+ *  1. Le "quota minimum 3 enseignants de la matière exacte" forçait un enseignant de la matière
+ *     en priorité ABSOLUE (sans aucune vérification de charge) tant que le quota de l'examen
+ *     n'était pas atteint — un enseignant d'une matière peu pourvue en pool (ex. Informatique, 2-3
+ *     personnes) se voyait donc réaffecté sans limite à chaque examen de sa matière, quel que soit
+ *     son écart de charge avec le reste du pool.
+ *  2. Même une fois le quota atteint, la comparaison matière-vs-reste puis domaine-vs-reste
+ *     utilisait CHACUNE sa propre tolérance de 2 en cascade (`combinerPriorite` imbriqué deux
+ *     fois) : l'écart final toléré entre le candidat choisi et le vrai minimum du pool pouvait
+ *     donc composer jusqu'à 4, pas 2.
+ * Corrigé en remplaçant toute la cascade par une "bande d'équité" calculée UNE SEULE FOIS par
+ * poste (candidats dont la charge ≤ minimum des disponibles + `TOLERANCE_EQUILIBRAGE`), la
+ * préférence matière/domaine ne s'appliquant plus JAMAIS en dehors de cette bande — plus de
+ * dérogation "quota" qui outrepasse l'équité, plus de composition de tolérances.
+ *
+ * `TOLERANCE_EQUILIBRAGE` testé en conditions réelles à 1 PUIS à 0 (plusieurs régénérations
+ * consécutives à chaque valeur, mesurées) : à 1, l'écart min/max observé par groupe de cycle
+ * restait à 2-3 (occasionnellement 4) — encore perceptible comme injuste en comptage manuel. À 0
+ * (un candidat n'est retenu que s'il est EXACTEMENT au minimum de charge des disponibles pour ce
+ * poste ; la préférence matière/domaine ne sert alors qu'à départager d'authentiques ex-æquo),
+ * l'écart observé descend à 1-2 de façon quasi systématique, pour un coût mesuré négligeable sur
+ * la pertinence pédagogique (taux d'affectation en matière exacte : 60/208 ≈ 29% à tolérance 1,
+ * contre 53/208 ≈ 25% à tolérance 0). Retenu à 0 : l'équité prime désormais explicitement sur la
+ * préférence de matière dès qu'elles entrent en conflit.
+ *
+ * DÉCISION (passe de rééquilibrage final, 2026-07-13, même session) : même à tolérance 0, un
+ * écart final de 2 restait courant (ex. 7 enseignants à 6, 9 à 4, le reste à 5) — la bande
+ * d'équité ne regarde que le minimum DISPONIBLE pour un poste donné à un instant T, elle ne peut
+ * pas revenir en arrière si les disponibilités réelles (chevauchements d'examens) ont empêché
+ * d'atteindre le minimum global à ce moment précis. L'utilisateur a demandé si l'écart pouvait
+ * descendre à 0, ou à défaut 1. Ajout de `reequilibrer()`, exécutée une fois la génération
+ * gloutonne terminée : VISE l'égalité parfaite (max === min) — tant que ce n'est pas le cas,
+ * cherche un échange enseignant-le-plus-chargé ↔ enseignant-le-moins-chargé sur un examen que le
+ * second peut reprendre (cycle valide, pas de chevauchement, pas déjà sur cet examen) et
+ * l'applique, jusqu'à ce qu'aucun échange de ce type ne soit plus possible. Ne déplace jamais une
+ * surveillance seule d'un `RegroupementSurveillance` — tout le groupe de lignes de l'examen
+ * concerné migre ensemble vers le nouvel enseignant.
+ *
+ * Un écart de 0 n'est mathématiquement atteignable QUE si le total de postes est divisible par
+ * la taille du pool (ex. 208 postes / 42 enseignants = 4,95 → même dans le meilleur des cas,
+ * 40 personnes à 5 et 2 à 4, écart plancher = 1, quelles que soient les disponibilités). Dans ce
+ * cas `reequilibrer()` converge vers 1 et s'arrête proprement (aucun swap ne peut plus réduire
+ * l'écart). Un écart final > 1 malgré la passe indique une vraie contrainte de disponibilité
+ * (chevauchements d'examens qui empêchent tout transfert supplémentaire), pas un bug.
  */
 class ExamenSurveillanceGenerator
 {
-    /** Écart de charge au-delà duquel on préfère un enseignant de l'autre cycle moins chargé. */
-    private const TOLERANCE_CYCLE = 2;
-
-    /** Écart de charge au-delà duquel on préfère un enseignant hors de la matière/du domaine préféré. */
-    private const TOLERANCE_EQUILIBRAGE = 2;
-
-    /** Nombre d'enseignants de la matière exacte visé par examen (toutes classes confondues). */
-    private const QUOTA_MEME_MATIERE_CIBLE = 3;
+    /**
+     * Écart de charge maximum toléré, au-dessus du minimum parmi les candidats disponibles pour
+     * un poste donné, pour rester dans la "bande d'équité" de ce poste. Voir la décision
+     * "priorité à l'équité" ci-dessus pour la comparaison chiffrée à 1 vs 0 qui a mené à ce choix.
+     */
+    private const TOLERANCE_EQUILIBRAGE = 0;
 
     public function __construct(
         private readonly ExamenRepository $examenRepo,
-        private readonly SeanceRepository $seanceRepo,
         private readonly EnseignantRepository $enseignantRepo,
         private readonly AttributionRepository $attributionRepo,
         private readonly SurveillanceRepository $surveillanceRepo,
@@ -107,21 +170,18 @@ class ExamenSurveillanceGenerator
 
         $chargeParEnseignant          = [];
         $examensAffectesParEnseignant = [];
+        $poolParId                    = [];
         foreach ($pool as $enseignant) {
             $chargeParEnseignant[$enseignant->getId()] = 0;
+            $poolParId[$enseignant->getId()]           = $enseignant;
         }
 
-        $surveillancesCreees   = 0;
-        $postesRequis          = 0;
-        $postesNonPourvus      = [];
-        $matiereCountParExamen = [];
+        $surveillancesCreees              = 0;
+        $postesRequis                     = 0;
+        $postesNonPourvus                 = [];
+        $surveillancesParExamenEtEnseignant = [];
 
         foreach ($examens as $examen) {
-            $jour       = $examen->getJourSemaine();
-            $occupesEdt = $jour !== null
-                ? array_flip($this->seanceRepo->findEnseignantIdsOccupes($jour, $examen->getHeureDebut(), $examen->getHeureFin()))
-                : [];
-
             $niveauIds         = array_map(static fn(Niveau $n) => $n->getId(), $examen->getNiveaux()->toArray());
             $classesConcernees = array_values(array_filter(
                 $classesActives,
@@ -129,7 +189,6 @@ class ExamenSurveillanceGenerator
             ));
 
             $unites        = $this->regrouperClasses($classesConcernees, $groupeParClasseId);
-            $matiereId     = $examen->getMatiere()?->getId();
             $premierNiveau = $examen->getNiveaux()->first();
             $cycle         = $premierNiveau !== false ? $premierNiveau->getCycle() : null;
             shuffle($unites);
@@ -141,19 +200,15 @@ class ExamenSurveillanceGenerator
                 for ($i = 0; $i < $requis; $i++) {
                     $postesRequis++;
 
-                    $quotaAtteint = ($matiereCountParExamen[$examen->getId()] ?? 0) >= self::QUOTA_MEME_MATIERE_CIBLE;
-
                     $candidat = $this->meilleurCandidat(
                         $pool,
                         $cycle,
-                        $occupesEdt,
                         $examensAffectesParEnseignant,
                         $dejaAffecteCetteUnite,
                         $chargeParEnseignant,
                         $enseigne,
                         $domainesEnseignant,
                         $examen,
-                        $quotaAtteint,
                     );
 
                     if ($candidat === null) {
@@ -167,6 +222,8 @@ class ExamenSurveillanceGenerator
                         $surveillance->setClasse($classe);
                         $surveillance->setEnseignant($candidat);
                         $this->em->persist($surveillance);
+
+                        $surveillancesParExamenEtEnseignant[$examen->getId()][$candidat->getId()][] = $surveillance;
                     }
 
                     $id                                    = $candidat->getId();
@@ -174,17 +231,160 @@ class ExamenSurveillanceGenerator
                     $dejaAffecteCetteUnite[$id]             = true;
                     $chargeParEnseignant[$id]              += 1;
                     $surveillancesCreees++;
-
-                    if (!empty($enseigne[$id][$matiereId])) {
-                        $matiereCountParExamen[$examen->getId()] = ($matiereCountParExamen[$examen->getId()] ?? 0) + 1;
-                    }
                 }
             }
         }
 
+        $this->reequilibrer($poolParId, $enseigne, $chargeParEnseignant, $examensAffectesParEnseignant, $surveillancesParExamenEtEnseignant);
+
         $this->em->flush();
 
         return new GenerationResultSurveillance(count($examens), $postesRequis, $surveillancesCreees, $postesNonPourvus);
+    }
+
+    /**
+     * Passe de rééquilibrage post-génération : cherche, pour l'enseignant le plus chargé, un
+     * examen qu'il couvre et qu'un enseignant STRICTEMENT moins chargé (pas forcément au minimum
+     * absolu du pool) pourrait reprendre — même cycle, pas de chevauchement, pas déjà affecté à
+     * cet examen — et effectue l'échange. Répété jusqu'à ce qu'aucun échange amélioreur n'existe
+     * plus. Ne pas exiger le minimum absolu est essentiel : la règle de cycle DURE sépare le pool
+     * en sous-groupes (mono-cycle 1, mono-cycle 2, partagés "1/2") qui ne peuvent PAS toujours
+     * s'échanger directement entre eux — un enseignant mono-cycle-2 chargé ne peut jamais reprendre
+     * la place d'un mono-cycle-1 sous-chargé. En acceptant des échanges vers n'importe quel
+     * enseignant moins chargé (pas seulement le minimum global), les enseignants "1/2" servent de
+     * passerelle : chaque échange fait progressivement redescendre le maximum, même s'il faut
+     * plusieurs échanges en chaîne pour atteindre l'équilibre réellement atteignable compte tenu de
+     * cette séparation de cycles. Voir décision "passe de rééquilibrage final" en tête de fichier.
+     *
+     * @param array<int, Enseignant> $poolParId
+     * @param array<int, array<int, array<int, bool>>> $enseigne id enseignant => matiereId => niveauId => true
+     * @param array<int, int> $chargeParEnseignant modifié en place
+     * @param array<int, Examen[]> $examensAffectesParEnseignant modifié en place
+     * @param array<int, array<int, Surveillance[]>> $surveillancesParExamenEtEnseignant examenId => enseignantId => lignes ; modifié en place
+     */
+    private function reequilibrer(
+        array $poolParId,
+        array $enseigne,
+        array &$chargeParEnseignant,
+        array &$examensAffectesParEnseignant,
+        array &$surveillancesParExamenEtEnseignant,
+    ): void {
+        // Garde-fou anti-boucle infinie : chaque échange accepté fait strictement baisser d'au
+        // moins 1 la charge du plus chargé actuel (jamais de retour en arrière), donc borné par
+        // la charge totale initiale — largement dépassé ici par sécurité.
+        $maxIterations = 5000;
+
+        for ($iteration = 0; $iteration < $maxIterations; $iteration++) {
+            arsort($chargeParEnseignant);
+            $idsParChargeDesc = array_keys($chargeParEnseignant);
+
+            $swapEffectue = false;
+
+            foreach ($idsParChargeDesc as $maxId) {
+                $chargeMaxId = $chargeParEnseignant[$maxId];
+
+                foreach ($examensAffectesParEnseignant[$maxId] ?? [] as $examen) {
+                    $examenId = $examen->getId();
+                    $lignes   = $surveillancesParExamenEtEnseignant[$examenId][$maxId] ?? null;
+                    if ($lignes === null) {
+                        continue;
+                    }
+
+                    $repreneurId = $this->trouveRepreneur($poolParId, $enseigne, $chargeParEnseignant, $chargeMaxId, $examen, $examensAffectesParEnseignant, $maxId);
+                    if ($repreneurId === null) {
+                        continue;
+                    }
+
+                    foreach ($lignes as $ligne) {
+                        $ligne->setEnseignant($poolParId[$repreneurId]);
+                    }
+
+                    $chargeParEnseignant[$maxId]--;
+                    $chargeParEnseignant[$repreneurId]++;
+
+                    $examensAffectesParEnseignant[$maxId] = array_values(array_filter(
+                        $examensAffectesParEnseignant[$maxId],
+                        static fn(Examen $e) => $e->getId() !== $examenId,
+                    ));
+                    $examensAffectesParEnseignant[$repreneurId][] = $examen;
+
+                    unset($surveillancesParExamenEtEnseignant[$examenId][$maxId]);
+                    $surveillancesParExamenEtEnseignant[$examenId][$repreneurId] = $lignes;
+
+                    $swapEffectue = true;
+                    break 2;
+                }
+            }
+
+            if (!$swapEffectue) {
+                return; // aucun échange amélioreur possible — équilibre optimal compte tenu des contraintes réelles (cycle, chevauchement)
+            }
+        }
+    }
+
+    /**
+     * Le meilleur repreneur possible pour un examen actuellement couvert par `$maxId` : parmi
+     * tout le pool (pas seulement le minimum absolu), les enseignants strictement moins chargés
+     * que `$maxId` de sorte que l'échange rapproche réellement les deux charges (le repreneur ne
+     * doit pas se retrouver aussi chargé que ne l'était `$maxId`), éligibles au cycle de l'examen,
+     * pas déjà affectés à cet examen, sans chevauchement avec leurs autres examens. Parmi les
+     * éligibles, le moins chargé l'emporte (impact maximal) ; à égalité, priorité à un enseignant
+     * de la matière exacte pour ne pas sacrifier inutilement la pertinence pédagogique déjà
+     * obtenue par la bande d'équité.
+     *
+     * @param array<int, Enseignant> $poolParId
+     * @param array<int, array<int, array<int, bool>>> $enseigne
+     * @param array<int, int> $chargeParEnseignant
+     * @param array<int, Examen[]> $examensAffectesParEnseignant
+     */
+    private function trouveRepreneur(
+        array $poolParId,
+        array $enseigne,
+        array $chargeParEnseignant,
+        int $chargeMaxId,
+        Examen $examen,
+        array $examensAffectesParEnseignant,
+        int $maxId,
+    ): ?int {
+        $premierNiveau = $examen->getNiveaux()->first();
+        $cycle         = $premierNiveau !== false ? $premierNiveau->getCycle() : null;
+        $matiereId     = $examen->getMatiere()?->getId();
+
+        $eligibles = [];
+        foreach ($poolParId as $id => $enseignant) {
+            if ($id === $maxId || $chargeParEnseignant[$id] >= $chargeMaxId - 1) {
+                continue; // pas d'amélioration réelle si le repreneur atteindrait déjà l'ancienne charge du maximum
+            }
+            if ($this->estHorsCycle($enseignant, $cycle)) {
+                continue;
+            }
+
+            $conflit = false;
+            foreach ($examensAffectesParEnseignant[$id] ?? [] as $autre) {
+                if ($autre->getId() === $examen->getId() || $examen->chevauche($autre)) {
+                    $conflit = true;
+                    break;
+                }
+            }
+            if (!$conflit) {
+                $eligibles[] = $id;
+            }
+        }
+
+        if ($eligibles === []) {
+            return null;
+        }
+
+        usort($eligibles, static fn(int $a, int $b) => $chargeParEnseignant[$a] <=> $chargeParEnseignant[$b]);
+        $chargeMinEligible = $chargeParEnseignant[$eligibles[0]];
+
+        foreach ($eligibles as $id) {
+            if ($chargeParEnseignant[$id] === $chargeMinEligible && !empty($enseigne[$id][$matiereId])) {
+                return $id;
+            }
+        }
+
+        return $eligibles[0];
     }
 
     /**
@@ -236,7 +436,6 @@ class ExamenSurveillanceGenerator
 
     /**
      * @param Enseignant[] $pool
-     * @param array<int, bool> $occupesEdt
      * @param array<int, Examen[]> $examensAffectesParEnseignant
      * @param array<int, bool> $dejaAffecteCetteUnite
      * @param array<int, int> $chargeParEnseignant
@@ -246,20 +445,18 @@ class ExamenSurveillanceGenerator
     private function meilleurCandidat(
         array $pool,
         ?Cycle $cycle,
-        array $occupesEdt,
         array $examensAffectesParEnseignant,
         array $dejaAffecteCetteUnite,
         array $chargeParEnseignant,
         array $enseigne,
         array $domainesEnseignant,
         Examen $examen,
-        bool $quotaMatiereAtteint,
     ): ?Enseignant {
         $disponibles = array_values(array_filter(
             $pool,
-            static function (Enseignant $e) use ($occupesEdt, $examensAffectesParEnseignant, $dejaAffecteCetteUnite, $examen): bool {
+            function (Enseignant $e) use ($examensAffectesParEnseignant, $dejaAffecteCetteUnite, $examen, $cycle): bool {
                 $id = $e->getId();
-                if (isset($occupesEdt[$id]) || isset($dejaAffecteCetteUnite[$id])) {
+                if (isset($dejaAffecteCetteUnite[$id]) || $this->estHorsCycle($e, $cycle)) {
                     return false;
                 }
                 foreach ($examensAffectesParEnseignant[$id] ?? [] as $autre) {
@@ -275,15 +472,16 @@ class ExamenSurveillanceGenerator
             return null;
         }
 
-        return $this->meilleurParSujetEtCharge($disponibles, $cycle, $chargeParEnseignant, $enseigne, $domainesEnseignant, $examen, $quotaMatiereAtteint);
+        return $this->meilleurDansLaBandeEquite($disponibles, $chargeParEnseignant, $enseigne, $domainesEnseignant, $examen);
     }
 
     /**
-     * Un enseignant n'est éligible qu'en secours si son cycle est confirmé et différent de
-     * celui de l'examen. Si l'examen n'a lui-même aucun cycle déterminable (cas théorique,
-     * niveau sans cycle), personne n'est relégué en secours.
+     * Règle de cycle DURE : un enseignant rattaché à un seul cycle ("1" ou "2") est totalement
+     * exclu des examens de l'autre cycle. Un enseignant partagé ("1/2") ou dont le cycle n'est
+     * pas renseigné reste éligible aux deux. Si l'examen lui-même n'a aucun cycle déterminable
+     * (cas théorique, niveau sans cycle), personne n'est exclu sur ce critère.
      */
-    private function estCycleFallbackUniquement(Enseignant $e, ?Cycle $cycle): bool
+    private function estHorsCycle(Enseignant $e, ?Cycle $cycle): bool
     {
         if ($cycle === null) {
             return false;
@@ -298,109 +496,52 @@ class ExamenSurveillanceGenerator
     }
 
     /**
-     * Cascade à 3 niveaux : (1) même matière exacte que l'examen, (2) à défaut même domaine
-     * (scientifique/littéraire/autre), (3) à défaut n'importe qui du pool reçu. Tant que le
-     * quota d'enseignants de la matière exacte n'est pas atteint sur cet examen, le niveau 1
-     * est forcé en priorité absolue (pas de tolérance d'équilibrage) dès qu'un candidat y est
-     * disponible — au-delà du quota, ou si le niveau 1 est vide, on repasse en préférence
-     * souple habituelle (tolérance de charge).
+     * L'ÉQUITÉ D'ABORD : restreint les candidats à la "bande d'équité" (charge ≤ minimum des
+     * disponibles + `TOLERANCE_EQUILIBRAGE`), PUIS seulement à l'intérieur de cette bande,
+     * cascade à 3 niveaux : (1) même matière exacte que l'examen, (2) à défaut même domaine
+     * (scientifique/littéraire/autre), (3) à défaut n'importe qui de la bande. La préférence de
+     * matière/domaine ne peut donc jamais faire choisir quelqu'un de plus chargé que la
+     * tolérance autorisée — contrairement à l'ancien mécanisme de quota (voir décision "priorité
+     * à l'équité" en tête de fichier).
      *
-     * IMPORTANT : la matière/le domaine est le critère PRINCIPAL, le cycle n'est qu'un
-     * départage SECONDAIRE appliqué à l'intérieur de chaque niveau (voir
-     * `meilleurParCycleEtCharge`) — jamais l'inverse. Avant correction (2026-07-12), le cycle
-     * était filtré en premier : un examen de SVT (5 profs au total dans l'établissement) s'est
-     * retrouvé affecté à un professeur de Philosophie du bon cycle plutôt qu'à un professeur
-     * scientifique de l'autre cycle, alors qu'aucun prof de SVT/scientifique n'était disponible
-     * dans le cycle de l'examen à cet horaire précis — la préférence de cycle prenait le pas
-     * sur la préférence de matière, ce qui est l'inverse de la règle métier voulue.
-     *
-     * @param Enseignant[] $enseignants
+     * @param Enseignant[] $enseignants déjà filtrés par disponibilité/cycle dans `meilleurCandidat()`
      * @param array<int, int> $chargeParEnseignant
      * @param array<int, array<int, array<int, bool>>> $enseigne
      * @param array<int, array<string, bool>> $domainesEnseignant
      */
-    private function meilleurParSujetEtCharge(
+    private function meilleurDansLaBandeEquite(
         array $enseignants,
-        ?Cycle $cycle,
         array $chargeParEnseignant,
         array $enseigne,
         array $domainesEnseignant,
         Examen $examen,
-        bool $quotaMatiereAtteint,
     ): ?Enseignant {
         if ($enseignants === []) {
             return null;
         }
 
+        $chargeMin = min(array_map(static fn(Enseignant $e) => $chargeParEnseignant[$e->getId()], $enseignants));
+        $bande     = array_values(array_filter(
+            $enseignants,
+            static fn(Enseignant $e) => $chargeParEnseignant[$e->getId()] <= $chargeMin + self::TOLERANCE_EQUILIBRAGE,
+        ));
+
         $matiereId = $examen->getMatiere()?->getId();
         $domaine   = $examen->getMatiere()?->getDomaine();
 
-        $memeMatiere = array_values(array_filter($enseignants, static fn(Enseignant $e) => !empty($enseigne[$e->getId()][$matiereId])));
-        $reste       = array_values(array_filter($enseignants, static fn(Enseignant $e) => empty($enseigne[$e->getId()][$matiereId])));
-
-        $meilleurMemeMatiere = $this->meilleurParCycleEtCharge($memeMatiere, $cycle, $chargeParEnseignant);
-
-        if (!$quotaMatiereAtteint && $meilleurMemeMatiere !== null) {
-            return $meilleurMemeMatiere;
+        $memeMatiere = array_values(array_filter($bande, static fn(Enseignant $e) => !empty($enseigne[$e->getId()][$matiereId])));
+        if ($memeMatiere !== []) {
+            return $this->parMoindreCharge($memeMatiere, $chargeParEnseignant);
         }
 
-        if ($domaine === null) {
-            return $this->combinerPriorite($meilleurMemeMatiere, $this->meilleurParCycleEtCharge($reste, $cycle, $chargeParEnseignant), $chargeParEnseignant, self::TOLERANCE_EQUILIBRAGE);
+        if ($domaine !== null) {
+            $memeDomaine = array_values(array_filter($bande, static fn(Enseignant $e) => !empty($domainesEnseignant[$e->getId()][$domaine->value])));
+            if ($memeDomaine !== []) {
+                return $this->parMoindreCharge($memeDomaine, $chargeParEnseignant);
+            }
         }
 
-        $memeDomaine = array_values(array_filter($reste, static fn(Enseignant $e) => !empty($domainesEnseignant[$e->getId()][$domaine->value])));
-        $autres      = array_values(array_filter($reste, static fn(Enseignant $e) => empty($domainesEnseignant[$e->getId()][$domaine->value])));
-
-        $meilleurDomaine = $this->meilleurParCycleEtCharge($memeDomaine, $cycle, $chargeParEnseignant);
-        $meilleurAutres  = $this->meilleurParCycleEtCharge($autres, $cycle, $chargeParEnseignant);
-
-        $meilleurMatiereOuDomaine = $this->combinerPriorite($meilleurMemeMatiere, $meilleurDomaine, $chargeParEnseignant, self::TOLERANCE_EQUILIBRAGE);
-
-        return $this->combinerPriorite($meilleurMatiereOuDomaine, $meilleurAutres, $chargeParEnseignant, self::TOLERANCE_EQUILIBRAGE);
-    }
-
-    /**
-     * Départage SECONDAIRE par cycle à l'intérieur d'un groupe déjà filtré par matière/domaine
-     * (voir note d'architecture ci-dessus) : préfère le même cycle que l'examen, complété par
-     * l'autre cycle en cas de manque, sans jamais casser l'équilibrage au-delà d'une tolérance.
-     *
-     * @param Enseignant[] $enseignants
-     * @param array<int, int> $chargeParEnseignant
-     */
-    private function meilleurParCycleEtCharge(array $enseignants, ?Cycle $cycle, array $chargeParEnseignant): ?Enseignant
-    {
-        if ($enseignants === []) {
-            return null;
-        }
-
-        $memeCycle  = array_values(array_filter($enseignants, fn(Enseignant $e) => !$this->estCycleFallbackUniquement($e, $cycle)));
-        $autreCycle = array_values(array_filter($enseignants, fn(Enseignant $e) => $this->estCycleFallbackUniquement($e, $cycle)));
-
-        return $this->combinerPriorite(
-            $this->parMoindreCharge($memeCycle, $chargeParEnseignant),
-            $this->parMoindreCharge($autreCycle, $chargeParEnseignant),
-            $chargeParEnseignant,
-            self::TOLERANCE_CYCLE,
-        );
-    }
-
-    /**
-     * Choisit entre deux candidats déjà résolus (un "prioritaire" et un "secondaire") selon la
-     * charge : le prioritaire l'emporte sauf s'il est plus chargé que le secondaire au-delà de
-     * la tolérance donnée — même mécanisme réutilisé pour la priorité cycle et matière/domaine.
-     */
-    private function combinerPriorite(?Enseignant $prioritaire, ?Enseignant $secondaire, array $chargeParEnseignant, int $tolerance): ?Enseignant
-    {
-        if ($prioritaire === null) {
-            return $secondaire;
-        }
-        if ($secondaire === null) {
-            return $prioritaire;
-        }
-
-        $ecart = $chargeParEnseignant[$prioritaire->getId()] - $chargeParEnseignant[$secondaire->getId()];
-
-        return $ecart <= $tolerance ? $prioritaire : $secondaire;
+        return $this->parMoindreCharge($bande, $chargeParEnseignant);
     }
 
     /** @param Enseignant[] $enseignants */

@@ -1,0 +1,135 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ enseignant.nomComplet }} — EduManage{% endblock %}
+{% block page_title %}Fiche enseignant{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">{{ enseignant.nomComplet }}</h1>
+        <p class="text-muted mb-0 small">{{ enseignant.type.label() }}{{ enseignant.poste ? ' — ' ~ enseignant.poste : '' }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_enseignant_edit', {id: enseignant.id}) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a href="{{ path('admin_enseignant_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-person-vcard-fill me-2 text-college-purple"></i>Informations
+                </h2>
+            </div>
+            <div class="admin-card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted small">Nom et prénoms</dt>
+                    <dd class="col-7">{{ enseignant.nomComplet }}</dd>
+
+                    <dt class="col-5 text-muted small">Sexe</dt>
+                    <dd class="col-7">{{ enseignant.sexe ? enseignant.sexe.value : '—' }}</dd>
+
+                    <dt class="col-5 text-muted small">Statut</dt>
+                    <dd class="col-7"><span class="badge bg-secondary">{{ enseignant.type.label() }}</span></dd>
+
+                    <dt class="col-5 text-muted small">Fonction</dt>
+                    <dd class="col-7">{{ enseignant.poste ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted small">Matricule</dt>
+                    <dd class="col-7">{{ enseignant.matricule ?? 'Privé' }}</dd>
+
+                    <dt class="col-5 text-muted small">Spécialité</dt>
+                    <dd class="col-7">
+                        {% if enseignant.disciplines is not empty %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for discipline in enseignant.disciplines %}
+                                    <span class="badge bg-light text-dark border fw-normal">{{ discipline }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-5 text-muted small">Cycle</dt>
+                    <dd class="col-7">{{ enseignant.cycle ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted small">E-mail</dt>
+                    <dd class="col-7">{{ enseignant.email ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted small">Téléphone</dt>
+                    <dd class="col-7">{{ enseignant.telephone ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted small">Actif</dt>
+                    <dd class="col-7">
+                        {% if enseignant.actif %}
+                            <span class="badge bg-success">Actif</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-shield-check me-2 text-college-purple"></i>Surveillance des examens
+                </h2>
+            </div>
+            <div class="admin-card-body pt-0 pb-3">
+                <div class="d-flex align-items-center gap-2 p-3 rounded" style="background:#f5f0ff">
+                    <i class="bi bi-clipboard2-check-fill fs-3 text-college-purple"></i>
+                    <div>
+                        <div class="fs-3 fw-bold lh-1">{{ totalSurveillances }}</div>
+                        <div class="text-muted small">surveillance{{ totalSurveillances > 1 ? 's' : '' }} au total (examens distincts, tous cycles confondus)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>JOUR ET DATE</th>
+                                <th>HEURE</th>
+                                <th>MATIÈRE</th>
+                                <th>CLASSE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for surveillance in surveillances %}
+                                <tr>
+                                    <td class="small">
+                                        {%- set jour = surveillance.examen.jourSemaine -%}
+                                        {{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ surveillance.examen.date|date('d/m/Y') }}
+                                    </td>
+                                    <td class="small">{{ surveillance.examen.heureDebut|date('H:i') }}–{{ surveillance.examen.heureFin|date('H:i') }}</td>
+                                    <td>{{ surveillance.examen.matiere.nom }}</td>
+                                    <td>{{ surveillance.classe.nom }}</td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                        Aucune surveillance affectée pour l'instant.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

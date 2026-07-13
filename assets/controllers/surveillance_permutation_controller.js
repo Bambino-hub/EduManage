@@ -1,11 +1,14 @@
 import { Controller } from '@hotwired/stimulus';
 
 /*
- * Tableau de surveillance : permet de réaffecter un enseignant vers une autre classe DU MÊME
- * EXAMEN (clic puis clic sur une case surlignée, ou glisser-déposer), en ne proposant que des
- * cases compatibles. Les deux classes concernées passent l'examen exactement au même horaire,
- * donc aucun nouveau conflit de disponibilité n'est possible — seul le regroupement de classes
- * (data-fusion="1") bloque un déplacement, comme les classes fusionnées de l'emploi du temps.
+ * Tableau de surveillance : permet de réaffecter un enseignant vers une autre classe, MÊME
+ * D'UN AUTRE EXAMEN (clic puis clic sur une case surlignée, ou glisser-déposer). Contrairement à
+ * un échange au sein du même examen (même horaire par construction), changer d'examen peut
+ * introduire un nouveau conflit de disponibilité (cours normal ou autre surveillance) — c'est le
+ * serveur (SurveillancePermutationService) qui revérifie cette disponibilité avant d'écrire,
+ * jamais uniquement ce contrôleur client qui n'est qu'une aide visuelle. Seul le regroupement de
+ * classes (data-fusion="1") bloque un déplacement, comme les classes fusionnées de l'emploi du
+ * temps — que ce soit la case d'origine ou la case cible.
  *
  * Une case vide ("non pourvu") est une cible valide (comble le poste) ; une case occupée par UN
  * SEUL enseignant est une cible d'échange valide ; une case avec plusieurs enseignants (plusieurs
@@ -129,10 +132,9 @@ export default class extends Controller {
 
     highlightTargets(item) {
         const sourceCell = item.closest('[data-surveillance-permutation-target~="cell"]');
-        const examenId = sourceCell.dataset.examenId;
 
         this.cellTargets.forEach((cell) => {
-            if (cell.dataset.examenId !== examenId || cell === sourceCell) {
+            if (cell === sourceCell || cell.dataset.fusion === '1') {
                 return;
             }
 
@@ -169,11 +171,11 @@ export default class extends Controller {
         const emptyPlaceholder = cell.querySelector('.surveillance-empty');
         emptyPlaceholder?.remove();
         cell.appendChild(item);
-        this.stagePending(item, cell.dataset.classeId);
+        this.stagePending(item, cell.dataset.classeId, cell.dataset.examenId);
     }
 
-    stagePending(item, classeId) {
-        this.pending.set(item.dataset.surveillanceId, classeId);
+    stagePending(item, classeId, examenId) {
+        this.pending.set(item.dataset.surveillanceId, { classeId, examenId });
         item.classList.add('surv-pending');
     }
 
@@ -207,9 +209,10 @@ export default class extends Controller {
         this.saveButtonTarget.disabled = true;
         this.cancelButtonTarget.disabled = true;
 
-        const changes = Array.from(this.pending.entries()).map(([surveillanceId, classeId]) => ({
+        const changes = Array.from(this.pending.entries()).map(([surveillanceId, cible]) => ({
             surveillanceId: parseInt(surveillanceId, 10),
-            classeId: parseInt(classeId, 10),
+            classeId: parseInt(cible.classeId, 10),
+            examenId: parseInt(cible.examenId, 10),
         }));
 
         try {

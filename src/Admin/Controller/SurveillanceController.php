@@ -15,6 +15,7 @@ use App\Exam\Service\ExamenSurveillanceGenerator;
 use App\Exam\Service\ExamGridBuilder;
 use App\Exam\Service\SurveillancePermutationService;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
+use App\Staff\Repository\EnseignantRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -49,6 +50,7 @@ class SurveillanceController extends AbstractController
 
         return $this->render('admin/surveillance/tableau.html.twig', [
             'cycle'                          => $cycle,
+            'niveaux'                        => $this->niveauxAffiches($cycle, $classesParNiveau),
             'annee'                          => $annee,
             'lignes'                         => $lignes,
             'classesParNiveau'               => $classesParNiveau,
@@ -60,9 +62,10 @@ class SurveillanceController extends AbstractController
 
     /**
      * Applique un lot de permutations manuelles proposées depuis le tableau (glisser-déposer) :
-     * { changes: [{surveillanceId, classeId}, ...] }. Toute la validation métier (regroupement,
-     * classe hors périmètre de l'examen, doublon d'enseignant) est déléguée à
-     * SurveillancePermutationService, seule source de vérité — jamais uniquement le calcul
+     * { changes: [{surveillanceId, examenId, classeId}, ...] } — la cible peut appartenir à un
+     * AUTRE examen que celui d'origine. Toute la validation métier (regroupement, classe hors
+     * périmètre de l'examen, doublon d'enseignant, disponibilité au nouvel horaire) est déléguée
+     * à SurveillancePermutationService, seule source de vérité — jamais uniquement le calcul
      * côté client, qui n'est qu'une aide visuelle.
      */
     #[Route('/admin/surveillance/permuter', name: 'permuter', methods: ['POST'])]
@@ -77,16 +80,17 @@ class SurveillanceController extends AbstractController
             return new JsonResponse(['succes' => false, 'erreurs' => ['Jeton de sécurité invalide, veuillez recharger la page.']], 403);
         }
 
-        $classeParSurveillanceId = [];
+        $cibleParSurveillanceId = [];
         foreach ((array) ($payload['changes'] ?? []) as $changement) {
             $surveillanceId = (int) ($changement['surveillanceId'] ?? 0);
             $classeId       = (int) ($changement['classeId'] ?? 0);
-            if ($surveillanceId > 0 && $classeId > 0) {
-                $classeParSurveillanceId[$surveillanceId] = $classeId;
+            $examenId       = (int) ($changement['examenId'] ?? 0);
+            if ($surveillanceId > 0 && $classeId > 0 && $examenId > 0) {
+                $cibleParSurveillanceId[$surveillanceId] = ['examenId' => $examenId, 'classeId' => $classeId];
             }
         }
 
-        $resultat = $permutationService->appliquer($classeParSurveillanceId);
+        $resultat = $permutationService->appliquer($cibleParSurveillanceId);
 
         return new JsonResponse(
             ['succes' => $resultat->succes, 'erreurs' => $resultat->erreurs],
@@ -140,6 +144,37 @@ class SurveillanceController extends AbstractController
         return $this->redirectToRoute('admin_surveillance_tableau', ['cycle' => $cycle->getId()]);
     }
 
+    /**
+     * Récapitulatif de tous les surveillants (pool éligible complet, y compris ceux à 0) avec
+     * leur nombre total de surveillances sur l'année — trié du plus chargé au moins chargé pour
+     * repérer un déséquilibre d'un coup d'œil.
+     */
+    #[Route('/admin/surveillance/recapitulatif', name: 'recapitulatif')]
+    public function recapitulatif(EnseignantRepository $enseignantRepo, SurveillanceRepository $surveillanceRepo): Response
+    {
+        $charges = $surveillanceRepo->compterParEnseignant();
+
+        $lignes = array_map(
+            static fn($enseignant) => [
+                'enseignant' => $enseignant,
+                'charge'     => $charges[$enseignant->getId()] ?? 0,
+            ],
+            $enseignantRepo->findEligiblesSurveillance(),
+        );
+
+        usort($lignes, static fn(array $a, array $b) => $b['charge'] <=> $a['charge'] ?: $a['enseignant']->getNom() <=> $b['enseignant']->getNom());
+
+        $charges = array_column($lignes, 'charge');
+
+        return $this->render('admin/surveillance/recapitulatif.html.twig', [
+            'lignes'  => $lignes,
+            'total'   => array_sum($charges),
+            'moyenne' => $charges !== [] ? array_sum($charges) / count($charges) : 0,
+            'min'     => $charges !== [] ? min($charges) : 0,
+            'max'     => $charges !== [] ? max($charges) : 0,
+        ]);
+    }
+
     #[Route('/admin/surveillance/cycle/{cycle}/export-pdf', name: 'export_pdf')]
     public function exportPdf(
         Cycle $cycle,
@@ -157,6 +192,7 @@ class SurveillanceController extends AbstractController
 
         $html = $this->renderView('admin/surveillance/pdf/tableau.html.twig', [
             'cycle'                        => $cycle,
+            'niveaux'                      => $this->niveauxAffiches($cycle, $classesParNiveau),
             'annee'                        => $annee,
             'lignes'                       => $lignes,
             'classesParNiveau'             => $classesParNiveau,
@@ -168,6 +204,22 @@ class SurveillanceController extends AbstractController
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="tableau-surveillance-'.$cycle->getId().'.pdf"',
         ]);
+    }
+
+    /**
+     * Niveaux du cycle à afficher en colonne : exclut ceux sans aucune classe active cette
+     * année (ex. Tle C, désactivée) — une colonne entière sans classe n'apporte rien et
+     * encombre le tableau et son export PDF.
+     *
+     * @param array<int, \App\Academic\Entity\Classe[]> $classesParNiveau
+     * @return \App\Academic\Entity\Niveau[]
+     */
+    private function niveauxAffiches(Cycle $cycle, array $classesParNiveau): array
+    {
+        return array_values(array_filter(
+            $cycle->getNiveaux()->toArray(),
+            static fn(\App\Academic\Entity\Niveau $n) => !empty($classesParNiveau[$n->getId()]),
+        ));
     }
 
     /**

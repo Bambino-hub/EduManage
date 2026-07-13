@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Admin\Controller;
 
+use App\Exam\Repository\SurveillanceRepository;
 use App\Staff\Entity\Enseignant;
 use App\Staff\Enum\TypePersonnel;
 use App\Staff\Form\EnseignantType;
@@ -91,5 +92,30 @@ class EnseignantController extends AbstractController
             $this->addFlash('success', 'Enseignant supprimé.');
         }
         return $this->redirectToRoute('admin_enseignant_index');
+    }
+
+    /**
+     * Fiche complète d'un enseignant : toutes ses informations + son planning de surveillance
+     * (nombre total de fois qu'il surveille). Route générique `/{id}` placée en DERNIER et
+     * contrainte à un id numérique pour ne jamais intercepter `/new` ou `/export/*` (routes
+     * statiques déclarées avant elle).
+     */
+    #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'])]
+    public function show(Enseignant $enseignant, SurveillanceRepository $surveillanceRepo): Response
+    {
+        $surveillances = $surveillanceRepo->findByEnseignant((int) $enseignant->getId());
+
+        // Nombre d'EXAMENS distincts, pas de lignes : un enseignant sur un RegroupementSurveillance
+        // (2 classes, même salle) a 2 lignes pour un même examen — une seule vraie surveillance.
+        $totalSurveillances = count(array_unique(array_map(
+            static fn($s) => $s->getExamen()->getId(),
+            $surveillances,
+        )));
+
+        return $this->render('admin/enseignant/show.html.twig', [
+            'enseignant'         => $enseignant,
+            'surveillances'      => $surveillances,
+            'totalSurveillances' => $totalSurveillances,
+        ]);
     }
 }

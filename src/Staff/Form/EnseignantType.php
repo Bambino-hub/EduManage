@@ -7,11 +7,8 @@ namespace App\Staff\Form;
 use App\Staff\Entity\Enseignant;
 use App\Staff\Enum\Sexe;
 use App\Staff\Enum\TypePersonnel;
-use App\Staff\Enum\TypeStage;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
-use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -77,49 +74,6 @@ class EnseignantType extends AbstractType
             ])
             ->add('actif', CheckboxType::class, [
                 'label'    => 'Enseignant actif',
-                'required' => false,
-            ])
-            // --- Champs "stage", pertinents uniquement pour le statut Stagiaire. ---
-            ->add('typeStage', EnumType::class, [
-                'label'        => 'Type de stage',
-                'class'        => TypeStage::class,
-                'choice_label' => fn(TypeStage $t) => $t->label(),
-                'placeholder'  => '—',
-                'required'     => false,
-                'help'         => 'Uniquement pour un stagiaire.',
-            ])
-            ->add('etablissementOrigine', TextType::class, [
-                'label'    => "Établissement d'origine",
-                'required' => false,
-                'attr'     => ['placeholder' => 'Université de Kara, ENS…'],
-            ])
-            ->add('niveauEtudes', TextType::class, [
-                'label'    => "Niveau d'études",
-                'required' => false,
-                'attr'     => ['placeholder' => 'Licence 3, CAPES 2e année…'],
-            ])
-            ->add('dateDebutStage', DateType::class, [
-                'label'    => 'Début du stage',
-                'widget'   => 'single_text',
-                'input'    => 'datetime_immutable',
-                'required' => false,
-            ])
-            ->add('dateFinStage', DateType::class, [
-                'label'    => 'Fin du stage',
-                'widget'   => 'single_text',
-                'input'    => 'datetime_immutable',
-                'required' => false,
-            ])
-            ->add('tuteur', EntityType::class, [
-                'label'        => 'Tuteur / encadrant',
-                'class'        => Enseignant::class,
-                'choice_label' => fn(Enseignant $e) => $e->getNomComplet(),
-                'query_builder' => fn($repo) => $repo->createQueryBuilder('e')->orderBy('e.nom', 'ASC'),
-                'placeholder'  => 'Aucun',
-                'required'     => false,
-            ])
-            ->add('conventionSignee', CheckboxType::class, [
-                'label'    => 'Convention de stage signée',
                 'required' => false,
             ]);
     }

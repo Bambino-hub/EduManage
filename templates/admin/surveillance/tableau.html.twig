@@ -70,8 +70,8 @@
         </div>
 
         <p class="text-muted small mb-2">
-            <i class="bi bi-info-circle me-1"></i>Cliquez ou glissez le nom d'un surveillant vers une autre classe
-            du <strong>même examen</strong> pour l'échanger ou combler un poste "non pourvu".
+            <i class="bi bi-info-circle me-1"></i>Cliquez ou glissez le nom d'un surveillant vers une autre classe —
+            <strong>même d'un autre examen</strong> — pour l'échanger ou combler un poste "non pourvu".
         </p>
 
         <div class="alert alert-danger d-none" data-surveillance-permutation-target="alert"></div>
@@ -96,7 +96,7 @@
                     <tr>
                         <th style="min-width:150px">Jours</th>
                         <th style="min-width:100px">Heures</th>
-                        {% for niveau in cycle.niveaux %}
+                        {% for niveau in niveaux %}
                             <th>{{ niveau.nomComplet }}</th>
                         {% endfor %}
                     </tr>
@@ -109,7 +109,7 @@
                                 {{ ligne.date|date('d/m/Y') }}
                             </td>
                             <td class="surveillance-slot">{{ ligne.heureDebut|date('H:i') }} - {{ ligne.heureFin|date('H:i') }}</td>
-                            {% for niveau in cycle.niveaux %}
+                            {% for niveau in niveaux %}
                                 <td>
                                     {% set examensNiveau = ligne.examensParNiveau[niveau.id] ?? [] %}
                                     {% if examensNiveau is empty %}
@@ -125,6 +125,7 @@
                                                          data-surveillance-permutation-target="cell"
                                                          data-examen-id="{{ examen.id }}"
                                                          data-classe-id="{{ classe.id }}"
+                                                         data-fusion="{{ fusionnee ? '1' : '0' }}"
                                                          data-action="dragover->surveillance-permutation#dragOver drop->surveillance-permutation#drop click->surveillance-permutation#cellClick">
                                                         <span class="text-muted">{{ classe.nom }}:</span>
                                                         {% if surveillances is empty %}
@@ -137,7 +138,7 @@
                                                                       data-surveillance-id="{{ surveillance.id }}"
                                                                       data-enseignant-id="{{ surveillance.enseignant.id }}"
                                                                       data-fusion="{{ fusionnee ? '1' : '0' }}"
-                                                                      title="{{ fusionnee ? 'Classe réunie pour la surveillance : non déplaçable seule' : 'Glisser vers une autre classe du même examen' }}"
+                                                                      title="{{ fusionnee ? 'Classe réunie pour la surveillance : non déplaçable seule' : 'Glisser vers une autre classe, même d\'un autre examen' }}"
                                                                       data-action="dragstart->surveillance-permutation#dragStart dragend->surveillance-permutation#dragEnd click->surveillance-permutation#toggleSelect">{{ surveillance.enseignant.nom }}</span>{{ not loop.last ? ', ' : '' }}
                                                             {% endfor %}
                                                         {% endif %}
@@ -151,7 +152,7 @@
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="{{ 2 + cycle.niveaux|length }}" class="text-center text-muted py-5">
+                            <td colspan="{{ 2 + niveaux|length }}" class="text-center text-muted py-5">
                                 Aucun examen programmé pour ce cycle.
                             </td>
                         </tr>
