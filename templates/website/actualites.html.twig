@@ -1,0 +1,120 @@
+{# ================================================================
+   PAGE "ACTUALITÉS" du site vitrine (route website_actualites, URL "/actualites").
+   Deux sections : le calendrier des examens à venir (calculé automatiquement depuis
+   les examens déjà saisis côté admin, collège et lycée séparément), puis les annonces
+   publiées par l'administration.
+   ================================================================ #}
+{% extends 'base.html.twig' %}
+{% import _self as macros %}
+
+{% macro exam_row(examen) %}
+    {%- set jour = examen.jourSemaine -%}
+    <div class="exam-row">
+        <div>
+            <div class="fw-semibold">{{ examen.matiere.nom }}</div>
+            <div class="text-muted small">
+                {% for niveau in examen.niveaux %}{{ niveau.nomComplet }}{% if not loop.last %}, {% endif %}{% endfor %}
+            </div>
+        </div>
+        <div class="text-end text-nowrap">
+            <div class="fw-semibold">{{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ examen.date|date('d/m/Y') }}</div>
+            <div class="text-muted small">{{ examen.heureDebut|date('H:i') }}</div>
+        </div>
+    </div>
+{% endmacro %}
+
+{% block title %}Actualités — Collège Adèle{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block body %}
+    <section class="page-hero">
+        <div class="container-fluid px-4 px-lg-5">
+            <p class="page-hero__eyebrow mb-1">Vie de l'établissement</p>
+            <h1>Actualités</h1>
+            <p class="mb-0">
+                Annonces du Collège Adèle et calendrier des examens à venir, collège et lycée.
+            </p>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       1. EXAMENS À VENIR — collège et lycée séparément.
+       ---------------------------------------------------------------- #}
+    <section class="container-fluid px-4 px-lg-5 py-5">
+        <div class="section-title">
+            <span class="eyebrow">Calendrier</span>
+            <h2>Examens à venir</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple mb-3">Collège</h3>
+                        {% for examen in examensCollege %}
+                            {{ macros.exam_row(examen) }}
+                        {% else %}
+                            <p class="text-muted small mb-0">Aucun examen programmé pour le moment.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="card excellence-card h-100">
+                    <div class="card-body p-4">
+                        <h3 class="h5 text-college-purple mb-3">Lycée</h3>
+                        {% for examen in examensLycee %}
+                            {{ macros.exam_row(examen) }}
+                        {% else %}
+                            <p class="text-muted small mb-0">Aucun examen programmé pour le moment.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ----------------------------------------------------------------
+       2. ANNONCES PUBLIÉES.
+       ---------------------------------------------------------------- #}
+    <section class="bg-college-light py-5">
+        <div class="container-fluid px-4 px-lg-5">
+            <div class="section-title">
+                <span class="eyebrow">Annonces</span>
+                <h2>Dernières actualités</h2>
+            </div>
+            <div class="row g-4">
+                {% for actualite in actualites %}
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="card formation-card h-100">
+                            {% if actualite.image %}
+                                <img src="{{ asset('uploads/actualites/' ~ actualite.image) }}" alt=""
+                                     class="actualite-card__image">
+                            {% else %}
+                                <div class="actualite-card__placeholder">
+                                    <i class="bi bi-megaphone-fill"></i>
+                                </div>
+                            {% endif %}
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="text-muted small">{{ actualite.datePublication|date('d/m/Y') }}</span>
+                                    {% if actualite.cycleConcerne %}
+                                        <span class="badge bg-light text-dark border fw-normal">{{ actualite.cycleConcerne.label() }}</span>
+                                    {% endif %}
+                                </div>
+                                <h3 class="h5 text-college-navy">{{ actualite.titre }}</h3>
+                                <p class="mb-0" style="white-space: pre-line">{{ actualite.contenu }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="col-12">
+                        <p class="text-muted text-center mb-0">Aucune actualité publiée pour l'instant.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+{% endblock %}

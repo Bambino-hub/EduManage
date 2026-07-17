@@ -57,6 +57,10 @@ class Examen
     #[ORM\JoinColumn(nullable: false)]
     private ?AnneeScolaire $anneeScolaire = null;
 
+    /** Visible ou non sur le calendrier public du site vitrine — décision de l'administrateur. */
+    #[ORM\Column]
+    private bool $publie = false;
+
     #[ORM\OneToMany(targetEntity: Surveillance::class, mappedBy: 'examen', cascade: ['remove'], orphanRemoval: true)]
     private Collection $surveillances;
 
@@ -127,6 +131,14 @@ class Examen
 
     /** @return Collection<int, Surveillance> */
     public function getSurveillances(): Collection { return $this->surveillances; }
+
+    public function isPublie(): bool { return $this->publie; }
+
+    public function setPublie(bool $publie): static
+    {
+        $this->publie = $publie;
+        return $this;
+    }
 
     /**
      * Deux examens se chevauchent s'ils tombent le même jour avec des horaires qui se

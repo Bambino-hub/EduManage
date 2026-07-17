@@ -1,0 +1,27 @@
+{% extends 'teacher/layout.html.twig' %}
+
+{% block title %}Mon emploi du temps — EduManage{% endblock %}
+{% block page_title %}Mon emploi du temps{% endblock %}
+
+{% block content %}
+{% if not annee %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-calendar-week display-6 d-block mb-2"></i>
+            Aucune année scolaire active pour l'instant.
+        </div>
+    </div>
+{% else %}
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            {% include 'admin/edt/_grille_semaine.html.twig' with {
+                joursAffiches: joursAffiches,
+                ordreMax: ordreMax,
+                creneauxParJour: creneauxParJour,
+                grille: grille,
+                contexte: 'enseignant',
+            } only %}
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

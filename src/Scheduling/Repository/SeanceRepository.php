@@ -77,6 +77,28 @@ class SeanceRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Séances d'un enseignant pour une année scolaire donnée — espace enseignant ("Mon emploi du temps"). @return Seance[] */
+    public function findByEnseignantEtAnnee(int $enseignantId, int $anneeScolaireId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.attribution', 'a')
+            ->addSelect('a')
+            ->join('a.classe', 'cl')
+            ->addSelect('cl')
+            ->join('a.matiere', 'm')
+            ->addSelect('m')
+            ->join('s.creneau', 'c')
+            ->addSelect('c')
+            ->where('a.enseignant = :enseignantId')
+            ->andWhere('cl.anneeScolaire = :anneeId')
+            ->setParameter('enseignantId', $enseignantId)
+            ->setParameter('anneeId', $anneeScolaireId)
+            ->orderBy('c.ordre', 'ASC')
+            ->addOrderBy('c.heureDebut', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /**
      * IDs des enseignants ayant cours un jour de la semaine donné sur un horaire qui chevauche
      * [heureDebut, heureFin[ — utilisé par SurveillanceGenerator (module Exam) pour ne pas

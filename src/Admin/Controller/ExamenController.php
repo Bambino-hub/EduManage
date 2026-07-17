@@ -9,6 +9,7 @@ use App\Academic\Repository\AnneeScolaireRepository;
 use App\Academic\Repository\CycleRepository;
 use App\Exam\Entity\Examen;
 use App\Exam\Form\ExamenType;
+use App\Exam\Repository\ExamenRepository;
 use App\Exam\Service\ExamGridBuilder;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,54 @@ class ExamenController extends AbstractController
         return $this->render('admin/examen/index.html.twig', [
             'cycles' => $cycleRepo->findBy([], ['id' => 'ASC']),
         ]);
+    }
+
+    /**
+     * Publie d'un coup tous les examens de l'année active, cycle 1 (collège) et cycle 2 (lycée)
+     * confondus, sur le calendrier du site public.
+     */
+    #[Route('/admin/examens/publier-tout', name: 'publier_tout', methods: ['POST'])]
+    public function publierTout(Request $request, AnneeScolaireRepository $anneeRepo, ExamenRepository $examenRepo, EntityManagerInterface $em): Response
+    {
+        return $this->definirPublicationTout(true, 'publier_tout_examens', $request, $anneeRepo, $examenRepo, $em);
+    }
+
+    /** Annule la publication de tous les examens de l'année active (retour en brouillon). */
+    #[Route('/admin/examens/depublier-tout', name: 'depublier_tout', methods: ['POST'])]
+    public function depublierTout(Request $request, AnneeScolaireRepository $anneeRepo, ExamenRepository $examenRepo, EntityManagerInterface $em): Response
+    {
+        return $this->definirPublicationTout(false, 'depublier_tout_examens', $request, $anneeRepo, $examenRepo, $em);
+    }
+
+    private function definirPublicationTout(
+        bool $publie,
+        string $intentionCsrf,
+        Request $request,
+        AnneeScolaireRepository $anneeRepo,
+        ExamenRepository $examenRepo,
+        EntityManagerInterface $em,
+    ): Response {
+        if (!$this->isCsrfTokenValid($intentionCsrf, $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_examen_index');
+        }
+
+        $annee = $anneeRepo->findActive();
+        if ($annee === null) {
+            $this->addFlash('error', 'Aucune année scolaire active.');
+            return $this->redirectToRoute('admin_examen_index');
+        }
+
+        foreach ($examenRepo->findByAnnee($annee) as $examen) {
+            $examen->setPublie($publie);
+        }
+        $em->flush();
+
+        $this->addFlash('success', $publie
+            ? 'Tous les examens (collège et lycée) ont été publiés sur le site public.'
+            : 'Tous les examens (collège et lycée) ont été retirés du site public.');
+
+        return $this->redirectToRoute('admin_examen_index');
     }
 
     #[Route('/admin/examens/cycle/{cycle}/tableau', name: 'tableau')]

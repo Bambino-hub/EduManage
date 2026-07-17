@@ -1,0 +1,156 @@
+{% extends 'teacher/layout.html.twig' %}
+
+{% block title %}Tableau de bord — EduManage{% endblock %}
+{% block page_title %}Bonjour {{ enseignant ? enseignant.prenom : '' }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-person-vcard-fill me-2 text-college-purple"></i>Mes informations
+                </h2>
+            </div>
+            <div class="admin-card-body">
+                {% if enseignant %}
+                    <dl class="row gy-2 mb-0">
+                        <dt class="col-12 col-sm-5 text-muted small">Nom et prénoms</dt>
+                        <dd class="col-12 col-sm-7">{{ enseignant.nomComplet }}</dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Sexe</dt>
+                        <dd class="col-12 col-sm-7">{{ enseignant.sexe ? enseignant.sexe.value : '—' }}</dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Statut</dt>
+                        <dd class="col-12 col-sm-7"><span class="badge bg-secondary">{{ enseignant.type.label() }}</span></dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Fonction</dt>
+                        <dd class="col-12 col-sm-7">{{ enseignant.poste ?? '—' }}</dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Spécialité</dt>
+                        <dd class="col-12 col-sm-7">
+                            {% if enseignant.disciplines is not empty %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for discipline in enseignant.disciplines %}
+                                        <span class="badge bg-light text-dark border fw-normal">{{ discipline }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Cycle</dt>
+                        <dd class="col-12 col-sm-7">{{ enseignant.cycle ?? '—' }}</dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">E-mail</dt>
+                        <dd class="col-12 col-sm-7 text-break">{{ enseignant.email ?? '—' }}</dd>
+
+                        <dt class="col-12 col-sm-5 text-muted small">Téléphone</dt>
+                        <dd class="col-12 col-sm-7">{{ enseignant.telephone ?? '—' }}</dd>
+                    </dl>
+                {% else %}
+                    <p class="text-muted small mb-0">Ce compte n'est lié à aucune fiche enseignant.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="admin-card mb-3">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-journal-text me-2 text-college-purple"></i>Examens à venir à préparer
+                </h2>
+            </div>
+            <div class="admin-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>JOUR ET DATE</th>
+                                <th>HEURE</th>
+                                <th>MATIÈRE</th>
+                                <th>NIVEAUX</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for examen in examensAVenir %}
+                                <tr>
+                                    <td class="small">
+                                        {%- set jour = examen.jourSemaine -%}
+                                        {{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ examen.date|date('d/m/Y') }}
+                                    </td>
+                                    <td class="small">{{ examen.heureDebut|date('H:i') }}–{{ examen.heureFin|date('H:i') }}</td>
+                                    <td>{{ examen.matiere.nom }}</td>
+                                    <td class="small">
+                                        {% for niveau in examen.niveaux %}{{ niveau.nomComplet }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                        Aucun examen à venir dans vos matières et niveaux pour l'instant.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-shield-check me-2 text-college-purple"></i>Mes surveillances d'examens
+                </h2>
+            </div>
+            <div class="admin-card-body pt-0 pb-3">
+                <div class="d-flex align-items-center gap-2 p-3 rounded" style="background:#f5f0ff">
+                    <i class="bi bi-clipboard2-check-fill fs-3 text-college-purple"></i>
+                    <div>
+                        <div class="fs-3 fw-bold lh-1">{{ totalSurveillances }}</div>
+                        <div class="text-muted small">surveillance{{ totalSurveillances > 1 ? 's' : '' }} au total (examens distincts, tous cycles confondus)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>JOUR ET DATE</th>
+                                <th>HEURE</th>
+                                <th>MATIÈRE</th>
+                                <th>CLASSE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for surveillance in surveillances %}
+                                <tr>
+                                    <td class="small">
+                                        {%- set jour = surveillance.examen.jourSemaine -%}
+                                        {{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ surveillance.examen.date|date('d/m/Y') }}
+                                    </td>
+                                    <td class="small">{{ surveillance.examen.heureDebut|date('H:i') }}–{{ surveillance.examen.heureFin|date('H:i') }}</td>
+                                    <td>{{ surveillance.examen.matiere.nom }}</td>
+                                    <td>{{ surveillance.classe.nom }}</td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                        Aucune surveillance affectée pour l'instant.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

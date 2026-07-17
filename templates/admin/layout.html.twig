@@ -156,17 +156,34 @@
             {# — Administration — #}
             <div class="sidebar-section-label">Administration</div>
 
+            <a href="{{ path('admin_actualite_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_actualite' %}active{% endif %}">
+                <i class="bi bi-megaphone-fill"></i>
+                Actualités
+            </a>
             <a href="{{ path('website_home') }}" class="sidebar-link">
                 <i class="bi bi-globe2"></i>
                 Site public
+            </a>
+            <a href="{{ path('security_change_password') }}"
+               class="sidebar-link {% if currentRoute == 'security_change_password' %}active{% endif %}">
+                <i class="bi bi-key-fill"></i>
+                Mon compte
             </a>
 
         </nav>
 
         {# Bas de sidebar #}
-        <div class="sidebar-footer">
-            <i class="bi bi-person-circle me-2"></i>
-            {% if app.user %}{{ app.user.userIdentifier }}{% else %}Administrateur{% endif %}
+        <div class="sidebar-footer d-flex align-items-center justify-content-between">
+            <span>
+                <i class="bi bi-person-circle me-2"></i>
+                {% if app.user %}{{ app.user.userIdentifier }}{% else %}Administrateur{% endif %}
+            </span>
+            {% if app.user %}
+                <a href="{{ path('security_logout') }}" class="text-decoration-none" title="Se déconnecter">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            {% endif %}
         </div>
 
     </aside>
@@ -195,6 +212,8 @@
 
         {# Zone de contenu #}
         <div class="admin-content">
+
+            {% include 'security/_banner_mdp.html.twig' %}
 
             {# Flashs (messages de succès/erreur) #}
             {% for type, messages in app.flashes %}

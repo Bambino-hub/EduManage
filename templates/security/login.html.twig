@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion — EduManage{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width:420px">
+    <div class="text-center mb-4">
+        <img src="{{ asset('images/logo-college-adele.png') }}" alt="Collège Adèle" height="64" class="mb-3">
+        <h1 class="h4">Connexion</h1>
+        <p class="text-muted small">Espace réservé aux administrateurs et enseignants.</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            {% if error %}
+                <div class="alert alert-danger py-2 small">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+            {% elseif app.request.query.get('session_expiree') %}
+                <div class="alert alert-warning py-2 small">Vous avez été déconnecté après une période d'inactivité. Merci de vous reconnecter.</div>
+            {% endif %}
+
+            <form method="post">
+                <div class="mb-3">
+                    <label for="username" class="form-label small fw-semibold">Adresse e-mail</label>
+                    <input type="email" id="username" name="_username" value="{{ last_username }}"
+                           class="form-control" autocomplete="email" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label small fw-semibold">Mot de passe</label>
+                    <div class="input-group" data-controller="password-toggle">
+                        <input type="password" id="password" name="_password" class="form-control"
+                               autocomplete="current-password" required data-password-toggle-target="input">
+                        <button type="button" class="btn btn-outline-secondary" data-action="password-toggle#toggle"
+                                aria-label="Afficher ou masquer le mot de passe">
+                            <i class="bi bi-eye-slash" data-password-toggle-target="icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

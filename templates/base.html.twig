@@ -65,6 +65,16 @@
 
                         <li class="nav-item"><a class="nav-link" href="{{ path('website_college') }}">Collège</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ path('website_lycee') }}">Lycée</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ path('website_actualites') }}">Actualités</a></li>
+
+                        {# Accès réservé (admin/enseignants) : redirige vers son espace si déjà connecté. #}
+                        <li class="nav-item ms-lg-2">
+                            {% if app.user %}
+                                <a class="nav-link" href="{{ path('security_apres_connexion') }}">Mon espace</a>
+                            {% else %}
+                                <a class="nav-link" href="{{ path('security_login') }}">Connexion</a>
+                            {% endif %}
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -101,6 +111,7 @@
                         <h2 class="h5 text-uppercase">Navigation</h2>
                         <ul class="list-unstyled mb-0">
                             <li><a class="link-light link-underline-opacity-0 link-underline-opacity-75-hover" href="{{ path('website_home') }}">Accueil</a></li>
+                            <li><a class="link-light link-underline-opacity-0 link-underline-opacity-75-hover" href="{{ path('website_actualites') }}">Actualités</a></li>
                             <li><a class="link-light link-underline-opacity-0 link-underline-opacity-75-hover" href="#formation">Nos formations</a></li>
                         </ul>
                     </div>

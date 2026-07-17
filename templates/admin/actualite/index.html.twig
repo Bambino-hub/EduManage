@@ -1,0 +1,74 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Actualités — EduManage{% endblock %}
+{% block page_title %}Actualités{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Actualités du site public</h1>
+    <a href="{{ path('admin_actualite_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle actualité
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th></th>
+                    <th>Titre</th>
+                    <th>Date de publication</th>
+                    <th>Cycle</th>
+                    <th>Statut</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for actualite in actualites %}
+                <tr>
+                    <td style="width:56px">
+                        {% if actualite.image %}
+                            <img src="{{ asset('uploads/actualites/' ~ actualite.image) }}" alt=""
+                                 class="rounded" style="width:44px;height:44px;object-fit:cover">
+                        {% else %}
+                            <span class="d-flex align-items-center justify-content-center rounded bg-light text-muted"
+                                  style="width:44px;height:44px">
+                                <i class="bi bi-image"></i>
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-semibold">{{ actualite.titre }}</td>
+                    <td class="small">{{ actualite.datePublication|date('d/m/Y') }}</td>
+                    <td>
+                        {% if actualite.cycleConcerne %}
+                            <span class="badge bg-light text-dark border fw-normal">{{ actualite.cycleConcerne.label() }}</span>
+                        {% else %}
+                            <span class="text-muted small">Toute l'école</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if actualite.publie %}
+                            <span class="badge bg-success">Publiée</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Brouillon</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_actualite_edit', {id: actualite.id}),
+                            path('admin_actualite_delete', {id: actualite.id}),
+                            actualite.id,
+                            'Supprimer l\'actualité "' ~ actualite.titre ~ '" ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(6, 'Aucune actualité pour l\'instant.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

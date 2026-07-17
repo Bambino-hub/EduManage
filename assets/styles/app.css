@@ -13,4 +13,5 @@
 @import "custom/layout.css";    /* mise en page propre à l'application */
 @import "custom/home.css";      /* styles de la page d'accueil (hero, devise, formations) */
 @import "custom/college.css";   /* pages "cycle" (Collège, Lycée) : bandeau, frais, listes */
+@import "custom/actualites.css"; /* page "Actualités" : cartes d'annonces, lignes d'examens */
 @import "custom/admin.css";     /* layout admin : sidebar, topbar, cartes statistiques */

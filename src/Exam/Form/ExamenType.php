@@ -11,6 +11,7 @@ use App\Academic\Repository\NiveauRepository;
 use App\Exam\Entity\Examen;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TimeType;
@@ -67,6 +68,11 @@ class ExamenType extends AbstractType
                 'expanded'      => true,
                 'by_reference'  => false,
                 'help'          => 'Toutes les classes actives de chaque niveau sélectionné sont concernées.',
+            ])
+            ->add('publie', CheckboxType::class, [
+                'label'    => 'Publier la date sur le site public',
+                'required' => false,
+                'help'     => 'Visible dans le calendrier des examens de la page "Actualités" du site vitrine.',
             ]);
     }
 

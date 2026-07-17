@@ -4,7 +4,25 @@
 {% block page_title %}Examens{% endblock %}
 
 {% block admin_content %}
-<h1 class="h4 mb-4">Programme des examens</h1>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <h1 class="h4 mb-0">Programme des examens</h1>
+    <div class="d-flex gap-2">
+        <form method="post" action="{{ path('admin_examen_publier_tout') }}"
+              onsubmit="return confirm('Publier tous les examens (collège et lycée) sur le site public ?');">
+            <input type="hidden" name="_token" value="{{ csrf_token('publier_tout_examens') }}">
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-globe2 me-1"></i>Publier les examens
+            </button>
+        </form>
+        <form method="post" action="{{ path('admin_examen_depublier_tout') }}"
+              onsubmit="return confirm('Retirer tous les examens (collège et lycée) du site public ?');">
+            <input type="hidden" name="_token" value="{{ csrf_token('depublier_tout_examens') }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-eye-slash me-1"></i>Annuler la publication
+            </button>
+        </form>
+    </div>
+</div>
 
 <div class="row g-4">
     {% for cycle in cycles %}

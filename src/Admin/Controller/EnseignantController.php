@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Admin\Controller;
 
 use App\Exam\Repository\SurveillanceRepository;
+use App\Security\Entity\Utilisateur;
+use App\Security\Repository\UtilisateurRepository;
+use App\Security\Service\MotDePasseGenerator;
 use App\Staff\Entity\Enseignant;
 use App\Staff\Enum\TypePersonnel;
 use App\Staff\Form\EnseignantType;
@@ -15,6 +18,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/admin/enseignants', name: 'admin_enseignant_')]
@@ -101,8 +105,11 @@ class EnseignantController extends AbstractController
      * statiques déclarées avant elle).
      */
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'])]
-    public function show(Enseignant $enseignant, SurveillanceRepository $surveillanceRepo): Response
-    {
+    public function show(
+        Enseignant $enseignant,
+        SurveillanceRepository $surveillanceRepo,
+        UtilisateurRepository $utilisateurRepo,
+    ): Response {
         $surveillances = $surveillanceRepo->findByEnseignant((int) $enseignant->getId());
 
         // Nombre d'EXAMENS distincts, pas de lignes : un enseignant sur un RegroupementSurveillance
@@ -116,6 +123,88 @@ class EnseignantController extends AbstractController
             'enseignant'         => $enseignant,
             'surveillances'      => $surveillances,
             'totalSurveillances' => $totalSurveillances,
+            'utilisateur'        => $utilisateurRepo->findOneBy(['enseignant' => $enseignant]),
         ]);
+    }
+
+    /** Crée l'accès de connexion d'un enseignant (mot de passe temporaire, affiché une seule fois). */
+    #[Route('/{id}/creer-acces', name: 'creer_acces', methods: ['POST'])]
+    public function creerAcces(
+        Request $request,
+        Enseignant $enseignant,
+        UtilisateurRepository $utilisateurRepo,
+        MotDePasseGenerator $motDePasseGenerator,
+        UserPasswordHasherInterface $passwordHasher,
+        EntityManagerInterface $em,
+    ): Response {
+        if (!$this->isCsrfTokenValid('creer_acces'.$enseignant->getId(), $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        if (!$enseignant->getEmail()) {
+            $this->addFlash('error', 'Cet enseignant n\'a pas d\'adresse e-mail : impossible de créer un accès.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        if ($utilisateurRepo->findOneBy(['enseignant' => $enseignant])) {
+            $this->addFlash('error', 'Cet enseignant a déjà un accès.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        $motDePasse = $motDePasseGenerator->generer();
+
+        $utilisateur = new Utilisateur();
+        $utilisateur->setEmail($enseignant->getEmail());
+        $utilisateur->setRoles(['ROLE_ENSEIGNANT']);
+        $utilisateur->setEnseignant($enseignant);
+        $utilisateur->setDoitChangerMotDePasse(true);
+        $utilisateur->setPassword($passwordHasher->hashPassword($utilisateur, $motDePasse));
+
+        $em->persist($utilisateur);
+        $em->flush();
+
+        $this->addFlash('success', sprintf(
+            'Accès créé pour %s. Mot de passe temporaire : %s — transmettez-le en main propre, il ne sera plus affiché.',
+            $enseignant->getNomComplet(),
+            $motDePasse,
+        ));
+
+        return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+    }
+
+    /** Régénère un mot de passe temporaire (accès perdu ou oublié — pas de "mot de passe oublié" en libre-service). */
+    #[Route('/{id}/reinitialiser-mot-de-passe', name: 'reinitialiser_mdp', methods: ['POST'])]
+    public function reinitialiserMotDePasse(
+        Request $request,
+        Enseignant $enseignant,
+        UtilisateurRepository $utilisateurRepo,
+        MotDePasseGenerator $motDePasseGenerator,
+        UserPasswordHasherInterface $passwordHasher,
+        EntityManagerInterface $em,
+    ): Response {
+        if (!$this->isCsrfTokenValid('reinitialiser_mdp'.$enseignant->getId(), $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        $utilisateur = $utilisateurRepo->findOneBy(['enseignant' => $enseignant]);
+        if (!$utilisateur) {
+            $this->addFlash('error', 'Cet enseignant n\'a pas encore d\'accès.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        $motDePasse = $motDePasseGenerator->generer();
+        $utilisateur->setPassword($passwordHasher->hashPassword($utilisateur, $motDePasse));
+        $utilisateur->setDoitChangerMotDePasse(true);
+        $em->flush();
+
+        $this->addFlash('success', sprintf(
+            'Nouveau mot de passe temporaire pour %s : %s — transmettez-le en main propre, il ne sera plus affiché.',
+            $enseignant->getNomComplet(),
+            $motDePasse,
+        ));
+
+        return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
     }
 }

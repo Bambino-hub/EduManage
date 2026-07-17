@@ -79,7 +79,18 @@
                                     {% else %}
                                         {% for examen in examensNiveau %}
                                             <div class="exam-entry">
-                                                <div class="fw-semibold">{{ examen.matiere.code }}</div>
+                                                <div class="d-flex align-items-center justify-content-between gap-1">
+                                                    <span class="fw-semibold">{{ examen.matiere.code }}</span>
+                                                    {% if examen.publie %}
+                                                        <span class="badge bg-success" style="font-size:.62rem" title="Publié sur le site public">
+                                                            <i class="bi bi-globe2"></i>
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary" style="font-size:.62rem" title="Non publié">
+                                                            <i class="bi bi-eye-slash"></i>
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="d-flex gap-2 mt-2">
                                                     <a href="{{ path('admin_examen_edit', {cycle: cycle.id, examen: examen.id}) }}" class="btn btn-sm btn-warning">Modifier</a>
                                                     <form method="post" action="{{ path('admin_examen_delete', {cycle: cycle.id, examen: examen.id}) }}" onsubmit="return confirm('Supprimer cet examen ?');">

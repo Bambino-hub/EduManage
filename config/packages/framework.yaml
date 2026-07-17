@@ -8,7 +8,11 @@ framework:
     trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port']
 
     # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    # gc_maxlifetime largement au-dessus du seuil d'inactivité (IdleSessionTimeoutListener,
+    # 30 min) : sinon le garbage collector PHP (probabiliste, 1 requête sur 100 par défaut)
+    # pourrait supprimer la session avant même que notre propre règle ne s'applique.
+    session:
+        gc_maxlifetime: 7200
 
     #esi: true
     #fragments: true

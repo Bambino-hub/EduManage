@@ -66,6 +66,37 @@ class ExamenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Examens à venir et PUBLIÉS (à partir de $depuis inclus) d'un cycle pour une année
+     * scolaire, avec matière et niveaux déjà chargés — utilisé par la page publique
+     * "Actualités" pour afficher le calendrier des examens à venir, collège et lycée
+     * séparément. Seul l'administrateur décide, via `Examen::$publie`, quelles dates sont
+     * visibles du public — d'où le filtre `e.publie = true` ici. Pas de setMaxResults() ici
+     * : combiné à la jointure *ToMany sur niveaux, LIMIT porterait sur les lignes SQL et non sur
+     * les examens hydratés, faussant le nombre de résultats — tronquer côté PHP si besoin.
+     *
+     * @return Examen[]
+     */
+    public function findAVenirParCycle(Cycle $cycle, AnneeScolaire $annee, \DateTimeImmutable $depuis): array
+    {
+        return $this->createQueryBuilder('e')
+            ->join('e.matiere', 'm')
+            ->addSelect('m')
+            ->join('e.niveaux', 'n')
+            ->addSelect('n')
+            ->where('n.cycle = :cycle')
+            ->andWhere('e.anneeScolaire = :annee')
+            ->andWhere('e.date >= :depuis')
+            ->andWhere('e.publie = true')
+            ->setParameter('cycle', $cycle)
+            ->setParameter('annee', $annee)
+            ->setParameter('depuis', $depuis)
+            ->orderBy('e.date', 'ASC')
+            ->addOrderBy('e.heureDebut', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Examens donnés par id, avec niveaux déjà chargés — utilisé par la permutation manuelle
      * pour résoudre les examens d'origine et de destination d'un lot de changements.
      *

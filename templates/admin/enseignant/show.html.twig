@@ -77,6 +77,39 @@
                 </dl>
             </div>
         </div>
+
+        <div class="admin-card mt-3">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-shield-lock-fill me-2 text-college-purple"></i>Accès à l'application
+                </h2>
+            </div>
+            <div class="admin-card-body">
+                {% if utilisateur %}
+                    <p class="mb-2">
+                        <span class="badge bg-success">Compte actif</span>
+                        <span class="text-muted small ms-1">{{ utilisateur.email }}</span>
+                    </p>
+                    <form method="post" action="{{ path('admin_enseignant_reinitialiser_mdp', {id: enseignant.id}) }}"
+                          onsubmit="return confirm('Générer un nouveau mot de passe temporaire pour {{ enseignant.nomComplet }} ?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('reinitialiser_mdp' ~ enseignant.id) }}">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-repeat me-1"></i>Réinitialiser le mot de passe
+                        </button>
+                    </form>
+                {% elseif enseignant.email %}
+                    <p class="text-muted small mb-2">Aucun accès créé pour cet enseignant.</p>
+                    <form method="post" action="{{ path('admin_enseignant_creer_acces', {id: enseignant.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('creer_acces' ~ enseignant.id) }}">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-person-plus-fill me-1"></i>Créer un accès
+                        </button>
+                    </form>
+                {% else %}
+                    <p class="text-muted small mb-0">Ajoutez une adresse e-mail à cet enseignant pour pouvoir lui créer un accès.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <div class="col-lg-7">

@@ -79,6 +79,28 @@ class AttributionRepository extends ServiceEntityRepository
     }
 
     /**
+     * Attributions d'UN enseignant pour une année scolaire, avec matière et niveau (via la
+     * classe) déjà chargés — utilisé par l'espace enseignant pour déterminer les couples
+     * matière/niveau où il intervient (et donc les examens à venir qui le concernent).
+     *
+     * @return Attribution[]
+     */
+    public function findByEnseignantEtAnnee(int $enseignantId, int $anneeScolaireId): array
+    {
+        return $this->createQueryBuilder('a')
+            ->addSelect('m', 'cl', 'n')
+            ->join('a.matiere', 'm')
+            ->join('a.classe', 'cl')
+            ->join('cl.niveau', 'n')
+            ->where('a.enseignant = :enseignantId')
+            ->andWhere('cl.anneeScolaire = :anneeId')
+            ->setParameter('enseignantId', $enseignantId)
+            ->setParameter('anneeId', $anneeScolaireId)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Charge horaire hebdomadaire totale par enseignant (toutes classes/matières confondues),
      * pour visualiser la charge globale sur la liste des attributions.
      *

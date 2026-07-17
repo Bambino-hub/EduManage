@@ -1,0 +1,10 @@
+{% if app.user and app.user.doitChangerMotDePasse %}
+    <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div class="flex-grow-1">
+            Vous utilisez un mot de passe temporaire.
+            <a href="{{ path('security_change_password') }}" class="alert-link">Changez-le maintenant</a>.
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+{% endif %}

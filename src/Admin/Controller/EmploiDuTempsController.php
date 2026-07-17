@@ -8,13 +8,12 @@ use App\Academic\Repository\AnneeScolaireRepository;
 use App\Academic\Repository\ClasseRepository;
 use App\Academic\Repository\SalleRepository;
 use App\Scheduling\Entity\Creneau;
-use App\Scheduling\Entity\Seance;
-use App\Scheduling\Enum\JourSemaine;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Repository\CreneauRepository;
 use App\Scheduling\Repository\RegroupementClasseRepository;
 use App\Scheduling\Repository\SeanceRepository;
 use App\Scheduling\Service\EmploiDuTempsGenerator;
+use App\Scheduling\Service\GrilleEmploiDuTempsBuilder;
 use App\Scheduling\Service\EmploiDuTempsPermutationService;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use App\Staff\Repository\EnseignantRepository;
@@ -35,6 +34,7 @@ class EmploiDuTempsController extends AbstractController
         ClasseRepository $classeRepo,
         EnseignantRepository $enseignantRepo,
         CreneauRepository $creneauRepo,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $classes     = $classeRepo->findByAnneeScolaireActive();
         $enseignants = $enseignantRepo->findActifs();
@@ -59,7 +59,7 @@ class EmploiDuTempsController extends AbstractController
             $seances = [];
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         return $this->render('admin/edt/index.html.twig', [
             'classes'               => $classes,
@@ -68,7 +68,7 @@ class EmploiDuTempsController extends AbstractController
             'enseignantSelectionne' => $enseignantId,
             'classeObj'             => $classeObj,
             'enseignantObj'         => $enseignantObj,
-            'grille'                => $this->regrouperParCreneau($seances),
+            'grille'                => $grilleBuilder->regrouperParCreneau($seances),
             'creneauxParJour'       => $creneauxParJour,
             'joursAffiches'         => $joursAffiches,
             'ordreMax'              => $ordreMax,
@@ -90,6 +90,7 @@ class EmploiDuTempsController extends AbstractController
         EnseignantRepository $enseignantRepo,
         CreneauRepository $creneauRepo,
         EmploiDuTempsPdfExporter $exporter,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $enseignantId = $request->query->getInt('enseignant') ?: null;
         $classeId     = $enseignantId ? null : ($request->query->getInt('classe') ?: null);
@@ -113,10 +114,10 @@ class EmploiDuTempsController extends AbstractController
             }
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         $html = $this->renderView('admin/edt/pdf/grilles.html.twig', [
-            'pages'           => [['titre' => $titre, 'grille' => $this->regrouperParCreneau($seances), 'contexte' => $contexte]],
+            'pages'           => [['titre' => $titre, 'grille' => $grilleBuilder->regrouperParCreneau($seances), 'contexte' => $contexte]],
             'creneauxParJour' => $creneauxParJour,
             'joursAffiches'   => $joursAffiches,
             'ordreMax'        => $ordreMax,
@@ -138,6 +139,7 @@ class EmploiDuTempsController extends AbstractController
         ClasseRepository $classeRepo,
         SeanceRepository $seanceRepo,
         CreneauRepository $creneauRepo,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $classes = $annee ? $classeRepo->findByAnneeScolaireActive() : [];
@@ -150,10 +152,10 @@ class EmploiDuTempsController extends AbstractController
 
         $grillesParClasse = [];
         foreach ($classes as $classe) {
-            $grillesParClasse[$classe->getId()] = $this->regrouperParCreneau($seancesParClasse[$classe->getId()] ?? []);
+            $grillesParClasse[$classe->getId()] = $grilleBuilder->regrouperParCreneau($seancesParClasse[$classe->getId()] ?? []);
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         return $this->render('admin/edt/imprimer_classes.html.twig', [
             'annee'             => $annee,
@@ -173,6 +175,7 @@ class EmploiDuTempsController extends AbstractController
         SeanceRepository $seanceRepo,
         CreneauRepository $creneauRepo,
         EmploiDuTempsPdfExporter $exporter,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $classes = $annee ? $classeRepo->findByAnneeScolaireActive() : [];
@@ -187,12 +190,12 @@ class EmploiDuTempsController extends AbstractController
         foreach ($classes as $classe) {
             $pages[] = [
                 'titre'    => 'Emploi du temps — '.$classe->getNom().($annee ? ' — '.$annee->getLibelle() : ''),
-                'grille'   => $this->regrouperParCreneau($seancesParClasse[$classe->getId()] ?? []),
+                'grille'   => $grilleBuilder->regrouperParCreneau($seancesParClasse[$classe->getId()] ?? []),
                 'contexte' => 'classe',
             ];
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         $html = $this->renderView('admin/edt/pdf/grilles.html.twig', [
             'pages'           => $pages,
@@ -215,6 +218,7 @@ class EmploiDuTempsController extends AbstractController
         EnseignantRepository $enseignantRepo,
         SeanceRepository $seanceRepo,
         CreneauRepository $creneauRepo,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $seances = $annee ? $seanceRepo->findByAnneeScolaire((int) $annee->getId()) : [];
@@ -231,10 +235,10 @@ class EmploiDuTempsController extends AbstractController
 
         $grillesParEnseignant = [];
         foreach ($enseignants as $enseignant) {
-            $grillesParEnseignant[$enseignant->getId()] = $this->regrouperParCreneau($seancesParEnseignant[$enseignant->getId()]);
+            $grillesParEnseignant[$enseignant->getId()] = $grilleBuilder->regrouperParCreneau($seancesParEnseignant[$enseignant->getId()]);
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         return $this->render('admin/edt/imprimer_enseignants.html.twig', [
             'annee'                 => $annee,
@@ -254,6 +258,7 @@ class EmploiDuTempsController extends AbstractController
         SeanceRepository $seanceRepo,
         CreneauRepository $creneauRepo,
         EmploiDuTempsPdfExporter $exporter,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $seances = $annee ? $seanceRepo->findByAnneeScolaire((int) $annee->getId()) : [];
@@ -272,12 +277,12 @@ class EmploiDuTempsController extends AbstractController
         foreach ($enseignants as $enseignant) {
             $pages[] = [
                 'titre'    => 'Emploi du temps — '.$enseignant->getNomComplet().($annee ? ' — '.$annee->getLibelle() : ''),
-                'grille'   => $this->regrouperParCreneau($seancesParEnseignant[$enseignant->getId()]),
+                'grille'   => $grilleBuilder->regrouperParCreneau($seancesParEnseignant[$enseignant->getId()]),
                 'contexte' => 'enseignant',
             ];
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         $html = $this->renderView('admin/edt/pdf/grilles.html.twig', [
             'pages'           => $pages,
@@ -287,50 +292,6 @@ class EmploiDuTempsController extends AbstractController
         ]);
 
         return $this->reponsePdf($exporter->exporter($html), 'emploi-du-temps-tous-les-enseignants.pdf');
-    }
-
-    /**
-     * Regroupe une liste de séances en grille[jour][ordre] = Seance[] — plusieurs
-     * séances peuvent partager un même créneau pour une même classe (matières
-     * "parallèles" comme Allemand/Espagnol), d'où une liste et pas une séance unique.
-     *
-     * @param Seance[] $seances
-     * @return array<string, array<int, Seance[]>>
-     */
-    private function regrouperParCreneau(array $seances): array
-    {
-        $grille = [];
-        foreach ($seances as $seance) {
-            $creneau = $seance->getCreneau();
-            $grille[$creneau->getJourSemaine()->value][$creneau->getOrdre()][] = $seance;
-        }
-
-        return $grille;
-    }
-
-    /**
-     * Structure des créneaux (indépendante de la classe/l'enseignant affiché) partagée
-     * par toutes les vues EDT : créneaux indexés par jour puis ordre, jours réellement
-     * utilisés triés, et l'ordre maximum (nombre de lignes de la grille).
-     *
-     * @return array{0: array<string, array<int, Creneau>>, 1: JourSemaine[], 2: int}
-     */
-    private function construireStructureCreneaux(CreneauRepository $creneauRepo): array
-    {
-        $creneauxParJour = [];
-        $ordreMax        = 0;
-        foreach ($creneauRepo->findOrdonnes() as $creneau) {
-            $creneauxParJour[$creneau->getJourSemaine()->value][$creneau->getOrdre()] = $creneau;
-            $ordreMax = max($ordreMax, $creneau->getOrdre());
-        }
-
-        $joursAffiches = array_values(array_filter(
-            JourSemaine::cases(),
-            static fn (JourSemaine $j) => isset($creneauxParJour[$j->value]),
-        ));
-        usort($joursAffiches, static fn (JourSemaine $a, JourSemaine $b) => $a->ordre() <=> $b->ordre());
-
-        return [$creneauxParJour, $joursAffiches, $ordreMax];
     }
 
     private function reponsePdf(string $contenu, string $nomFichier): Response
@@ -364,6 +325,7 @@ class EmploiDuTempsController extends AbstractController
         CreneauRepository $creneauRepo,
         SeanceRepository $seanceRepo,
         RegroupementClasseRepository $regroupementRepo,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $classes = $annee ? $classeRepo->findByAnneeScolaireActive() : [];
@@ -379,7 +341,7 @@ class EmploiDuTempsController extends AbstractController
             $grille[$creneau->getJourSemaine()->value][$creneau->getOrdre()][$classeId][] = $seance;
         }
 
-        [$creneauxParJour, $joursAffiches] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
 
         [$reserveRowspan, $reserveContinuation] = $this->calculerRunsReserves($creneauxParJour);
 
@@ -448,6 +410,7 @@ class EmploiDuTempsController extends AbstractController
         CreneauRepository $creneauRepo,
         SeanceRepository $seanceRepo,
         EmploiDuTempsPdfExporter $exporter,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
     ): Response {
         $annee   = $anneeRepo->findActive();
         $classes = $annee ? $classeRepo->findByAnneeScolaireActive() : [];
@@ -460,7 +423,7 @@ class EmploiDuTempsController extends AbstractController
             $grille[$creneau->getJourSemaine()->value][$creneau->getOrdre()][$classeId][] = $seance;
         }
 
-        [$creneauxParJour, $joursAffiches, $ordreMax] = $this->construireStructureCreneaux($creneauRepo);
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
         [$reserveRowspan, $reserveContinuation]        = $this->calculerRunsReserves($creneauxParJour);
 
         $html = $this->renderView('admin/edt/pdf/globale.html.twig', [
