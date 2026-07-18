@@ -20,7 +20,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Nom</th>
@@ -31,8 +32,8 @@
             <tbody>
                 {% for r in regroupements %}
                     <tr>
-                        <td class="fw-semibold">{{ r.nom }}</td>
-                        <td>
+                        <td class="fw-semibold td-title">{{ r.nom }}</td>
+                        <td data-label="Classes">
                             {% for c in r.classes %}
                                 <span class="badge text-bg-light border">{{ c.nom }}</span>
                             {% endfor %}
@@ -51,6 +52,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

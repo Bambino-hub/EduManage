@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th></th>
@@ -39,16 +40,16 @@
                             </span>
                         {% endif %}
                     </td>
-                    <td class="fw-semibold">{{ actualite.titre }}</td>
-                    <td class="small">{{ actualite.datePublication|date('d/m/Y') }}</td>
-                    <td>
+                    <td class="fw-semibold td-title">{{ actualite.titre }}</td>
+                    <td class="small" data-label="Publication">{{ actualite.datePublication|date('d/m/Y') }}</td>
+                    <td data-label="Cycle">
                         {% if actualite.cycleConcerne %}
                             <span class="badge bg-light text-dark border fw-normal">{{ actualite.cycleConcerne.label() }}</span>
                         {% else %}
                             <span class="text-muted small">Toute l'école</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-label="Statut">
                         {% if actualite.publie %}
                             <span class="badge bg-success">Publiée</span>
                         {% else %}
@@ -69,6 +70,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

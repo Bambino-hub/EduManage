@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Jour</th>
@@ -37,11 +38,11 @@
                         </tr>
                     {% endif %}
                     <tr>
-                        <td class="text-muted">{{ c.jourSemaine.label() }}</td>
-                        <td class="fw-semibold">{{ c.heureDebut ? c.heureDebut|date('H:i') : '—' }}</td>
-                        <td class="fw-semibold">{{ c.heureFin ? c.heureFin|date('H:i') : '—' }}</td>
-                        <td class="text-muted">{{ c.dureeMinutes }} min</td>
-                        <td class="text-muted">{{ c.ordre }}</td>
+                        <td class="text-muted td-title">{{ c.jourSemaine.label() }}</td>
+                        <td class="fw-semibold" data-label="Début">{{ c.heureDebut ? c.heureDebut|date('H:i') : '—' }}</td>
+                        <td class="fw-semibold" data-label="Fin">{{ c.heureFin ? c.heureFin|date('H:i') : '—' }}</td>
+                        <td class="text-muted" data-label="Durée">{{ c.dureeMinutes }} min</td>
+                        <td class="text-muted" data-label="Ordre">{{ c.ordre }}</td>
                         <td>
                             {{ ui.actions(
                                 path('admin_creneau_edit', {id: c.id}),
@@ -56,6 +57,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

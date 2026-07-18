@@ -234,9 +234,21 @@
 
 {# Script : toggle sidebar sur mobile #}
 <script>
-    document.getElementById('sidebarToggle').addEventListener('click', function () {
-        document.getElementById('adminSidebar').classList.toggle('show');
-    });
+    (function () {
+        var sidebar = document.getElementById('adminSidebar');
+        var toggle = document.getElementById('sidebarToggle');
+
+        toggle.addEventListener('click', function () {
+            sidebar.classList.toggle('show');
+        });
+
+        // Sur petit écran, un clic en dehors de la sidebar (ou du bouton) la referme.
+        document.addEventListener('click', function (event) {
+            if (!sidebar.classList.contains('show')) return;
+            if (sidebar.contains(event.target) || toggle.contains(event.target)) return;
+            sidebar.classList.remove('show');
+        });
+    })();
 </script>
 
 {% endblock body %}

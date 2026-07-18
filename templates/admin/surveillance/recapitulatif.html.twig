@@ -47,7 +47,7 @@
 <div class="admin-card">
     <div class="admin-card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 table-stack">
                 <thead class="table-light">
                     <tr>
                         <th>NOM ET PRÉNOMS</th>
@@ -61,11 +61,11 @@
                 <tbody>
                     {% for ligne in lignes %}
                         <tr>
-                            <td class="fw-semibold">{{ ligne.enseignant.nomComplet }}</td>
-                            <td class="text-muted small">{{ ligne.enseignant.poste ?? '—' }}</td>
-                            <td><span class="badge bg-secondary">{{ ligne.enseignant.type.label() }}</span></td>
-                            <td class="text-muted small">{{ ligne.enseignant.cycle ?? '—' }}</td>
-                            <td>
+                            <td class="fw-semibold td-title">{{ ligne.enseignant.nomComplet }}</td>
+                            <td class="text-muted small" data-label="Fonction">{{ ligne.enseignant.poste ?? '—' }}</td>
+                            <td data-label="Statut"><span class="badge bg-secondary">{{ ligne.enseignant.type.label() }}</span></td>
+                            <td class="text-muted small" data-label="Cycle">{{ ligne.enseignant.cycle ?? '—' }}</td>
+                            <td data-label="Total surveillances">
                                 <span class="badge {{ ligne.charge == 0 ? 'bg-danger' : 'bg-primary' }} fs-6">
                                     {{ ligne.charge }}
                                 </span>

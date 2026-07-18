@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Ordre</th>
@@ -27,10 +28,10 @@
             <tbody>
                 {% for niveau in niveaux %}
                 <tr>
-                    <td class="text-muted">{{ niveau.ordre }}</td>
-                    <td class="fw-semibold">{{ niveau.nom }}</td>
-                    <td>{{ niveau.serie ?? '—' }}</td>
-                    <td><span class="badge bg-secondary">{{ niveau.cycle.nom }}</span></td>
+                    <td class="text-muted" data-label="Ordre">{{ niveau.ordre }}</td>
+                    <td class="fw-semibold td-title">{{ niveau.nom }}</td>
+                    <td data-label="Série">{{ niveau.serie ?? '—' }}</td>
+                    <td data-label="Cycle"><span class="badge bg-secondary">{{ niveau.cycle.nom }}</span></td>
                     <td>
                         {{ ui.actions(
                             path('admin_niveau_edit', {id: niveau.id}),
@@ -45,6 +46,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

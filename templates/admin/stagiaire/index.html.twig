@@ -28,7 +28,8 @@
         </div>
     </div>
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>NOM ET PRÉNOMS</th>
@@ -46,14 +47,14 @@
                 {% for s in stagiaires %}
                 <tr data-list-filter-target="row"
                     data-search="{{ (s.nomComplet ~ ' ' ~ s.specialite)|lower }}">
-                    <td class="fw-semibold">{{ s.nomComplet }}</td>
-                    <td class="text-muted small">{{ s.sexe ? s.sexe.value : '—' }}</td>
-                    <td class="text-muted small">{{ s.cycle ?? '—' }}</td>
-                    <td class="text-muted small">{{ s.specialite ?? '—' }}</td>
-                    <td class="text-muted small">{{ s.tuteur ? s.tuteur.nomComplet : '—' }}</td>
-                    <td class="text-muted small">{{ s.dateDebutStage ? s.dateDebutStage|date('d/m/Y') : '—' }}</td>
-                    <td class="text-muted small">{{ s.dateFinStage ? s.dateFinStage|date('d/m/Y') : '—' }}</td>
-                    <td class="text-muted small">{{ s.telephone ?? '—' }}</td>
+                    <td class="fw-semibold td-title">{{ s.nomComplet }}</td>
+                    <td class="text-muted small" data-label="Sexe">{{ s.sexe ? s.sexe.value : '—' }}</td>
+                    <td class="text-muted small" data-label="Cycle">{{ s.cycle ?? '—' }}</td>
+                    <td class="text-muted small" data-label="Matière de stage">{{ s.specialite ?? '—' }}</td>
+                    <td class="text-muted small" data-label="Encadrant">{{ s.tuteur ? s.tuteur.nomComplet : '—' }}</td>
+                    <td class="text-muted small" data-label="Début">{{ s.dateDebutStage ? s.dateDebutStage|date('d/m/Y') : '—' }}</td>
+                    <td class="text-muted small" data-label="Fin">{{ s.dateFinStage ? s.dateFinStage|date('d/m/Y') : '—' }}</td>
+                    <td class="text-muted small" data-label="Téléphone">{{ s.telephone ?? '—' }}</td>
                     <td class="no-print">
                         {{ ui.actions(
                             path('admin_stagiaire_edit', {id: s.id}),
@@ -76,6 +77,7 @@
                 {% endif %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 </div>

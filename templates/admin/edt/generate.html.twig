@@ -87,7 +87,8 @@
                     {% set classesEcart = resultat.classesAvecEcart %}
                     {% if classesEcart is not empty %}
                         <h6 class="fw-semibold mb-2">Classes avec un écart d'heures</h6>
-                        <table class="table table-sm mb-4">
+                        <div class="table-responsive">
+                        <table class="table table-sm mb-4 table-stack">
                             <thead class="table-light">
                                 <tr>
                                     <th>Classe</th>
@@ -100,11 +101,11 @@
                             <tbody>
                                 {% for c in classesEcart %}
                                     <tr>
-                                        <td>{{ c.classeNom }}</td>
-                                        <td class="text-center">{{ c.heuresDemandees }}h</td>
-                                        <td class="text-center">{{ c.heuresPlacees }}h</td>
-                                        <td class="text-center">{{ c.capaciteCreneaux }}h</td>
-                                        <td class="small">
+                                        <td class="td-title">{{ c.classeNom }}</td>
+                                        <td class="text-center" data-label="Demandées">{{ c.heuresDemandees }}h</td>
+                                        <td class="text-center" data-label="Placées">{{ c.heuresPlacees }}h</td>
+                                        <td class="text-center" data-label="Créneaux dispo.">{{ c.capaciteCreneaux }}h</td>
+                                        <td class="small" data-label="Écart">
                                             {% if c.excedentStructurel > 0 %}
                                                 <span class="badge text-bg-danger">
                                                     Excès : {{ c.excedentStructurel }}h de plus que les créneaux disponibles (problème de volume horaire, pas un bug de génération)
@@ -119,6 +120,7 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                        </div>
                     {% endif %}
 
                     {% set incompletes = resultat.unitesIncompletes %}
@@ -128,7 +130,8 @@
                         </div>
                     {% else %}
                         <h6 class="fw-semibold mb-2">Unités non (ou partiellement) placées</h6>
-                        <table class="table table-sm">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-stack">
                             <thead class="table-light">
                                 <tr>
                                     <th>Attribution</th>
@@ -140,14 +143,15 @@
                             <tbody>
                                 {% for u in incompletes %}
                                     <tr>
-                                        <td>{{ u.libelle }}</td>
-                                        <td class="text-center">{{ u.heuresDemandees }}h</td>
-                                        <td class="text-center">{{ u.heuresPlacees }}h</td>
-                                        <td class="text-muted small">{{ u.raisonsEchec|join(' ') }}</td>
+                                        <td class="td-title">{{ u.libelle }}</td>
+                                        <td class="text-center" data-label="Demandées">{{ u.heuresDemandees }}h</td>
+                                        <td class="text-center" data-label="Placées">{{ u.heuresPlacees }}h</td>
+                                        <td class="text-muted small" data-label="Raison">{{ u.raisonsEchec|join(' ') }}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                        </div>
                     {% endif %}
 
                     <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-primary btn-sm mt-2">

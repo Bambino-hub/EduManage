@@ -412,6 +412,105 @@
 }
 
 /* =============================================================
+   TABLEAUX EN CARTES SUR MOBILE — listes de données à plusieurs
+   colonnes (enseignants, classes, salles, etc.). Activé au cas
+   par cas avec la classe .table-stack sur <table> :
+     - chaque <tr> devient une carte
+     - le 1er <td> (identifiant de la ligne) porte la classe
+       .td-title et s'affiche en gras, sans libellé
+     - les <td> suivants portent un attribut data-label="…"
+       repris en libellé devant la valeur
+     - le <td> d'actions n'a ni data-label ni .td-title : il
+       s'affiche seul, aligné à droite
+   Ne pas utiliser sur les grilles (emploi du temps, tableaux de
+   surveillance, vérification d'attribution) : ce sont des
+   matrices à double entrée, pas des listes d'enregistrements —
+   elles restent en défilement horizontal (.table-responsive).
+   ============================================================= */
+
+@media (max-width: 767.98px) {
+    .table-stack thead {
+        display: none;
+    }
+
+    .table-stack,
+    .table-stack tbody,
+    .table-stack tr,
+    .table-stack td {
+        display: block;
+        width: 100%;
+    }
+
+    .table-stack tr {
+        border: 1px solid #e4e4ec;
+        border-radius: .6rem;
+        margin-bottom: .75rem;
+        padding: .7rem .9rem;
+    }
+
+    .table-stack tbody tr:last-child {
+        margin-bottom: 0;
+    }
+
+    .table-stack td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+        padding: .3rem 0;
+        border-bottom: 1px dashed #eef0f4;
+        text-align: right;
+    }
+
+    .table-stack td:last-child {
+        border-bottom: none;
+    }
+
+    .table-stack td:not([data-label]) {
+        justify-content: flex-end;
+    }
+
+    .table-stack td[data-label]::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        text-align: left;
+        font-size: .72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        color: #8a8aa3;
+    }
+
+    .table-stack td.td-title {
+        display: block;
+        text-align: left;
+        font-weight: 700;
+        font-size: 1rem;
+        padding-bottom: .5rem;
+        margin-bottom: .3rem;
+        border-bottom: 1px solid #eef0f4;
+    }
+
+    .table-stack td[colspan] {
+        display: block;
+        text-align: center;
+    }
+}
+
+/* En-têtes de page (titre + boutons d'action) et barres d'outils : évite le
+   débordement horizontal sur mobile en repassant les boutons à la ligne. */
+@media (max-width: 575.98px) {
+    .admin-content .d-flex.justify-content-between.align-items-center {
+        flex-wrap: wrap;
+        row-gap: .75rem;
+    }
+
+    .admin-content .d-flex.gap-2:not(.flex-wrap) {
+        flex-wrap: wrap;
+    }
+}
+
+/* =============================================================
    VUE GLOBALE EDT — permutation manuelle (contrôleur Stimulus edt-globale)
    ============================================================= */
 

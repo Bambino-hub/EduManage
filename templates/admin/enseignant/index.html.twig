@@ -56,7 +56,8 @@
         </div>
     </div>
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>NOM ET PRÉNOMS</th>
@@ -76,12 +77,12 @@
                     data-search="{{ (e.nomComplet ~ ' ' ~ e.specialite ~ ' ' ~ e.matricule ~ ' ' ~ e.email)|lower }}"
                     data-type="{{ e.type.value }}"
                     data-actif="{{ e.actif ? '1' : '0' }}">
-                    <td class="fw-semibold">{{ e.nomComplet }}</td>
-                    <td class="text-muted small">{{ e.sexe ? e.sexe.value : '—' }}</td>
-                    <td class="text-muted small">{{ e.matricule ?? 'Privé' }}</td>
-                    <td><span class="badge bg-secondary">{{ e.type.label() }}</span></td>
-                    <td class="text-muted small">{{ e.poste ?? '—' }}</td>
-                    <td>
+                    <td class="fw-semibold td-title">{{ e.nomComplet }}</td>
+                    <td class="text-muted small" data-label="Sexe">{{ e.sexe ? e.sexe.value : '—' }}</td>
+                    <td class="text-muted small" data-label="Matricule">{{ e.matricule ?? 'Privé' }}</td>
+                    <td data-label="Statut"><span class="badge bg-secondary">{{ e.type.label() }}</span></td>
+                    <td class="text-muted small" data-label="Fonction">{{ e.poste ?? '—' }}</td>
+                    <td data-label="Discipline">
                         {% if e.disciplines is not empty %}
                             <div class="d-flex flex-wrap gap-1">
                                 {% for discipline in e.disciplines %}
@@ -92,8 +93,8 @@
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td class="text-muted small">{{ e.cycle ?? '—' }}</td>
-                    <td class="text-muted small">
+                    <td class="text-muted small" data-label="Cycle">{{ e.cycle ?? '—' }}</td>
+                    <td class="text-muted small" data-label="Contact">
                         {{ e.email ?? '—' }}<br>{{ e.telephone ?? '—' }}
                     </td>
                     <td class="no-print">
@@ -119,6 +120,7 @@
                 {% endif %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 </div>

@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Couleur</th>
@@ -31,9 +32,9 @@
                         <span class="d-inline-block rounded-circle border"
                               style="width:22px;height:22px;background:{{ matiere.couleur }}"></span>
                     </td>
-                    <td class="fw-semibold">{{ matiere.nom }}</td>
-                    <td><code class="bg-light px-2 py-1 rounded">{{ matiere.code }}</code></td>
-                    <td>
+                    <td class="fw-semibold td-title">{{ matiere.nom }}</td>
+                    <td data-label="Code"><code class="bg-light px-2 py-1 rounded">{{ matiere.code }}</code></td>
+                    <td data-label="Niveaux configurés">
                         {% set mns = niveauxParMatiere[matiere.id] %}
                         {% if mns is empty %}
                             <span class="text-muted fst-italic small">Aucune heure configurée</span>
@@ -71,6 +72,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

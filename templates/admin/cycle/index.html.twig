@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Nom</th>
@@ -26,9 +27,9 @@
             <tbody>
                 {% for cycle in cycles %}
                 <tr>
-                    <td class="fw-semibold">{{ cycle.nom }}</td>
-                    <td><span class="badge bg-secondary">{{ cycle.type.label() }}</span></td>
-                    <td class="text-muted">{{ cycle.niveaux|length }} niveau(x)</td>
+                    <td class="fw-semibold td-title">{{ cycle.nom }}</td>
+                    <td data-label="Type"><span class="badge bg-secondary">{{ cycle.type.label() }}</span></td>
+                    <td class="text-muted" data-label="Niveaux">{{ cycle.niveaux|length }} niveau(x)</td>
                     <td>
                         {{ ui.actions(
                             path('admin_cycle_edit', {id: cycle.id}),
@@ -43,6 +44,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

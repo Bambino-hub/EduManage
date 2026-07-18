@@ -15,20 +15,20 @@
             <div class="admin-card-body">
                 {% if enseignant %}
                     <dl class="row gy-2 mb-0">
-                        <dt class="col-12 col-sm-5 text-muted small">Nom et prénoms</dt>
-                        <dd class="col-12 col-sm-7">{{ enseignant.nomComplet }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">Nom et prénoms</dt>
+                        <dd class="col-7 col-md-7">{{ enseignant.nomComplet }}</dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Sexe</dt>
-                        <dd class="col-12 col-sm-7">{{ enseignant.sexe ? enseignant.sexe.value : '—' }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">Sexe</dt>
+                        <dd class="col-7 col-md-7">{{ enseignant.sexe ? enseignant.sexe.value : '—' }}</dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Statut</dt>
-                        <dd class="col-12 col-sm-7"><span class="badge bg-secondary">{{ enseignant.type.label() }}</span></dd>
+                        <dt class="col-5 col-md-5 text-muted small">Statut</dt>
+                        <dd class="col-7 col-md-7"><span class="badge bg-secondary">{{ enseignant.type.label() }}</span></dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Fonction</dt>
-                        <dd class="col-12 col-sm-7">{{ enseignant.poste ?? '—' }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">Fonction</dt>
+                        <dd class="col-7 col-md-7">{{ enseignant.poste ?? '—' }}</dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Spécialité</dt>
-                        <dd class="col-12 col-sm-7">
+                        <dt class="col-5 col-md-5 text-muted small">Spécialité</dt>
+                        <dd class="col-7 col-md-7">
                             {% if enseignant.disciplines is not empty %}
                                 <div class="d-flex flex-wrap gap-1">
                                     {% for discipline in enseignant.disciplines %}
@@ -40,14 +40,14 @@
                             {% endif %}
                         </dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Cycle</dt>
-                        <dd class="col-12 col-sm-7">{{ enseignant.cycle ?? '—' }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">Cycle</dt>
+                        <dd class="col-7 col-md-7">{{ enseignant.cycle ?? '—' }}</dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">E-mail</dt>
-                        <dd class="col-12 col-sm-7 text-break">{{ enseignant.email ?? '—' }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">E-mail</dt>
+                        <dd class="col-7 col-md-7 text-break">{{ enseignant.email ?? '—' }}</dd>
 
-                        <dt class="col-12 col-sm-5 text-muted small">Téléphone</dt>
-                        <dd class="col-12 col-sm-7">{{ enseignant.telephone ?? '—' }}</dd>
+                        <dt class="col-5 col-md-5 text-muted small">Téléphone</dt>
+                        <dd class="col-7 col-md-7">{{ enseignant.telephone ?? '—' }}</dd>
                     </dl>
                 {% else %}
                     <p class="text-muted small mb-0">Ce compte n'est lié à aucune fiche enseignant.</p>
@@ -65,7 +65,7 @@
             </div>
             <div class="admin-card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 table-stack">
                         <thead class="table-light">
                             <tr>
                                 <th>JOUR ET DATE</th>
@@ -77,13 +77,13 @@
                         <tbody>
                             {% for examen in examensAVenir %}
                                 <tr>
-                                    <td class="small">
+                                    <td class="small td-title">
                                         {%- set jour = examen.jourSemaine -%}
                                         {{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ examen.date|date('d/m/Y') }}
                                     </td>
-                                    <td class="small">{{ examen.heureDebut|date('H:i') }}–{{ examen.heureFin|date('H:i') }}</td>
-                                    <td>{{ examen.matiere.nom }}</td>
-                                    <td class="small">
+                                    <td class="small" data-label="Heure">{{ examen.heureDebut|date('H:i') }}–{{ examen.heureFin|date('H:i') }}</td>
+                                    <td data-label="Matière">{{ examen.matiere.nom }}</td>
+                                    <td class="small" data-label="Niveaux">
                                         {% for niveau in examen.niveaux %}{{ niveau.nomComplet }}{% if not loop.last %}, {% endif %}{% endfor %}
                                     </td>
                                 </tr>
@@ -118,7 +118,7 @@
             </div>
             <div class="admin-card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 table-stack">
                         <thead class="table-light">
                             <tr>
                                 <th>JOUR ET DATE</th>
@@ -130,13 +130,13 @@
                         <tbody>
                             {% for surveillance in surveillances %}
                                 <tr>
-                                    <td class="small">
+                                    <td class="small td-title">
                                         {%- set jour = surveillance.examen.jourSemaine -%}
                                         {{ jour ? jour.label()|capitalize ~ ' ' : '' }}{{ surveillance.examen.date|date('d/m/Y') }}
                                     </td>
-                                    <td class="small">{{ surveillance.examen.heureDebut|date('H:i') }}–{{ surveillance.examen.heureFin|date('H:i') }}</td>
-                                    <td>{{ surveillance.examen.matiere.nom }}</td>
-                                    <td>{{ surveillance.classe.nom }}</td>
+                                    <td class="small" data-label="Heure">{{ surveillance.examen.heureDebut|date('H:i') }}–{{ surveillance.examen.heureFin|date('H:i') }}</td>
+                                    <td data-label="Matière">{{ surveillance.examen.matiere.nom }}</td>
+                                    <td data-label="Classe">{{ surveillance.classe.nom }}</td>
                                 </tr>
                             {% else %}
                                 <tr>

@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Libellé</th>
@@ -27,10 +28,10 @@
             <tbody>
                 {% for annee in annees %}
                 <tr>
-                    <td class="fw-semibold">{{ annee.libelle }}</td>
-                    <td>{{ annee.dateDebut ? annee.dateDebut|date('d/m/Y') : '—' }}</td>
-                    <td>{{ annee.dateFin ? annee.dateFin|date('d/m/Y') : '—' }}</td>
-                    <td>
+                    <td class="fw-semibold td-title">{{ annee.libelle }}</td>
+                    <td data-label="Du">{{ annee.dateDebut ? annee.dateDebut|date('d/m/Y') : '—' }}</td>
+                    <td data-label="Au">{{ annee.dateFin ? annee.dateFin|date('d/m/Y') : '—' }}</td>
+                    <td data-label="Statut">
                         {% if annee.active %}
                             <span class="badge bg-success">Active</span>
                         {% else %}
@@ -56,6 +57,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

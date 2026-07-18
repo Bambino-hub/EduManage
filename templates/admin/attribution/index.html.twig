@@ -23,7 +23,10 @@
 </div>
 
 <div class="admin-card">
-    <div class="admin-card-body p-0">
+    <!-- Bureau : tableau groupé par enseignant (rowspan) — pas adapté aux cartes mobiles,
+         voir la vue en cartes juste en dessous (d-md-none) pour les petits écrans. -->
+    <div class="admin-card-body p-0 d-none d-md-block">
+        <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
@@ -82,6 +85,54 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+    </div>
+
+    <!-- Mobile : une carte par enseignant, matières et classes imbriquées. -->
+    <div class="admin-card-body p-0 d-md-none">
+        {% for g in groupes %}
+            <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                        <div class="fw-semibold">{{ g.enseignant.nomComplet }}</div>
+                        <small class="text-muted">{{ g.enseignant.type.label() }}</small>
+                    </div>
+                    <span class="badge bg-primary">{{ g.total }}h</span>
+                </div>
+                {% for mg in g.matieres %}
+                    <div class="d-flex align-items-start gap-2 mt-2">
+                        <span class="rounded-circle border d-inline-block mt-1 flex-shrink-0"
+                              style="width:10px;height:10px;background:{{ mg.matiere.couleur }}"></span>
+                        <div class="flex-grow-1">
+                            <div class="small fw-semibold mb-1">{{ mg.matiere.code }}</div>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for a in mg.attributions %}
+                                    <span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1" style="font-size:.75rem" title="{{ a.classe.anneeScolaire.libelle }}">
+                                        {{ a.classe.nom }}
+                                        <strong class="text-college-purple">{{ a.volumeHoraireHebdo }}h</strong>
+                                        <a href="{{ path('admin_attribution_edit', {id: a.id}) }}" class="text-primary ms-1" title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="post" action="{{ path('admin_attribution_delete', {id: a.id}) }}" class="d-inline"
+                                              onsubmit="return confirm('Supprimer cette attribution ?')">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ a.id) }}">
+                                            <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-1" title="Supprimer">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                Aucune attribution. Ajoutez les enseignants, matières et classes d'abord.
+            </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

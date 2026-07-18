@@ -14,7 +14,8 @@
 
 <div class="admin-card">
     <div class="admin-card-body p-0">
-        <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
             <thead class="table-light">
                 <tr>
                     <th>Classe</th>
@@ -29,12 +30,12 @@
             <tbody>
                 {% for classe in classes %}
                 <tr>
-                    <td class="fw-semibold">{{ classe.nom }}</td>
-                    <td>{{ classe.niveau.nomComplet }}</td>
-                    <td><span class="badge bg-secondary">{{ classe.niveau.cycle.nom }}</span></td>
-                    <td>{{ classe.anneeScolaire.libelle }}</td>
-                    <td class="text-muted">{{ classe.effectifMax }} élèves</td>
-                    <td>
+                    <td class="fw-semibold td-title">{{ classe.nom }}</td>
+                    <td data-label="Niveau">{{ classe.niveau.nomComplet }}</td>
+                    <td data-label="Cycle"><span class="badge bg-secondary">{{ classe.niveau.cycle.nom }}</span></td>
+                    <td data-label="Année scolaire">{{ classe.anneeScolaire.libelle }}</td>
+                    <td class="text-muted" data-label="Effectif max">{{ classe.effectifMax }} élèves</td>
+                    <td data-label="Statut">
                         {% if classe.active %}
                             <span class="badge bg-success">Active</span>
                         {% else %}
@@ -55,6 +56,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}
