@@ -1,0 +1,268 @@
+{#
+    Rendu PDF (dompdf) d'un ou plusieurs bulletins — portrait, un élève par page.
+    CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
+
+    Paramètres attendus :
+    - `bulletins` : liste de Grading\Entity\Bulletin (1 élément pour un bulletin
+      unitaire, N éléments pour l'export par lot d'une classe)
+    - `historiqueParBulletinId` : array<int, Bulletin[]> — pour chaque bulletin, ses
+      bulletins frères (même élève, même année scolaire, tous trimestres), pour le
+      tableau "historique + Moyenne Générale Annuelle"
+    - `avecEntete` : bool — inclut ou non l'en-tête du collège (voir BulletinController,
+      paramètre de requête ?entete_college=0|1, coché par défaut sur /admin/moyennes)
+
+    `project_dir` est un global Twig (%kernel.project_dir%, voir config/packages/twig.yaml)
+    — utilisé pour référencer la photo de l'élève par chemin filesystem absolu : dompdf lit
+    les fichiers locaux même avec setIsRemoteEnabled(false) (qui ne bloque que les fetch
+    http(s)), donc pas besoin de passer par une URL publique.
+
+    En-tête (République du Togo / logo / titre / coordonnées / devise) : partagé avec
+    d'autres documents PDF via admin/pdf/_entete_college.html.twig — voir ce fichier pour
+    l'inclure ailleurs.
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 9px; }
+
+    table.infos { width: 100%; border-collapse: collapse; margin: 8px 0; border: 1px solid #6a2c91; }
+    table.infos td.colonne { width: 42%; vertical-align: top; padding: 6px; border-right: 1px solid #d9cbe8; }
+    table.infos td.colonne-photo { width: 16%; vertical-align: top; padding: 6px; text-align: center; }
+    table.infos table.champs { width: 100%; }
+    table.infos table.champs td { padding: 1px 4px; }
+    table.infos .label { color: #6a2c91; width: 90px; }
+    table.infos .valeur { font-weight: bold; }
+    .photo-eleve, .photo-vide { width: 72px; height: 96px; border: 1px solid #6a2c91; }
+
+    h2.titre { text-align: center; font-size: 13px; text-transform: uppercase; margin: 10px 0; letter-spacing: .5px; color: #6a2c91; }
+
+    table.matieres { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    table.matieres th, table.matieres td { border: 1px solid #999; padding: 3px 4px; text-align: center; }
+    table.matieres th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 8px; }
+    table.matieres td.discipline { text-align: left; font-weight: bold; }
+    table.matieres tr.totaux td { font-weight: bold; background: #f6f3fa; }
+
+    table.ligne-recap { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    table.ligne-recap > tr > td { vertical-align: top; padding: 0 3px; }
+    .recap-moyenne { border: 1px solid #6a2c91; background: #f6f3fa; padding: 5px 6px; }
+    .recap-moyenne .rang { margin-top: 5px; margin-bottom: 6px; }
+    .recap-moyenne .bilan-domaine { margin-top: 3px; }
+    .recap-moyenne .bilan-domaine .libelle-domaine { color: #6a2c91; }
+
+    table.historique { width: 100%; border-collapse: collapse; }
+    table.historique th, table.historique td { border: 1px solid #999; padding: 3px 5px; text-align: center; }
+    table.historique th { background: #6a2c91; color: #fff; }
+    table.historique tr.mga td { font-weight: bold; background: #f6f3fa; }
+
+    .encadre { border: 1px solid #999; padding: 6px; }
+    .encadre .titre-encadre { font-weight: bold; font-size: 8px; text-transform: uppercase; color: #fff; background: #6a2c91; margin: -6px -6px 5px; padding: 3px 6px; }
+    .decision { border: 1px solid #6a2c91; background: #f6f3fa; padding: 5px 6px; margin-top: 6px; }
+
+    table.bloc-bas { width: 100%; margin-top: 6px; border-collapse: collapse; }
+    table.bloc-bas > tr > td { vertical-align: top; padding: 0 3px; }
+    table.bloc-bas .encadre { min-height: 100px; }
+    ul.mentions { list-style: none; margin: 0; padding: 0; }
+    ul.mentions li { margin-bottom: 2px; }
+
+    table.qr-ligne { width: 100%; margin-top: 8px; border-collapse: collapse; }
+    table.qr-ligne td { padding: 0; }
+    table.qr-ligne td.qr { width: 64px; vertical-align: top; }
+    table.qr-ligne td.qr img { width: 60px; height: 60px; }
+    table.qr-ligne td.pointilles { border-bottom: 1px dotted #666; height: 20px; }
+
+    .nom-titulaire { text-align: center; font-size: 8px; margin-top: 8px; }
+
+    .chef-etablissement { text-align: center; }
+    .espace-cachet { height: 22px; }
+    .titre-directrice { font-weight: bold; }
+    .nom-directrice { font-size: 8px; margin-top: 22px; }
+
+    table.pied { width: 100%; margin-top: 10px; }
+    .genere { font-size: 7px; color: #888; text-align: left; }
+    .nb-footer { font-size: 7px; color: #6a2c91; font-weight: bold; text-align: right; }
+    .page-suivante { page-break-before: always; }
+</style>
+</head>
+<body>
+{% for bulletin in bulletins %}
+    {% set inscription = bulletin.eleve.inscriptionEnCours %}
+    {% set historique = historiqueParBulletinId[bulletin.id] ?? [] %}
+    {% set mentionsAuto = bulletin.moyenneGenerale ? bulletin.moyenneGenerale|mentions_auto : [] %}
+    <div{{ not loop.first ? ' class="page-suivante"' }}>
+        {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+
+        <table class="infos">
+            <tr>
+                <td class="colonne">
+                    <table class="champs">
+                        <tr><td class="label">Matricule</td><td class="valeur">{{ bulletin.eleve.matricule }}</td></tr>
+                        <tr><td class="label">Nom et prénoms</td><td class="valeur">{{ bulletin.eleve.nomComplet }}</td></tr>
+                        <tr><td class="label">Né(e) le</td><td>{{ bulletin.eleve.dateNaissance ? bulletin.eleve.dateNaissance|date('d/m/Y') : '—' }}</td></tr>
+                        <tr><td class="label">Lieu</td><td>{{ bulletin.eleve.lieuNaissance ?? '—' }}</td></tr>
+                        <tr><td class="label">Sexe</td><td>{{ bulletin.eleve.sexe ? bulletin.eleve.sexe.label() : '—' }}</td></tr>
+                    </table>
+                </td>
+                <td class="colonne">
+                    <table class="champs">
+                        <tr><td class="label">Classe</td><td class="valeur">{{ bulletin.classe.nom }}</td></tr>
+                        <tr><td class="label">Effectif</td><td>{{ bulletin.effectifClasse }}</td></tr>
+                        <tr><td class="label">Statut</td><td>{{ inscription and inscription.redoublant ? 'Redoublant' : 'Passant' }}</td></tr>
+                        <tr><td class="label">Année scolaire</td><td>{{ bulletin.classe.anneeScolaire.libelle }}</td></tr>
+                    </table>
+                </td>
+                <td class="colonne-photo">
+                    {% if bulletin.eleve.photo %}
+                        <img class="photo-eleve" src="{{ project_dir }}/public/uploads/eleves/{{ bulletin.eleve.photo }}" alt="">
+                    {% else %}
+                        <div class="photo-vide"></div>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+
+        <h2 class="titre">Bulletin de notes du {{ bulletin.trimestre.libelle }}</h2>
+
+        <table class="matieres">
+            <thead>
+                <tr>
+                    <th style="text-align:left">Disciplines</th>
+                    <th>Coef</th>
+                    <th>Moy Inter</th>
+                    <th>Moy Devoir</th>
+                    <th>Compos</th>
+                    <th>Moy./20</th>
+                    <th>Moy.Coef</th>
+                    <th>Rang</th>
+                    <th>Nom du professeur</th>
+                    <th>Appréciations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for matiere in bulletin.matieres %}
+                    <tr>
+                        <td class="discipline">{{ matiere.matiere.nom }}</td>
+                        <td>{{ matiere.coefficient }}</td>
+                        <td>{{ matiere.moyenneInterrogation ?? '**.**' }}</td>
+                        <td>{{ matiere.moyenneDevoirs ?? '**.**' }}</td>
+                        <td>{{ matiere.moyenneComposition ?? '**.**' }}</td>
+                        <td>{{ matiere.moyenne ?? '—' }}</td>
+                        <td>{{ matiere.moyenne is not null ? (matiere.moyenne * matiere.coefficient)|number_format(2) : '—' }}</td>
+                        <td>{{ matiere.rang ?? '—' }}</td>
+                        <td style="text-align:left">{{ matiere.enseignantNom }}</td>
+                        <td>{{ matiere.appreciation ?? '—' }}</td>
+                    </tr>
+                {% endfor %}
+                <tr class="totaux">
+                    <td style="text-align:left">TOTAUX</td>
+                    <td>{{ bulletin.coefficientTotal }}</td>
+                    <td colspan="3"></td>
+                    <td colspan="2">{{ bulletin.moyenneCoefTotal }}</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table class="ligne-recap">
+            <tr>
+                <td style="width:32%">
+                    <div class="recap-moyenne">
+                        <div><strong>Moyenne :</strong> {{ bulletin.moyenneGenerale ? bulletin.moyenneGenerale|replace({'.': ','}) : '—' }}</div>
+                        {% if bulletin.moyenneGenerale %}<div style="font-style:italic">({{ bulletin.moyenneGenerale|moyenne_en_lettres }})</div>{% endif %}
+                        <div class="rang"><strong>Rang :</strong> {{ bulletin.rang ? bulletin.rang|rang_ordinal(bulletin.eleve.sexe) : '—' }} / {{ bulletin.effectifClasse }}</div>
+                        {% for bilan in bulletin.bilansDomaine %}
+                            <div class="bilan-domaine">
+                                <span class="libelle-domaine">Bilan {{ bilan.domaine.label() }} :</span>
+                                {{ bilan.moyenne ? bilan.moyenne|replace({'.': ','}) : '—' }} — {{ bilan.appreciation ?? '—' }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td style="width:40%">
+                    <table class="historique">
+                        <thead>
+                            <tr><th>Trimestre</th><th>Moy.</th><th>Rang</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for numero in 1..3 %}
+                                {% set bulletinTrimestre = null %}
+                                {% for b in historique %}
+                                    {% if b.trimestre.numero == numero %}{% set bulletinTrimestre = b %}{% endif %}
+                                {% endfor %}
+                                <tr>
+                                    <td>{{ bulletinTrimestre ? bulletinTrimestre.trimestre.libelle : numero ~ 'e trimestre' }}</td>
+                                    <td>{{ bulletinTrimestre ? (bulletinTrimestre.moyenneGenerale ? bulletinTrimestre.moyenneGenerale|replace({'.': ','}) : '—') : '—' }}</td>
+                                    <td>{{ bulletinTrimestre and bulletinTrimestre.rang ? bulletinTrimestre.rang|rang_ordinal(bulletin.eleve.sexe) : '—' }}</td>
+                                </tr>
+                            {% endfor %}
+                            <tr class="mga">
+                                <td>M.G.A.</td>
+                                <td>{{ bulletin.moyenneAnnuelle ? bulletin.moyenneAnnuelle|replace({'.': ','}) : '—' }}</td>
+                                <td>{{ bulletin.rangAnnuel ? bulletin.rangAnnuel|rang_ordinal(bulletin.eleve.sexe) : '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+                <td style="width:28%">
+                    <div class="encadre">
+                        <div class="titre-encadre">Bilan de la classe</div>
+                        Moy. faible : {{ bulletin.moyenneClasseFaible ? bulletin.moyenneClasseFaible|replace({'.': ','}) : '—' }}<br>
+                        Moy. forte : {{ bulletin.moyenneClasseForte ? bulletin.moyenneClasseForte|replace({'.': ','}) : '—' }}<br>
+                        Moy. de classe : {{ bulletin.moyenneClasseGenerale ? bulletin.moyenneClasseGenerale|replace({'.': ','}) : '—' }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="decision"><strong>Décision du conseil :</strong> {{ bulletin.decisionConseil ?? '—' }}</div>
+
+        <table class="bloc-bas">
+            <tr>
+                <td style="width:34%">
+                    <div class="encadre">
+                        <div class="titre-encadre">Appréciation du professeur principal</div>
+                        Travail : {{ bulletin.moyenneGenerale ? bulletin.moyenneGenerale|appreciation : '—' }}
+                        <table class="qr-ligne">
+                            <tr>
+                                <td class="qr" rowspan="3"><img src="{{ qr_data_uri('COLLEGE ADELE - Bulletin ' ~ bulletin.eleve.matricule ~ ' - ' ~ bulletin.trimestre.libelle ~ ' ' ~ bulletin.classe.anneeScolaire.libelle, 120) }}" alt=""></td>
+                                <td class="pointilles"></td>
+                            </tr>
+                            <tr><td class="pointilles"></td></tr>
+                            <tr><td class="pointilles"></td></tr>
+                        </table>
+                        <div class="nom-titulaire">{{ bulletin.classe.titulaire ? bulletin.classe.titulaire.nomComplet : '—' }}</div>
+                    </div>
+                </td>
+                <td style="width:32%">
+                    <div class="encadre">
+                        <div class="titre-encadre">Mentions du conseil des professeurs</div>
+                        <ul class="mentions">
+                            {% for mention in mentionsDisponibles %}
+                                <li>{{ (mention in mentionsAuto or mention in bulletin.mentions) ? '☑' : '☐' }} {{ mention.label() }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </td>
+                <td style="width:34%">
+                    <div class="encadre chef-etablissement">
+                        <div class="titre-encadre">Appréciations, signature et cachet du chef d'établissement</div>
+                        <div class="espace-cachet"></div>
+                        <div class="titre-directrice">Directrice</div>
+                        <div class="nom-directrice">Sr. M. Epiphanie KOYE</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <table class="pied">
+            <tr>
+                <td class="genere">Bulletin généré le {{ bulletin.createdAt|date('d/m/Y à H:i') }}</td>
+                <td class="nb-footer">NB : Conservez précieusement ce bulletin. Il ne sera délivré aucun duplicata.</td>
+            </tr>
+        </table>
+    </div>
+{% endfor %}
+</body>
+</html>

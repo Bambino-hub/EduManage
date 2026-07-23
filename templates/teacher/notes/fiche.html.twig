@@ -1,0 +1,9 @@
+{% extends 'teacher/layout.html.twig' %}
+
+{% block title %}Fiche de notes — {{ attribution.classe.nom }} — {{ attribution.matiere.nom }} — EduManage{% endblock %}
+{% block page_title %}Fiche de notes{% endblock %}
+
+{% block content %}
+    {% set route_prefix = 'teacher_notes' %}
+    {{ include('grading/_fiche_body.html.twig') }}
+{% endblock %}

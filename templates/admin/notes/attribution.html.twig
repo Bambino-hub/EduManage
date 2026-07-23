@@ -1,0 +1,21 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ attribution.classe.nom }} — {{ attribution.matiere.nom }} — EduManage{% endblock %}
+{% block page_title %}{{ attribution.classe.nom }} — {{ attribution.matiere.nom }}{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <p class="text-muted mb-0">{{ trimestre.libelle }} — enseignant : {{ attribution.enseignant.nomComplet }}</p>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_notes_fiche', {id: attribution.id}) }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-grid-3x3 me-1"></i>Remplir la fiche de notes
+        </a>
+        <a href="{{ path('admin_note_import_new', {id: attribution.id}) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-camera-fill me-1"></i>Importer une fiche
+        </a>
+        <a href="{{ path('admin_notes_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+{% endblock %}

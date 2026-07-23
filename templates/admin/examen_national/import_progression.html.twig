@@ -1,0 +1,86 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Import en cours — EduManage{% endblock %}
+{% block page_title %}Import en cours{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-hourglass-split me-2 text-college-purple"></i>
+                    Lecture du relevé en cours…
+                </h2>
+            </div>
+            <div class="admin-card-body">
+                <p class="text-muted" style="font-size:.85rem">
+                    Ne fermez pas cette page. Chaque lot de quelques pages est analysé puis enregistré ;
+                    la progression avance automatiquement.
+                </p>
+
+                <div class="progress mb-3" style="height: 1.5rem">
+                    <div id="barre-progression" class="progress-bar bg-college-purple" role="progressbar" style="width: 0%">0%</div>
+                </div>
+                <div id="texte-progression" class="text-center text-muted small mb-3">
+                    0 / {{ session.totalPages }} pages traitées
+                </div>
+                <div id="zone-erreur" class="alert alert-danger d-none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const idSession = {{ session.id }};
+    const totalPages = {{ session.totalPages }};
+    const urlLot = "{{ path('admin_releve_national_import_lot', {id: session.id}) }}";
+    const urlApercu = "{{ path('admin_releve_national_import_apercu', {id: session.id}) }}";
+    const token = "{{ csrf_token('examen_national_lot' ~ session.id) }}";
+
+    const barre = document.getElementById('barre-progression');
+    const texte = document.getElementById('texte-progression');
+    const zoneErreur = document.getElementById('zone-erreur');
+
+    function majProgression(traite, total) {
+        const pourcentage = total > 0 ? Math.round((traite / total) * 100) : 0;
+        barre.style.width = pourcentage + '%';
+        barre.textContent = pourcentage + '%';
+        texte.textContent = traite + ' / ' + total + ' pages traitées';
+    }
+
+    async function traiterProchainLot() {
+        try {
+            const reponse = await fetch(urlLot, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: '_token=' + encodeURIComponent(token),
+            });
+            const donnees = await reponse.json();
+
+            if (donnees.erreur) {
+                zoneErreur.textContent = 'Erreur : ' + donnees.erreur + ' — nouvelle tentative dans quelques secondes…';
+                zoneErreur.classList.remove('d-none');
+                setTimeout(traiterProchainLot, 5000);
+                return;
+            }
+
+            majProgression(donnees.traite, donnees.total);
+
+            if (donnees.termine) {
+                window.location.href = urlApercu;
+            } else {
+                traiterProchainLot();
+            }
+        } catch (e) {
+            zoneErreur.textContent = 'Erreur réseau — nouvelle tentative dans quelques secondes…';
+            zoneErreur.classList.remove('d-none');
+            setTimeout(traiterProchainLot, 5000);
+        }
+    }
+
+    traiterProchainLot();
+})();
+</script>
+{% endblock %}

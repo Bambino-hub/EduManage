@@ -33,13 +33,21 @@
     </div>
 </form>
 
-<div class="d-flex flex-wrap gap-2 mb-4">
+<div class="d-flex flex-wrap align-items-center gap-2 mb-4" data-controller="entete-toggle">
     <a href="{{ path('admin_examen_new', {cycle: cycle.id}) }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-lg me-1"></i>Créer un examen
     </a>
-    <a href="{{ path('admin_examen_export_pdf', {cycle: cycle.id, entete: entete}) }}" class="btn btn-outline-secondary btn-sm">
+    <a href="{{ path('admin_examen_export_pdf', {cycle: cycle.id, entete: entete}) }}"
+       data-base-href="{{ path('admin_examen_export_pdf', {cycle: cycle.id, entete: entete}) }}"
+       data-entete-toggle-target="link"
+       class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter les examens en PDF
     </a>
+    <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteExamen"
+               data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+        <label class="form-check-label small" for="toggleEnteteExamen">En-tête du collège sur le PDF</label>
+    </div>
     <a href="{{ path('admin_surveillance_tableau', {cycle: cycle.id, entete: entete}) }}" class="btn btn-info btn-sm">
         <i class="bi bi-shield-check me-1"></i>Tableau de surveillance
     </a>

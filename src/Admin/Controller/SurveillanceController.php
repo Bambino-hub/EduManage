@@ -198,6 +198,7 @@ class SurveillanceController extends AbstractController
             'classesParNiveau'             => $classesParNiveau,
             'surveillancesParExamenClasse' => $surveillancesParExamenClasse,
             'entete'                       => $request->query->getString('entete', ''),
+            'avecEntete'                   => $request->query->getBoolean('entete_college', false),
         ]);
 
         return new Response($exporter->exporter($html), 200, [

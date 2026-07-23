@@ -6,6 +6,7 @@ namespace App\Academic\Entity;
 
 use App\Academic\Repository\ClasseRepository;
 use App\Shared\Entity\TimestampableTrait;
+use App\Staff\Entity\Enseignant;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -47,6 +48,11 @@ class Classe
     #[ORM\JoinColumn(nullable: false)]
     private ?AnneeScolaire $anneeScolaire = null;
 
+    /** Titulaire (professeur principal) de la classe — imprimé sur le bulletin sous la case "Appréciation du professeur principal". */
+    #[ORM\ManyToOne(targetEntity: Enseignant::class)]
+    #[ORM\JoinColumn(name: 'titulaire_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Enseignant $titulaire = null;
+
     #[ORM\OneToMany(targetEntity: \App\Scheduling\Entity\Attribution::class, mappedBy: 'classe')]
     private Collection $attributions;
 
@@ -63,10 +69,14 @@ class Classe
     #[ORM\JoinTable(name: 'classe_matiere_optionnelle')]
     private Collection $matieresOptionnelles;
 
+    #[ORM\OneToMany(targetEntity: \App\Student\Entity\Inscription::class, mappedBy: 'classe')]
+    private Collection $inscriptions;
+
     public function __construct()
     {
         $this->attributions         = new ArrayCollection();
         $this->matieresOptionnelles = new ArrayCollection();
+        $this->inscriptions         = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -111,11 +121,22 @@ class Classe
         return $this;
     }
 
+    public function getTitulaire(): ?Enseignant { return $this->titulaire; }
+
+    public function setTitulaire(?Enseignant $titulaire): static
+    {
+        $this->titulaire = $titulaire;
+        return $this;
+    }
+
     /** @return Collection<int, \App\Scheduling\Entity\Attribution> */
     public function getAttributions(): Collection { return $this->attributions; }
 
     /** @return Collection<int, Matiere> */
     public function getMatieresOptionnelles(): Collection { return $this->matieresOptionnelles; }
+
+    /** @return Collection<int, \App\Student\Entity\Inscription> */
+    public function getInscriptions(): Collection { return $this->inscriptions; }
 
     /**
      * Remplace l'intégralité du choix de matières optionnelles (utilisé par le formulaire

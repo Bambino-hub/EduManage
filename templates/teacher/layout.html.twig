@@ -30,6 +30,10 @@
                    class="nav-link {% if currentRoute == 'teacher_edt' %}fw-semibold text-primary{% endif %}">
                     Mon emploi du temps
                 </a>
+                <a href="{{ path('teacher_notes_index') }}"
+                   class="nav-link {% if currentRoute starts with 'teacher_notes' %}fw-semibold text-primary{% endif %}">
+                    Mes notes
+                </a>
                 <a href="{{ path('security_change_password') }}"
                    class="nav-link {% if currentRoute == 'security_change_password' %}fw-semibold text-primary{% endif %}">
                     Mon compte

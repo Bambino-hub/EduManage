@@ -1,0 +1,67 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Trimestres — EduManage{% endblock %}
+{% block page_title %}Trimestres{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Trimestres</h1>
+    <a href="{{ path('admin_trimestre_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouveau trimestre
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
+            <thead class="table-light">
+                <tr>
+                    <th>Année scolaire</th>
+                    <th>Trimestre</th>
+                    <th>Du</th>
+                    <th>Au</th>
+                    <th>Fiche de notes</th>
+                    <th>Statut</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trimestre in trimestres %}
+                <tr>
+                    <td class="text-muted small" data-label="Année">{{ trimestre.anneeScolaire.libelle }}</td>
+                    <td class="fw-semibold td-title">{{ trimestre.libelle }}</td>
+                    <td data-label="Du">{{ trimestre.dateDebut|date('d/m/Y') }}</td>
+                    <td data-label="Au">{{ trimestre.dateFin|date('d/m/Y') }}</td>
+                    <td class="text-muted small" data-label="Fiche de notes">{{ trimestre.nbInterrogations }} interro · {{ trimestre.nbDevoirs }} devoir(s) · 1 compos</td>
+                    <td data-label="Statut">
+                        {% if trimestre.active %}
+                            <span class="badge bg-success">Actif</span>
+                        {% else %}
+                            <form method="post" action="{{ path('admin_trimestre_activate', {id: trimestre.id}) }}" class="d-inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('activate'~trimestre.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-secondary" style="font-size:.7rem;padding:.2rem .5rem">
+                                    Activer
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_trimestre_edit', {id: trimestre.id}),
+                            path('admin_trimestre_delete', {id: trimestre.id}),
+                            trimestre.id,
+                            'Supprimer ' ~ trimestre.libelle ~ ' (' ~ trimestre.anneeScolaire.libelle ~ ') ?'
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(7, 'Aucun trimestre. Créez le premier !') }}
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

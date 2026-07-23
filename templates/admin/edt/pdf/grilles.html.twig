@@ -3,7 +3,8 @@
     enseignant(s). CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
 
     Paramètre attendu : `pages` = liste de {titre: string, grille: ..., contexte: 'classe'|'enseignant'}
-    + joursAffiches/ordreMax/creneauxParJour partagés (identiques pour toutes les pages).
+    + joursAffiches/ordreMax/creneauxParJour partagés (identiques pour toutes les pages),
+    avecEntete (bool, en-tête du collège par page — voir admin/pdf/_entete_college.html.twig).
 #}
 <!DOCTYPE html>
 <html lang="fr">
@@ -27,6 +28,7 @@
 <body>
 {% for page in pages %}
     <div{{ not loop.first ? ' class="page-suivante"' }}>
+        {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
         <h1>{{ page.titre }}</h1>
         <table>
             <thead>

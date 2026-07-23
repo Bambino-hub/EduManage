@@ -1,0 +1,45 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Importer un relevé — EduManage{% endblock %}
+{% block page_title %}Importer un relevé d'examen{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-file-earmark-arrow-up-fill me-2 text-college-purple"></i>
+                    Importer un relevé de notes (BEPC / BAC1 / BAC2)
+                </h2>
+                <a href="{{ path('admin_releve_national_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Le PDF doit contenir un relevé officiel par page (une page = un candidat), toute une série
+                        empilée dans un seul fichier. La série, le centre et l'année sont lus automatiquement sur
+                        la première page. Le traitement se fait par petits lots — comptez quelques secondes par
+                        page. Rien n'est enregistré tant que vous n'avez pas vérifié et confirmé l'aperçu.
+                    </div>
+                </div>
+
+                {{ form_start(form, {action: path('admin_releve_national_import_upload'), method: 'POST'}) }}
+                {{ form_errors(form) }}
+                {{ form_row(form.type) }}
+                {{ form_row(form.fichier) }}
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>Importer
+                    </button>
+                    <a href="{{ path('admin_releve_national_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

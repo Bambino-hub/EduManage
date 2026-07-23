@@ -1,0 +1,151 @@
+{#
+    Corps partagé de la fiche de notes en ligne (teacher/admin) — inclus avec la variable
+    `route_prefix` ('teacher_notes' ou 'admin_notes') pour générer les bonnes routes.
+    Variables attendues : attribution, trimestre, inscriptions, interrogations, devoirs,
+    composition (Evaluation unique), notesParEvaluationId, surchargesParEleve,
+    calculAutoParEleve, coefficientMatiere, resultats, route_prefix.
+    Structure (nombre d'interrogations/devoirs) fixée par l'admin sur le Trimestre,
+    appliquée à toutes les matières — aucune gestion de colonne ici, admin ou enseignant.
+#}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2" data-controller="entete-toggle">
+    <p class="text-muted mb-0">{{ trimestre.libelle }}</p>
+    <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0 me-1">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteFiche"
+                   data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+            <label class="form-check-label small" for="toggleEnteteFiche">En-tête du collège</label>
+        </div>
+        <a href="{{ path(route_prefix ~ '_fiche_pdf', {id: attribution.id}) }}"
+           data-base-href="{{ path(route_prefix ~ '_fiche_pdf', {id: attribution.id}) }}"
+           data-entete-toggle-target="link"
+           class="btn btn-outline-secondary btn-sm" target="_blank">
+            <i class="bi bi-printer me-1"></i>Imprimer une fiche vierge
+        </a>
+        <a href="{{ path(route_prefix ~ '_attribution', {id: attribution.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="admin-card mb-3">
+    <div class="admin-card-body">
+        <div class="row row-cols-2 row-cols-md-3 g-2 small">
+            <div><span class="text-muted">Classe :</span> <strong>{{ attribution.classe.nom }}</strong></div>
+            <div><span class="text-muted">Matière :</span> <strong>{{ attribution.matiere.nom }}</strong></div>
+            <div><span class="text-muted">Coefficient :</span> <strong>{{ coefficientMatiere }}</strong></div>
+            <div><span class="text-muted">Professeur :</span> <strong>{{ attribution.enseignant.nomComplet }}</strong></div>
+            <div><span class="text-muted">Année scolaire :</span> <strong>{{ attribution.classe.anneeScolaire.libelle }}</strong></div>
+            <div><span class="text-muted">Trimestre :</span> <strong>{{ trimestre.libelle }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    <i class="bi bi-info-circle me-1"></i>
+    Moy Interro et Moy Devoir se calculent automatiquement (indiqué en grisé) mais peuvent être saisies à la main — utile notamment après l'import d'une fiche papier.
+</p>
+
+{% set interroColspan = max(interrogations|length, 1) %}
+{% set devoirColspan = max(devoirs|length, 1) %}
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('fiche' ~ attribution.id) }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-sm table-bordered align-middle mb-0 text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th rowspan="2" class="align-middle">N°</th>
+                        <th rowspan="2" class="align-middle text-start">Nom et Prénoms</th>
+                        <th colspan="{{ interroColspan }}">Interrogations</th>
+                        <th rowspan="2" class="align-middle">Moy<br>Interro</th>
+                        <th colspan="{{ devoirColspan }}">Devoirs</th>
+                        <th rowspan="2" class="align-middle">Moy<br>Devoir</th>
+                        <th rowspan="2" class="align-middle">Compos</th>
+                        <th rowspan="2" class="align-middle">Moy<br>/20</th>
+                        <th rowspan="2" class="align-middle">Rang</th>
+                    </tr>
+                    <tr>
+                        {% for evaluation in interrogations %}
+                            <th style="min-width:90px">{{ evaluation.titre }}</th>
+                        {% else %}
+                            <th>—</th>
+                        {% endfor %}
+                        {% for evaluation in devoirs %}
+                            <th style="min-width:90px">{{ evaluation.titre }}</th>
+                        {% else %}
+                            <th>—</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscription in inscriptions %}
+                        {% set eleve = inscription.eleve %}
+                        {% set resultat = resultats[eleve.id] ?? null %}
+                        {% set surcharge = surchargesParEleve[eleve.id] ?? null %}
+                        {% set calculAuto = calculAutoParEleve[eleve.id] ?? {interro: null, devoir: null} %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td class="text-start">{{ eleve.nomComplet }}</td>
+                            {% for evaluation in interrogations %}
+                                {% set note = notesParEvaluationId[evaluation.id][eleve.id] ?? null %}
+                                <td>
+                                    <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                           name="notes[{{ evaluation.id }}][{{ eleve.id }}][valeur]" value="{{ note and not note.absent ? note.valeur : '' }}">
+                                </td>
+                            {% else %}
+                                <td></td>
+                            {% endfor %}
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                       name="manuel[{{ eleve.id }}][interro]"
+                                       value="{{ surcharge ? surcharge.moyenneInterrogation : '' }}"
+                                       placeholder="{{ calculAuto.interro ?? '' }}">
+                            </td>
+                            {% for evaluation in devoirs %}
+                                {% set note = notesParEvaluationId[evaluation.id][eleve.id] ?? null %}
+                                <td>
+                                    <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                           name="notes[{{ evaluation.id }}][{{ eleve.id }}][valeur]" value="{{ note and not note.absent ? note.valeur : '' }}">
+                                </td>
+                            {% else %}
+                                <td></td>
+                            {% endfor %}
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                       name="manuel[{{ eleve.id }}][devoir]"
+                                       value="{{ surcharge ? surcharge.moyenneDevoirs : '' }}"
+                                       placeholder="{{ calculAuto.devoir ?? '' }}">
+                            </td>
+                            <td>
+                                {% if composition %}
+                                    {% set note = notesParEvaluationId[composition.id][eleve.id] ?? null %}
+                                    <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                           name="notes[{{ composition.id }}][{{ eleve.id }}][valeur]" value="{{ note and not note.absent ? note.valeur : '' }}">
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold">{{ resultat and resultat.moyenne is not null ? resultat.moyenne : '—' }}</td>
+                            <td class="fw-semibold">{{ resultat and resultat.rang is not null ? resultat.rang : '—' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="20" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                Aucun élève inscrit dans cette classe.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Enregistrer les notes
+        </button>
+    </div>
+</form>

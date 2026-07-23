@@ -1,0 +1,45 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Importer des élèves — EduManage{% endblock %}
+{% block page_title %}Importer des élèves{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-file-earmark-arrow-up-fill me-2 text-college-purple"></i>
+                    Importer depuis un fichier Excel
+                </h2>
+                <a href="{{ path('admin_eleve_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Le fichier doit contenir une ligne d'en-tête avec les colonnes
+                        <strong>Matricule, Nom, Prénom, Sexe, Date de naissance, Classe</strong> (ordre libre).
+                        La colonne Classe permet d'inscrire automatiquement l'élève si elle correspond à une
+                        classe active reconnue — sinon l'inscription se fera manuellement depuis sa fiche.
+                        Rien n'est enregistré tant que vous n'avez pas validé l'aperçu à l'étape suivante.
+                    </div>
+                </div>
+
+                {{ form_start(form, {action: path('admin_eleve_import_preview'), method: 'POST'}) }}
+                {{ form_errors(form) }}
+                {{ form_row(form.fichier) }}
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>Analyser le fichier
+                    </button>
+                    <a href="{{ path('admin_eleve_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Vérification de la fiche importée — EduManage{% endblock %}
+{% block page_title %}Vérification avant enregistrement{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="h5 mb-1">{{ attribution.classe.nom }} — {{ attribution.matiere.nom }}</h1>
+        <p class="text-muted mb-0 small">
+            Lu sur la fiche : {{ fiche.classe ?? '—' }} / {{ fiche.matiere ?? '—' }} / {{ fiche.professeur ?? '—' }} —
+            {{ lignes|length }} élève(s) détecté(s). Vérifiez chaque ligne avant d'enregistrer.
+        </p>
+    </div>
+    <a href="{{ path('admin_note_import_new', {id: attribution.id}) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Réessayer avec un autre fichier
+    </a>
+</div>
+
+<div class="alert alert-warning d-flex gap-2 mb-3" style="font-size:.85rem">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+    <div>
+        La lecture automatique peut se tromper (écriture proche, ratures). Les lignes en orange n'ont pas été
+        rapprochées automatiquement d'un élève — choisissez-le manuellement, ou laissez vide pour ignorer la ligne.
+    </div>
+</div>
+
+<form method="post" action="{{ path('admin_note_import_confirm', {id: attribution.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('note_import' ~ attribution.id) }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:150px">Nom lu sur la fiche</th>
+                        <th style="min-width:220px">Élève</th>
+                        <th style="width:110px">Moy Interro</th>
+                        <th style="width:110px">Moy Devoir</th>
+                        <th style="width:110px">Compos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                        <tr class="{{ ligne.eleve is null ? 'table-warning' }}">
+                            <td class="small">{{ ligne.nomExtrait }}</td>
+                            <td>
+                                <select class="form-select form-select-sm" name="lignes[{{ loop.index0 }}][eleve_id]">
+                                    <option value="">— ignorer cette ligne —</option>
+                                    {% for inscription in inscriptions %}
+                                        <option value="{{ inscription.eleve.id }}" {{ ligne.eleve and ligne.eleve.id == inscription.eleve.id ? 'selected' }}>
+                                            {{ inscription.eleve.nomComplet }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm"
+                                       name="lignes[{{ loop.index0 }}][interro]" value="{{ ligne.moyInterro }}">
+                            </td>
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm"
+                                       name="lignes[{{ loop.index0 }}][devoir]" value="{{ ligne.moyDevoir }}">
+                            </td>
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm"
+                                       name="lignes[{{ loop.index0 }}][compos]" value="{{ ligne.compos }}">
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Enregistrer les notes
+        </button>
+        <a href="{{ path('admin_notes_attribution', {id: attribution.id}) }}" class="btn btn-outline-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

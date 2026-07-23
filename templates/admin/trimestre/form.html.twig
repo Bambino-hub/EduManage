@@ -1,0 +1,48 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ trimestre.id ? 'Modifier' : 'Nouveau' }} trimestre — EduManage{% endblock %}
+{% block page_title %}{{ trimestre.id ? 'Modifier' : 'Nouveau' }} trimestre{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-calendar3 me-2 text-college-purple"></i>
+                    {{ trimestre.id ? 'Modifier ' ~ trimestre.libelle : 'Nouveau trimestre' }}
+                </h2>
+                <a href="{{ path('admin_trimestre_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3">
+                    <div class="col-12">{{ form_row(form.anneeScolaire) }}</div>
+                    <div class="col-12">{{ form_row(form.numero) }}</div>
+                    <div class="col-12">{{ form_row(form.libelle) }}</div>
+                    <div class="col-6">{{ form_row(form.dateDebut) }}</div>
+                    <div class="col-6">{{ form_row(form.dateFin) }}</div>
+                    <div class="col-12"><hr class="my-2"></div>
+                    <div class="col-12">
+                        <p class="text-muted small mb-2">
+                            <i class="bi bi-info-circle me-1"></i>Structure de la fiche de notes en ligne, appliquée automatiquement à toutes les matières ce trimestre. La colonne Composition reste toujours unique.
+                        </p>
+                    </div>
+                    <div class="col-6">{{ form_row(form.nbInterrogations) }}</div>
+                    <div class="col-6">{{ form_row(form.nbDevoirs) }}</div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                    <a href="{{ path('admin_trimestre_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

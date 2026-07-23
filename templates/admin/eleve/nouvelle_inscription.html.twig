@@ -1,0 +1,55 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Nouvelle inscription — EduManage{% endblock %}
+{% block page_title %}Nouvelle inscription{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-mortarboard-fill me-2 text-college-purple"></i>Nouvelle inscription
+                </h2>
+                <a href="{{ path('admin_eleve_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>Le matricule sera généré automatiquement à l'enregistrement. La classe s'affectera ensuite, individuellement ou en lot.
+                </p>
+                <div class="row g-3">
+                    <div class="col-6">{{ form_row(form.eleve.nom) }}</div>
+                    <div class="col-6">{{ form_row(form.eleve.prenom) }}</div>
+                    <div class="col-12">{{ form_row(form.eleve.photo) }}</div>
+                    <div class="col-3">{{ form_row(form.eleve.sexe) }}</div>
+                    <div class="col-4">{{ form_row(form.eleve.dateNaissance) }}</div>
+                    <div class="col-5">{{ form_row(form.eleve.lieuNaissance) }}</div>
+                    <div class="col-12">{{ form_row(form.eleve.adresse) }}</div>
+                    <div class="col-12"><hr class="my-2"></div>
+                    <div class="col-6">{{ form_row(form.eleve.nomTuteur) }}</div>
+                    <div class="col-6">{{ form_row(form.eleve.lienTuteur) }}</div>
+                    <div class="col-6">{{ form_row(form.eleve.telephoneTuteur) }}</div>
+                    <div class="col-6">{{ form_row(form.eleve.emailTuteur) }}</div>
+                    <div class="col-6">{{ form_row(form.eleve.statut) }}</div>
+                    <div class="col-12"><hr class="my-2"></div>
+                    <div class="col-12">{{ form_row(form.niveau) }}</div>
+                    <div class="col-6">{{ form_row(form.dateInscription) }}</div>
+                    <div class="col-6">{{ form_row(form.redoublant) }}</div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Inscrire
+                    </button>
+                    <a href="{{ path('admin_eleve_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

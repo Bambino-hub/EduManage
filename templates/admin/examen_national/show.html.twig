@@ -1,0 +1,85 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}{{ session.type.label }} — Série {{ session.serie }} — EduManage{% endblock %}
+{% block page_title %}Statistiques{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">
+            {{ session.type.label }} — Série {{ session.serie }}{{ session.libelleSerie ? ' (' ~ session.libelleSerie ~ ')' }}
+        </h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            {{ session.anneeSession ?? '—' }}
+            {{ session.centreExamen ? ' — ' ~ session.centreExamen }}
+            — {{ session.candidats|length }} candidat(s)
+            {% if session.candidats|length < session.totalPages %}
+                <span class="text-warning" title="Doublon probable (relevé scanné deux fois) ou page non lue — voir le PDF original">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    {{ session.totalPages - session.candidats|length }} page(s) sur {{ session.totalPages }} sans candidat distinct
+                </span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_releve_national_export_notes', {id: session.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>Télécharger le CSV des notes
+        </a>
+        <a href="{{ path('admin_releve_national_export_statistiques', {id: session.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>Télécharger les statistiques
+        </a>
+        <a href="{{ path('admin_releve_national_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">Min / Max et répartition par matière</h2>
+    </div>
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-stack">
+                <thead class="table-light">
+                    <tr>
+                        <th>Matière</th>
+                        <th class="text-center">N</th>
+                        <th class="text-center">Min</th>
+                        <th class="text-center">Max</th>
+                        <th class="text-center">[0;6[</th>
+                        <th class="text-center">[6;10[</th>
+                        <th class="text-center">[10;15[</th>
+                        <th class="text-center">[15;20]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in statistiques %}
+                        <tr>
+                            <td class="fw-semibold td-title" data-label="Matière">
+                                {{ stat.libelle }}
+                                {% if stat.typeEpreuve == 'facultative' %}
+                                    <span class="badge bg-light text-muted border ms-1" style="font-size:.7em">facultative</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center" data-label="N">{{ stat.n }}</td>
+                            <td class="text-center" data-label="Min">{{ stat.min }}</td>
+                            <td class="text-center" data-label="Max">{{ stat.max }}</td>
+                            <td class="text-center" data-label="[0;6[">{{ stat.bande0a6 }}</td>
+                            <td class="text-center" data-label="[6;10[">{{ stat.bande6a10 }}</td>
+                            <td class="text-center" data-label="[10;15[">{{ stat.bande10a15 }}</td>
+                            <td class="text-center" data-label="[15;20]">{{ stat.bande15a20 }}</td>
+                        </tr>
+                    {% else %}
+                        {{ ui.empty_row(8, 'Aucune note disponible pour cette session.') }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted px-3 py-2 mb-0" style="font-size:.8rem">
+            N = candidats notés dans la matière (un candidat non concerné n'est pas compté). La somme des quatre intervalles vaut toujours N.
+        </p>
+    </div>
+</div>
+{% endblock %}

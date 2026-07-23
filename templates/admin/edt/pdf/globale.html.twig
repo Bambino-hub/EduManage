@@ -4,6 +4,10 @@
     colonnes tiennent sur une seule page A4 paysage, comme la version imprimée navigateur
     (voir mémoire projet sur ce sujet) — sauf que le rendu est ici identique quel que soit
     le navigateur utilisé pour cliquer sur "Exporter PDF".
+
+    `avecEntete` (bool) : en-tête du collège, optionnelle et décochée par défaut — la grille
+    est déjà à la limite de tenir sur une page A4 paysage (6.5px, ~27 colonnes), l'ajouter
+    mange de la hauteur utile.
 #}
 <!DOCTYPE html>
 <html lang="fr">
@@ -22,6 +26,7 @@
 </style>
 </head>
 <body>
+    {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
     <h1>Emploi du temps — {{ annee ? annee.libelle : '' }}</h1>
     <table>
         <thead>

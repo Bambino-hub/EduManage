@@ -162,10 +162,11 @@ class ExamenController extends AbstractController
         $lignes = $annee ? $gridBuilder->construireLignes($cycle, $annee) : [];
 
         $html = $this->renderView('admin/examen/pdf/tableau.html.twig', [
-            'cycle'  => $cycle,
-            'annee'  => $annee,
-            'lignes' => $lignes,
-            'entete' => $request->query->getString('entete', ''),
+            'cycle'      => $cycle,
+            'annee'      => $annee,
+            'lignes'     => $lignes,
+            'entete'     => $request->query->getString('entete', ''),
+            'avecEntete' => $request->query->getBoolean('entete_college', false),
         ]);
 
         return new Response($exporter->exporter($html), 200, [

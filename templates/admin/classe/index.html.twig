@@ -47,7 +47,8 @@
                             path('admin_classe_edit', {id: classe.id}),
                             path('admin_classe_delete', {id: classe.id}),
                             classe.id,
-                            'Supprimer la classe ' ~ classe.nom ~ ' ?'
+                            'Supprimer la classe ' ~ classe.nom ~ ' ?',
+                            path('admin_eleve_par_classe', {classe: classe.id})
                         ) }}
                     </td>
                 </tr>

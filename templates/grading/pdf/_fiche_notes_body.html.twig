@@ -1,0 +1,66 @@
+{#
+    Corps d'une fiche de notes vierge (entête + grille), réutilisé tel quel par
+    fiche_notes.html.twig (une attribution) et fiches_notes_lot.html.twig (toutes les
+    attributions d'un enseignant, plusieurs fiches dans un même PDF). Même ordre de
+    colonnes que la grille en ligne (grading/_fiche_body.html.twig) : Interrogations →
+    Moy Interro → Devoirs → Moy Devoir → Compos (toujours une seule) → Moy/20 → Rang.
+    Variables attendues : attribution, trimestre, inscriptions, coefficientMatiere,
+    nbInterrogations, nbDevoirs, avecEntete (bool, en-tête du collège — voir
+    admin/pdf/_entete_college.html.twig).
+#}
+<div class="fiche-page">
+    {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+    <h1>Fiche de notes du {{ trimestre.libelle }}</h1>
+
+    <table class="entete">
+        <tr>
+            <td class="label">Classe :</td><td class="valeur">{{ attribution.classe.nom }}</td>
+            <td class="label">Matière :</td><td class="valeur">{{ attribution.matiere.nom }}</td>
+            <td class="label">Coefficient :</td><td class="valeur">{{ coefficientMatiere }}</td>
+        </tr>
+        <tr>
+            <td class="label">Professeur :</td><td class="valeur">{{ attribution.enseignant.nomComplet }}</td>
+            <td class="label">Année scolaire :</td><td class="valeur">{{ attribution.classe.anneeScolaire.libelle }}</td>
+            <td class="label">Trimestre :</td><td class="valeur">{{ trimestre.libelle }}</td>
+        </tr>
+    </table>
+
+    <table class="grille">
+        <colgroup>
+            <col class="n">
+            <col class="nom">
+        </colgroup>
+        <thead>
+            <tr>
+                <th rowspan="2">N°</th>
+                <th rowspan="2">Nom et Prénoms</th>
+                <th colspan="{{ nbInterrogations }}">Interrogations</th>
+                <th rowspan="2">Moy<br>Interro</th>
+                <th colspan="{{ nbDevoirs }}">Devoirs</th>
+                <th rowspan="2">Moy<br>Devoir</th>
+                <th rowspan="2">Compos</th>
+                <th rowspan="2">Moy<br>/20</th>
+                <th rowspan="2">Rang</th>
+            </tr>
+            <tr>
+                {% for i in 1..nbInterrogations %}<th>{{ i }}</th>{% endfor %}
+                {% for i in 1..nbDevoirs %}<th>{{ i }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for inscription in inscriptions %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="nom">{{ inscription.eleve.nomComplet }}</td>
+                    {% for i in 1..nbInterrogations %}<td>&nbsp;</td>{% endfor %}
+                    <td>&nbsp;</td>
+                    {% for i in 1..nbDevoirs %}<td>&nbsp;</td>{% endfor %}
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

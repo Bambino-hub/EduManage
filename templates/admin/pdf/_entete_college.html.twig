@@ -1,0 +1,40 @@
+{#
+    En-tête officiel du Collège Adèle (République du Togo / logo / titre / coordonnées /
+    devise) — pensé pour être réutilisé sur n'importe quel document PDF (dompdf) du collège,
+    pas seulement le bulletin.
+
+    Usage : `{% include 'admin/pdf/_entete_college.html.twig' %}` en haut du <body>. "Avec ou
+    sans en-tête" = inclure ce fragment dans le template appelant, ou non — pas de paramètre
+    à passer. Fichier autonome (CSS + HTML) : dompdf lit les balises <style> où qu'elles se
+    trouvent dans le document, donc aucune classe supplémentaire à définir côté appelant.
+
+    Utilise le global Twig `project_dir` (%kernel.project_dir%, voir config/packages/twig.yaml)
+    pour référencer le logo par chemin filesystem absolu (dompdf lit les fichiers locaux même
+    avec setIsRemoteEnabled(false), qui ne bloque que les fetch http(s)).
+#}
+<style>
+    .entete-college-table { width: 100%; border-collapse: collapse; }
+    .entete-college-table td { vertical-align: middle; padding: 0; }
+    .entete-college-table td.logo { width: 105px; }
+    .entete-college-table td.logo img { width: 95px; }
+    .entete-college-table td.centre { text-align: center; }
+    .entete-college .pays { font-size: 9px; margin: 0; }
+    .entete-college h1 { font-size: 20px; margin: 2px 0; letter-spacing: 1px; color: #6a2c91; }
+    .entete-college .coordonnees { font-size: 8px; color: #444; margin: 0; }
+    .entete-college .devise { font-size: 9px; font-weight: bold; margin: 6px 0 0; background: #f6f3fa; color: #6a2c91; border-top: 1px solid #6a2c91; border-bottom: 1px solid #6a2c91; padding: 4px 0; text-align: center; }
+</style>
+<div class="entete-college">
+    <table class="entete-college-table">
+        <tr>
+            <td class="logo">
+                <img src="{{ project_dir }}/assets/images/logo-college-adele.png" alt="">
+            </td>
+            <td class="centre">
+                <p class="pays">République du Togo</p>
+                <h1>COLLÈGE ADÈLE</h1>
+                <p class="coordonnees">BP 788 Kara — Tél : (+228) 26 60 13 84 / 92 16 82 17 — college.adele@yahoo.com</p>
+            </td>
+        </tr>
+    </table>
+    <p class="devise">SUCCÈS - VERTU - EN ESPRIT DE FAMILLE</p>
+</div>

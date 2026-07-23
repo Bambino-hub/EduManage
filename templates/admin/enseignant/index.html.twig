@@ -6,21 +6,29 @@
 
 {% block admin_content %}
 <div data-controller="list-filter" data-list-filter-total-value="{{ enseignants|length }}" data-list-filter-label-value="enseignant">
-<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print" data-controller="entete-toggle">
     <div>
         <h1 class="h4 mb-1">Enseignants</h1>
         <p class="text-muted mb-0" style="font-size:.85rem" data-list-filter-target="count">
             {{ enseignants|length }} enseignant{{ enseignants|length > 1 ? 's' : '' }}
         </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteEnseignants"
+                   data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+            <label class="form-check-label small" for="toggleEnteteEnseignants">En-tête</label>
+        </div>
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
             <i class="bi bi-printer-fill me-1"></i>Imprimer
         </button>
         <a href="{{ path('admin_enseignant_export_word') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-file-earmark-word-fill me-1"></i>Word
         </a>
-        <a href="{{ path('admin_enseignant_export_pdf') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ path('admin_enseignant_export_pdf') }}"
+           data-base-href="{{ path('admin_enseignant_export_pdf') }}"
+           data-entete-toggle-target="link"
+           class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
         </a>
         <a href="{{ path('admin_enseignant_import_new') }}" class="btn btn-outline-primary btn-sm">

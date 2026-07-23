@@ -54,9 +54,13 @@ class Attribution
     #[ORM\OneToMany(targetEntity: Seance::class, mappedBy: 'attribution', cascade: ['remove'])]
     private Collection $seances;
 
+    #[ORM\OneToMany(targetEntity: \App\Grading\Entity\Evaluation::class, mappedBy: 'attribution', cascade: ['remove'])]
+    private Collection $evaluations;
+
     public function __construct()
     {
-        $this->seances = new ArrayCollection();
+        $this->seances     = new ArrayCollection();
+        $this->evaluations = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -95,6 +99,9 @@ class Attribution
 
     /** @return Collection<int, Seance> */
     public function getSeances(): Collection { return $this->seances; }
+
+    /** @return Collection<int, \App\Grading\Entity\Evaluation> */
+    public function getEvaluations(): Collection { return $this->evaluations; }
 
     public function __toString(): string
     {

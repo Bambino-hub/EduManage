@@ -1,0 +1,101 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Affectation en lot — EduManage{% endblock %}
+{% block page_title %}Affectation en lot{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Affectation en lot</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            Choisissez un niveau, puis affectez chaque élève à sa classe et validez en une fois.
+        </p>
+    </div>
+    <a href="{{ path('admin_eleve_index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Retour aux élèves
+    </a>
+</div>
+
+<div class="admin-card mb-3">
+    <div class="admin-card-body d-flex flex-wrap gap-2">
+        {% for niveau in niveaux %}
+            <a href="{{ path('admin_inscription_affectation_lot', {niveau: niveau.id}) }}"
+               class="btn btn-sm {{ niveauChoisi and niveauChoisi.id == niveau.id ? 'btn-primary' : 'btn-outline-secondary' }}">
+                {{ niveau.nomComplet }}
+            </a>
+        {% else %}
+            <p class="text-muted mb-0">Aucun niveau configuré.</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% if niveauChoisi %}
+    {% if classesDuNiveau is empty %}
+        <div class="admin-card">
+            <div class="admin-card-body text-center text-muted py-5">
+                <i class="bi bi-exclamation-triangle fs-3 d-block mb-2 opacity-50"></i>
+                Aucune classe active pour {{ niveauChoisi.nomComplet }} cette année.
+            </div>
+        </div>
+    {% else %}
+        <form method="post" action="{{ path('admin_inscription_affectation_lot', {niveau: niveauChoisi.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('affectation_lot') }}">
+
+            <div class="admin-card" data-controller="list-filter" data-list-filter-total-value="{{ eleves|length }}" data-list-filter-label-value="élève">
+                <div class="admin-card-body border-bottom py-3">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <input type="search" class="form-control form-control-sm" style="max-width:320px"
+                               placeholder="Rechercher un nom, un matricule…"
+                               data-list-filter-target="search" data-action="input->list-filter#search">
+                        <span class="text-muted small" data-list-filter-target="count">{{ eleves|length }} élève{{ eleves|length > 1 ? 's' : '' }}</span>
+                    </div>
+                </div>
+                <div class="admin-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-stack">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>MATRICULE</th>
+                                    <th>NOM ET PRÉNOMS</th>
+                                    <th style="width:260px">CLASSE DE {{ niveauChoisi.nomComplet|upper }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for eleve in eleves %}
+                                    <tr data-list-filter-target="row" data-search="{{ (eleve.nomComplet ~ ' ' ~ eleve.matricule)|lower }}">
+                                        <td class="small text-muted">{{ eleve.matricule }}</td>
+                                        <td class="td-title fw-semibold">{{ eleve.nomComplet }}</td>
+                                        <td>
+                                            <select name="eleves[{{ eleve.id }}]" class="form-select form-select-sm">
+                                                <option value="">— Non affecté —</option>
+                                                {% for classe in classesDuNiveau %}
+                                                    <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <tr data-list-filter-target="row">
+                                        <td colspan="3" class="text-center text-muted py-5">
+                                            <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                            Aucun élève sans inscription en cours.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {% if eleves is not empty %}
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Valider les affectations
+                    </button>
+                </div>
+            {% endif %}
+        </form>
+    {% endif %}
+{% endif %}
+{% endblock %}

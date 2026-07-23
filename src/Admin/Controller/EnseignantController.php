@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Admin\Controller;
 
+use App\Academic\Repository\AnneeScolaireRepository;
+use App\Academic\Repository\MatiereNiveauRepository;
 use App\Exam\Repository\SurveillanceRepository;
+use App\Grading\Repository\TrimestreRepository;
+use App\Scheduling\Entity\Attribution;
+use App\Scheduling\Repository\AttributionRepository;
+use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use App\Security\Entity\Utilisateur;
 use App\Security\Repository\UtilisateurRepository;
 use App\Security\Service\MotDePasseGenerator;
@@ -14,12 +20,14 @@ use App\Staff\Form\EnseignantType;
 use App\Staff\Repository\EnseignantRepository;
 use App\Staff\Service\Export\EnseignantPdfExporter;
 use App\Staff\Service\Export\EnseignantWordExporter;
+use App\Student\Repository\InscriptionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 
 #[Route('/admin/enseignants', name: 'admin_enseignant_')]
 class EnseignantController extends AbstractController
@@ -45,9 +53,9 @@ class EnseignantController extends AbstractController
     }
 
     #[Route('/export/pdf', name: 'export_pdf')]
-    public function exportPdf(EnseignantRepository $repo, EnseignantPdfExporter $exporter): Response
+    public function exportPdf(Request $request, EnseignantRepository $repo, EnseignantPdfExporter $exporter): Response
     {
-        $contenu = $exporter->exporter($repo->findHorsStagiaires());
+        $contenu = $exporter->exporter($repo->findHorsStagiaires(), $request->query->getBoolean('entete_college', false));
 
         return new Response($contenu, 200, [
             'Content-Type' => 'application/pdf',
@@ -124,6 +132,70 @@ class EnseignantController extends AbstractController
             'surveillances'      => $surveillances,
             'totalSurveillances' => $totalSurveillances,
             'utilisateur'        => $utilisateurRepo->findOneBy(['enseignant' => $enseignant]),
+        ]);
+    }
+
+    /**
+     * Imprime en un seul PDF toutes les fiches de notes vierges (une par matière/attribution)
+     * de cet enseignant pour le trimestre actif — évite de les générer une par une depuis
+     * chaque attribution (voir Admin\Controller\NotesController::fichePdf pour l'unitaire).
+     */
+    #[Route('/{id}/fiches-notes-vierges', name: 'fiches_notes_vierges')]
+    public function fichesNotesVierges(
+        Enseignant $enseignant,
+        Request $request,
+        AnneeScolaireRepository $anneeRepo,
+        TrimestreRepository $trimestreRepo,
+        AttributionRepository $attributionRepo,
+        InscriptionRepository $inscriptionRepo,
+        MatiereNiveauRepository $matiereNiveauRepo,
+        EmploiDuTempsPdfExporter $exporter,
+    ): Response {
+        $annee     = $anneeRepo->findActive();
+        $trimestre = $trimestreRepo->findActive();
+
+        if ($annee === null || $trimestre === null) {
+            $this->addFlash('error', 'Aucune année scolaire ou aucun trimestre actif.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        $attributions = $attributionRepo->findByEnseignantEtAnnee((int) $enseignant->getId(), (int) $annee->getId());
+        if ($attributions === []) {
+            $this->addFlash('error', sprintf('%s n\'a aucune attribution cette année.', $enseignant->getNomComplet()));
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        usort($attributions, static fn (Attribution $a, Attribution $b): int => [$a->getMatiere()->getNom(), $a->getClasse()->getNom()] <=> [$b->getMatiere()->getNom(), $b->getClasse()->getNom()]);
+
+        $fiches = [];
+        foreach ($attributions as $attribution) {
+            $coefficientMatiere = $matiereNiveauRepo
+                ->findOneByMatiereEtNiveau($attribution->getMatiere(), $attribution->getClasse()->getNiveau())
+                ?->getCoefficient() ?? '1.00';
+
+            $fiches[] = [
+                'attribution'        => $attribution,
+                'inscriptions'       => $inscriptionRepo->findActivesByClasse($attribution->getClasse()),
+                'coefficientMatiere' => $coefficientMatiere,
+                'nbInterrogations'   => $trimestre->getNbInterrogations(),
+                'nbDevoirs'          => $trimestre->getNbDevoirs(),
+            ];
+        }
+
+        $html = $this->renderView('grading/pdf/fiches_notes_lot.html.twig', [
+            'enseignant' => $enseignant,
+            'trimestre'  => $trimestre,
+            'fiches'     => $fiches,
+            'avecEntete' => $request->query->getBoolean('entete_college', false),
+        ]);
+
+        $nomFichier = (new AsciiSlugger())->slug(
+            'fiches-notes-'.$enseignant->getNomComplet().'-'.$trimestre->getLibelle(),
+        )->lower().'.pdf';
+
+        return new Response($exporter->exporter($html, 'landscape'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$nomFichier.'"',
         ]);
     }
 

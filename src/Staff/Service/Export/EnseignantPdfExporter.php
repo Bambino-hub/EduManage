@@ -7,6 +7,8 @@ namespace App\Staff\Service\Export;
 use App\Staff\Entity\Enseignant;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Twig\Environment;
 
 /**
  * Génère le PDF de la liste des enseignants, avec les mêmes colonnes que le
@@ -16,24 +18,35 @@ class EnseignantPdfExporter
 {
     private const array ENTETES = ['NOM ET PRÉNOMS', 'SEXE', 'MATRICULE', 'STATUT', 'DISCIPLINE', 'CYCLE', 'CONTACT'];
 
+    public function __construct(
+        private readonly Environment $twig,
+        #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+    ) {
+    }
+
     /** @param Enseignant[] $enseignants */
-    public function exporter(array $enseignants): string
+    public function exporter(array $enseignants, bool $avecEntete = false): string
     {
         $options = new Options();
         $options->setIsRemoteEnabled(false);
         $options->setDefaultFont('DejaVu Sans');
+        // Par défaut, dompdf n'autorise le protocole file:// que sous son propre répertoire
+        // vendor/ — élargi au projet pour que le logo de l'en-tête (voir EmploiDuTempsPdfExporter,
+        // même correctif) soit accessible.
+        $options->setChroot([$this->projectDir]);
 
         $dompdf = new Dompdf($options);
         $dompdf->setPaper('A4', 'landscape');
-        $dompdf->loadHtml($this->html($enseignants));
+        $dompdf->loadHtml($this->html($enseignants, $avecEntete));
         $dompdf->render();
 
         return $dompdf->output();
     }
 
     /** @param Enseignant[] $enseignants */
-    private function html(array $enseignants): string
+    private function html(array $enseignants, bool $avecEntete): string
     {
+        $enteteCollegeHtml = $avecEntete ? $this->twig->render('admin/pdf/_entete_college.html.twig') : '';
         $lignes = '';
         foreach ($enseignants as $e) {
             $disciplines = $e->getDisciplines() !== [] ? implode(', ', $e->getDisciplines()) : '—';
@@ -69,6 +82,7 @@ class EnseignantPdfExporter
             </style>
             </head>
             <body>
+                {$enteteCollegeHtml}
                 <h1>Liste des enseignants</h1>
                 <p class="subtitle">{$total} personne(s)</p>
                 <table>

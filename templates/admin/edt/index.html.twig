@@ -4,17 +4,24 @@
 {% block page_title %}Emplois du temps{% endblock %}
 
 {% block admin_content %}
-<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print" data-controller="entete-toggle">
     <div>
         <h1 class="h4 mb-1">Emplois du temps</h1>
         <p class="text-muted mb-0" style="font-size:.85rem">Vue en lecture seule, par classe ou par enseignant.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteEdt"
+                   data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+            <label class="form-check-label small" for="toggleEnteteEdt">En-tête du collège sur les PDF</label>
+        </div>
         {% if classeSelectionnee or enseignantSelectionne %}
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
                 <i class="bi bi-printer-fill me-1"></i>Imprimer
             </button>
             <a href="{{ path('admin_edt_export_pdf', classeSelectionnee ? {classe: classeSelectionnee} : {enseignant: enseignantSelectionne}) }}"
+               data-base-href="{{ path('admin_edt_export_pdf', classeSelectionnee ? {classe: classeSelectionnee} : {enseignant: enseignantSelectionne}) }}"
+               data-entete-toggle-target="link"
                class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
             </a>
@@ -25,10 +32,16 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_classes') }}">Toutes les classes — aperçu</a></li>
-                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_classes_export_pdf') }}">Toutes les classes — PDF</a></li>
+                <li><a class="dropdown-item"
+                       href="{{ path('admin_edt_imprimer_classes_export_pdf') }}"
+                       data-base-href="{{ path('admin_edt_imprimer_classes_export_pdf') }}"
+                       data-entete-toggle-target="link">Toutes les classes — PDF</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_enseignants') }}">Tous les enseignants — aperçu</a></li>
-                <li><a class="dropdown-item" href="{{ path('admin_edt_imprimer_enseignants_export_pdf') }}">Tous les enseignants — PDF</a></li>
+                <li><a class="dropdown-item"
+                       href="{{ path('admin_edt_imprimer_enseignants_export_pdf') }}"
+                       data-base-href="{{ path('admin_edt_imprimer_enseignants_export_pdf') }}"
+                       data-entete-toggle-target="link">Tous les enseignants — PDF</a></li>
             </ul>
         </div>
         <a href="{{ path('admin_edt_globale') }}" class="btn btn-outline-secondary btn-sm">

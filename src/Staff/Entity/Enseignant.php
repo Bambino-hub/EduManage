@@ -326,7 +326,7 @@ class Enseignant
 
     public function getNomComplet(): string
     {
-        return "{$this->prenom} {$this->nom}";
+        return "{$this->nom} {$this->prenom}";
     }
 
     public function __toString(): string

@@ -35,12 +35,26 @@ class AnneeScolaire
     #[ORM\Column]
     private bool $active = false;
 
+    #[ORM\Column(type: 'decimal', precision: 4, scale: 2, options: ['default' => '1.00'])]
+    private string $poidsInterrogation = '1.00';
+
+    #[ORM\Column(type: 'decimal', precision: 4, scale: 2, options: ['default' => '1.00'])]
+    private string $poidsDevoirs = '1.00';
+
+    #[ORM\Column(type: 'decimal', precision: 4, scale: 2, options: ['default' => '1.00'])]
+    private string $poidsComposition = '1.00';
+
     #[ORM\OneToMany(targetEntity: Classe::class, mappedBy: 'anneeScolaire')]
     private Collection $classes;
 
+    #[ORM\OneToMany(targetEntity: \App\Grading\Entity\Trimestre::class, mappedBy: 'anneeScolaire')]
+    #[ORM\OrderBy(['numero' => 'ASC'])]
+    private Collection $trimestres;
+
     public function __construct()
     {
-        $this->classes = new ArrayCollection();
+        $this->classes    = new ArrayCollection();
+        $this->trimestres = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -77,8 +91,35 @@ class AnneeScolaire
         return $this;
     }
 
+    public function getPoidsInterrogation(): string { return $this->poidsInterrogation; }
+
+    public function setPoidsInterrogation(string $poidsInterrogation): static
+    {
+        $this->poidsInterrogation = $poidsInterrogation;
+        return $this;
+    }
+
+    public function getPoidsDevoirs(): string { return $this->poidsDevoirs; }
+
+    public function setPoidsDevoirs(string $poidsDevoirs): static
+    {
+        $this->poidsDevoirs = $poidsDevoirs;
+        return $this;
+    }
+
+    public function getPoidsComposition(): string { return $this->poidsComposition; }
+
+    public function setPoidsComposition(string $poidsComposition): static
+    {
+        $this->poidsComposition = $poidsComposition;
+        return $this;
+    }
+
     /** @return Collection<int, Classe> */
     public function getClasses(): Collection { return $this->classes; }
+
+    /** @return Collection<int, \App\Grading\Entity\Trimestre> */
+    public function getTrimestres(): Collection { return $this->trimestres; }
 
     public function __toString(): string { return $this->libelle; }
 }

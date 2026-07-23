@@ -1,0 +1,98 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Vérification de l'import — EduManage{% endblock %}
+{% block page_title %}Vérification avant enregistrement{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card mb-4">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">
+            <i class="bi bi-clipboard-check-fill me-2 text-college-purple"></i>
+            {{ session.type.label }} — Série {{ session.serie }}{{ session.libelleSerie ? ' (' ~ session.libelleSerie ~ ')' }}
+            {{ session.anneeSession ? ' — ' ~ session.anneeSession }}
+        </h2>
+    </div>
+    <div class="admin-card-body">
+        <div class="d-flex flex-wrap gap-4 mb-3">
+            <div><span class="fw-semibold">{{ nbTotal }}</span> candidat(s) extrait(s) sur <span class="fw-semibold">{{ session.totalPages }}</span> page(s)</div>
+            <div class="text-success"><i class="bi bi-check-circle-fill me-1"></i><span class="fw-semibold">{{ nbOk }}</span> validé(s) par contrôle arithmétique</div>
+            {% if nbTotal - nbOk > 0 %}
+                <div class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i><span class="fw-semibold">{{ nbTotal - nbOk }}</span> à vérifier</div>
+            {% endif %}
+        </div>
+
+        {% if pagesManquantes is not empty %}
+            <div class="alert alert-warning" style="font-size:.85rem">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                {{ pagesManquantes|length }} page(s) n'ont donné aucun candidat distinct à l'extraction : page(s)
+                {{ pagesManquantes|join(', ') }}. Deux cas possibles : soit c'est un doublon (le même relevé
+                scanné deux fois — souvent un re-scan d'une page de travers, comme ici), et dans ce cas c'est
+                normal et rien à faire ; soit la page n'a vraiment pas pu être lue (qualité du scan), auquel cas
+                le candidat manque aux statistiques. Comparez la page indiquée à la page juste avant/après dans
+                le PDF original pour savoir dans quel cas vous êtes.
+            </div>
+        {% endif %}
+
+        {% if nbTotal - nbOk > 0 %}
+            <div class="alert alert-warning" style="font-size:.85rem">
+                <i class="bi bi-info-circle-fill me-1"></i>
+                Les lignes marquées ci-dessous n'ont pas passé le contrôle arithmétique (somme note×coefficient
+                différente du total imprimé sur le relevé) — une valeur a probablement été mal lue. Vérifiez-les
+                sur le PDF original avant de confirmer ; l'enregistrement reste possible même avec des écarts.
+            </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-stack">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Candidat</th>
+                        <th>N° table</th>
+                        <th class="text-center">Moyenne affichée</th>
+                        <th class="text-center">Contrôle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for candidat in candidats %}
+                        <tr class="{{ not candidat.controleArithmetiqueOk ? 'table-warning' }}">
+                            <td data-label="#">{{ candidat.pageNumero }}</td>
+                            <td class="fw-semibold td-title" data-label="Candidat">{{ candidat.nomComplet }}</td>
+                            <td data-label="N° table">{{ candidat.numeroTable ?? '—' }}</td>
+                            <td class="text-center" data-label="Moyenne affichée">{{ candidat.moyenneGlobaleAffichee ?? '—' }}</td>
+                            <td class="text-center" data-label="Contrôle">
+                                {% if candidat.controleArithmetiqueOk %}
+                                    <span class="badge bg-success"><i class="bi bi-check-lg"></i></span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark" title="Écart : {{ candidat.ecartControle ?? '?' }} pt">
+                                        <i class="bi bi-exclamation-triangle"></i> {{ candidat.ecartControle ?? '?' }} pt
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        {{ ui.empty_row(5, 'Aucun candidat extrait de ce relevé.') }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <form method="post" action="{{ path('admin_releve_national_import_confirm', {id: session.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('examen_national_import' ~ session.id) }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Confirmer et enregistrer
+                </button>
+            </form>
+            <form method="post" action="{{ path('admin_releve_national_import_abandon', {id: session.id}) }}"
+                  onsubmit="return confirm('Abandonner cet import ? Les candidats déjà extraits seront perdus.')">
+                <input type="hidden" name="_token" value="{{ csrf_token('examen_national_abandon' ~ session.id) }}">
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash me-1"></i>Abandonner
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

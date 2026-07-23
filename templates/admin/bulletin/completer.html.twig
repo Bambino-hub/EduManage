@@ -1,0 +1,38 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Compléter le bulletin — EduManage{% endblock %}
+{% block page_title %}Compléter le bulletin{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-clipboard-check me-2 text-college-purple"></i>
+                    {{ bulletin.eleve.nomComplet }} — {{ bulletin.trimestre.libelle }}
+                </h2>
+                <a href="{{ path('admin_moyennes_index', {classe: bulletin.classe.id, trimestre: bulletin.trimestre.id}) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                <p class="text-muted small">Décision du conseil et mentions disciplinaires — modifiables même après génération du bulletin, ce ne sont pas des valeurs recalculées. "Travail" et les mentions Félicitations/Encouragements/Tableau d'honneur sont calculées automatiquement depuis la moyenne générale.</p>
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3">
+                    <div class="col-12">{{ form_row(form.decisionConseil) }}</div>
+                    <div class="col-12">{{ form_row(form.mentions) }}</div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                    <a href="{{ path('admin_moyennes_index', {classe: bulletin.classe.id, trimestre: bulletin.trimestre.id}) }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

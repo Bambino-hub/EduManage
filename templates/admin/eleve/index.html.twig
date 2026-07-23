@@ -1,0 +1,109 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Élèves — EduManage{% endblock %}
+{% block page_title %}Élèves{% endblock %}
+
+{% block admin_content %}
+<div data-controller="list-filter" data-list-filter-total-value="{{ eleves|length }}" data-list-filter-label-value="élève">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h1 class="h4 mb-1">Élèves</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem" data-list-filter-target="count">
+            {{ eleves|length }} élève{{ eleves|length > 1 ? 's' : '' }}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_eleve_import_new') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-arrow-up-fill me-1"></i>Importer
+        </a>
+        <a href="{{ path('admin_eleve_par_classe') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-funnel-fill me-1"></i>Par classe
+        </a>
+        <a href="{{ path('admin_inscription_affectation_lot') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-people-fill me-1"></i>Affectation en lot
+        </a>
+        <a href="{{ path('admin_inscription_nouvelle') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Nouvelle inscription
+        </a>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-body border-bottom py-3 no-print">
+        <div class="d-flex flex-wrap gap-2">
+            <div class="flex-grow-1" style="min-width:220px">
+                <input type="search" class="form-control form-control-sm" placeholder="Rechercher un nom, un matricule, une classe…"
+                       data-list-filter-target="search" data-action="input->list-filter#search">
+            </div>
+            <select class="form-select form-select-sm" style="max-width:200px"
+                    data-action="change->list-filter#filter" data-list-filter-filter-key-param="statut">
+                <option value="">Tous les statuts</option>
+                {% for statut in statuts %}
+                    <option value="{{ statut.value }}">{{ statut.label() }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
+            <thead class="table-light">
+                <tr>
+                    <th>MATRICULE</th>
+                    <th>NOM ET PRÉNOMS</th>
+                    <th>SEXE</th>
+                    <th>CLASSE</th>
+                    <th>TUTEUR</th>
+                    <th>CONTACT TUTEUR</th>
+                    <th>STATUT</th>
+                    <th class="text-end no-print">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in eleves %}
+                {% set classe = e.inscriptionEnCours and e.inscriptionEnCours.classe ? e.inscriptionEnCours.classe.nom : null %}
+                <tr data-list-filter-target="row"
+                    data-search="{{ (e.nomComplet ~ ' ' ~ e.matricule ~ ' ' ~ (classe ?? ''))|lower }}"
+                    data-statut="{{ e.statut.value }}">
+                    <td class="text-muted small" data-label="Matricule">{{ e.matricule }}</td>
+                    <td class="fw-semibold td-title">{{ e.nomComplet }}</td>
+                    <td class="text-muted small" data-label="Sexe">{{ e.sexe ? e.sexe.value : '—' }}</td>
+                    <td data-label="Classe">
+                        {% if classe %}
+                            <span class="badge bg-light text-dark border fw-normal">{{ classe }}</span>
+                        {% else %}
+                            <span class="text-muted small">Non inscrit</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small" data-label="Tuteur">{{ e.nomTuteur }}</td>
+                    <td class="text-muted small" data-label="Contact tuteur">{{ e.telephoneTuteur }}</td>
+                    <td data-label="Statut"><span class="badge bg-secondary">{{ e.statut.label() }}</span></td>
+                    <td class="no-print">
+                        {{ ui.actions(
+                            path('admin_eleve_edit', {id: e.id}),
+                            path('admin_eleve_delete', {id: e.id}),
+                            e.id,
+                            'Supprimer ' ~ e.nomComplet ~ ' et tout son historique d\'inscriptions ? Pour un départ réel, préférez clôturer son inscription et changer son statut.',
+                            path('admin_eleve_show', {id: e.id})
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(8, 'Aucun élève enregistré.') }}
+                {% endfor %}
+                {% if eleves is not empty %}
+                    <tr data-list-filter-target="empty" hidden>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-search fs-3 d-block mb-2 opacity-50"></i>
+                            Aucun élève ne correspond à la recherche.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

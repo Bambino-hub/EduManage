@@ -1,0 +1,65 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Aperçu de l'import — EduManage{% endblock %}
+{% block page_title %}Aperçu avant import{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Aperçu avant import</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            {{ lignes|length }} ligne(s) détectée(s). Corrigez les champs si besoin, puis confirmez.
+        </p>
+    </div>
+    <a href="{{ path('admin_eleve_import_new') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Choisir un autre fichier
+    </a>
+</div>
+
+<form method="post" action="{{ path('admin_eleve_import_confirm') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('eleve_import') }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:120px">Matricule</th>
+                        <th style="min-width:130px">Nom</th>
+                        <th style="min-width:150px">Prénom(s)</th>
+                        <th style="min-width:80px">Sexe</th>
+                        <th style="min-width:130px">Date de naissance</th>
+                        <th style="min-width:150px">Classe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                        <tr>
+                            <td><input type="text" class="form-control form-control-sm" name="eleves[{{ loop.index0 }}][matricule]" value="{{ ligne.matricule }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="eleves[{{ loop.index0 }}][nom]" value="{{ ligne.nom }}"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="eleves[{{ loop.index0 }}][prenom]" value="{{ ligne.prenom }}"></td>
+                            <td>
+                                <select class="form-select form-select-sm" name="eleves[{{ loop.index0 }}][sexe]">
+                                    <option value="">—</option>
+                                    {% for s in sexes %}
+                                        <option value="{{ s.value }}" {{ ligne.sexe == s ? 'selected' }}>{{ s.value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm" name="eleves[{{ loop.index0 }}][dateNaissance]" value="{{ ligne.dateNaissance }}" placeholder="jj/mm/aaaa"></td>
+                            <td><input type="text" class="form-control form-control-sm" name="eleves[{{ loop.index0 }}][classe]" value="{{ ligne.classe }}"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Confirmer l'import de {{ lignes|length }} ligne(s)
+        </button>
+        <a href="{{ path('admin_eleve_index') }}" class="btn btn-outline-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

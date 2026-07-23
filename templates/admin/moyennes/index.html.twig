@@ -1,0 +1,155 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Moyennes — EduManage{% endblock %}
+{% block page_title %}Moyennes{% endblock %}
+
+{% block admin_content %}
+<div class="mb-4">
+    <h1 class="h4 mb-1">Moyennes &amp; classement</h1>
+    <p class="text-muted mb-0" style="font-size:.85rem">Par classe et par trimestre — calcul en lecture seule, rien n'est enregistré.</p>
+</div>
+
+<div class="admin-card mb-4">
+    <div class="admin-card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Classe</label>
+                <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {{ classe and classe.id == c.id ? 'selected' }}>
+                            {{ c.nom }} — {{ c.niveau.nom }}
+                        </option>
+                    {% else %}
+                        <option value="">Aucune classe dans l'année active</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Trimestre</label>
+                <select name="trimestre" class="form-select form-select-sm" onchange="this.form.submit()" {{ trimestres is empty ? 'disabled' }}>
+                    {% for t in trimestres %}
+                        <option value="{{ t.id }}" {{ trimestre and trimestre.id == t.id ? 'selected' }}>
+                            {{ t.libelle }}
+                        </option>
+                    {% else %}
+                        <option value="">Aucun trimestre pour cette classe</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if classement is null %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-bar-chart-line display-6 d-block mb-2"></i>
+            Choisissez une classe et un trimestre pour afficher les moyennes.
+        </div>
+    </div>
+{% else %}
+    <div{{ bulletins is not empty ? ' data-controller="entete-toggle"' }}>
+    <div class="admin-card mb-4">
+        <div class="admin-card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            {% if bulletins is not empty %}
+                <div>
+                    <i class="bi bi-lock-fill text-success me-1"></i>
+                    Bulletins générés le {{ bulletins[0].createdAt|date('d/m/Y à H:i') }}
+                    <span class="text-muted small d-block">Ce tableau reste calculé en direct ; les bulletins déjà générés ne bougent pas tant qu'ils ne sont pas supprimés puis régénérés.</span>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="toggleEntete" checked
+                               data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+                        <label class="form-check-label small" for="toggleEntete">Inclure l'en-tête du collège (logo, adresse, devise) sur les bulletins</label>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ path('admin_bulletin_classe_pdf', {classeId: classe.id, trimestreId: trimestre.id}) }}"
+                       data-base-href="{{ path('admin_bulletin_classe_pdf', {classeId: classe.id, trimestreId: trimestre.id}) }}"
+                       data-entete-toggle-target="link"
+                       class="btn btn-outline-primary btn-sm" target="_blank">
+                        <i class="bi bi-eye-fill me-1"></i>Aperçu de tous les bulletins
+                    </a>
+                    <form method="post" action="{{ path('admin_bulletin_supprimer', {classeId: classe.id, trimestreId: trimestre.id}) }}"
+                          onsubmit="return confirm('Supprimer les bulletins de cette classe pour ce trimestre ? Il faudra les régénérer.')">
+                        <input type="hidden" name="_token" value="{{ csrf_token('supprimer_bulletins_' ~ classe.id ~ '_' ~ trimestre.id) }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash me-1"></i>Supprimer
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="text-muted small">Aucun bulletin généré pour cette classe et ce trimestre.</div>
+                <form method="post" action="{{ path('admin_bulletin_generer', {classeId: classe.id, trimestreId: trimestre.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('generer_bulletins_' ~ classe.id ~ '_' ~ trimestre.id) }}">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-file-earmark-plus-fill me-1"></i>Générer les bulletins de cette classe
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-stack">
+                <thead class="table-light">
+                    <tr>
+                        <th>Élève</th>
+                        {% for matiere in classement.matieres %}
+                            <th class="text-center" title="{{ matiere.nom }}">{{ matiere.code }}</th>
+                        {% endfor %}
+                        <th class="text-center">Moyenne générale</th>
+                        <th class="text-center">Rang</th>
+                        <th class="text-center">Bulletin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in classement.classement %}
+                        <tr class="{{ ligne.rang is null ? 'text-muted' }}">
+                            <td class="fw-semibold td-title">{{ ligne.moyenneEleve.eleve.nomComplet }}</td>
+                            {% for matiere in classement.matieres %}
+                                {% set moyenneMatiere = ligne.moyenneEleve.moyennesParMatiere[matiere.id] ?? null %}
+                                <td class="text-center" data-label="{{ matiere.nom }}">
+                                    {{ moyenneMatiere and moyenneMatiere.moyenne is not null ? moyenneMatiere.moyenne : '—' }}
+                                </td>
+                            {% endfor %}
+                            <td class="text-center fw-bold" data-label="Moyenne générale">
+                                {{ ligne.moyenneEleve.moyenneGenerale ?? '—' }}
+                            </td>
+                            <td class="text-center" data-label="Rang">
+                                {% if ligne.rang %}
+                                    <span class="badge {{ ligne.rang == 1 ? 'bg-warning text-dark' : 'bg-secondary' }}">{{ ligne.rang }}</span>
+                                {% else %}
+                                    <span class="text-muted">Non classé</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center" data-label="Bulletin">
+                                {% set bulletinEleve = bulletinsParEleveId[ligne.moyenneEleve.eleve.id] ?? null %}
+                                {% if bulletinEleve %}
+                                    <a href="{{ path('admin_bulletin_pdf', {id: bulletinEleve.id}) }}"
+                                       data-base-href="{{ path('admin_bulletin_pdf', {id: bulletinEleve.id}) }}"
+                                       data-entete-toggle-target="link"
+                                       class="btn btn-sm btn-outline-secondary" title="Aperçu du bulletin" target="_blank">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+                                    <a href="{{ path('admin_bulletin_completer', {id: bulletinEleve.id}) }}" class="btn btn-sm btn-outline-secondary" title="Compléter (décision du conseil, mentions...)">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        {{ ui.empty_row(classement.matieres|length + 4, 'Aucun élève inscrit dans cette classe.') }}
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+    </div>
+{% endif %}
+{% endblock %}

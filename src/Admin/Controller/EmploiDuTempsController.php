@@ -121,6 +121,7 @@ class EmploiDuTempsController extends AbstractController
             'creneauxParJour' => $creneauxParJour,
             'joursAffiches'   => $joursAffiches,
             'ordreMax'        => $ordreMax,
+            'avecEntete'      => $request->query->getBoolean('entete_college', false),
         ]);
 
         return $this->reponsePdf($exporter->exporter($html), $this->nomFichier($titre));
@@ -170,6 +171,7 @@ class EmploiDuTempsController extends AbstractController
     /** Export PDF de imprimerClasses() — une page par classe (dompdf, cf. exportPdf()). */
     #[Route('/imprimer/classes/export-pdf', name: 'imprimer_classes_export_pdf')]
     public function exportPdfClasses(
+        Request $request,
         AnneeScolaireRepository $anneeRepo,
         ClasseRepository $classeRepo,
         SeanceRepository $seanceRepo,
@@ -202,6 +204,7 @@ class EmploiDuTempsController extends AbstractController
             'creneauxParJour' => $creneauxParJour,
             'joursAffiches'   => $joursAffiches,
             'ordreMax'        => $ordreMax,
+            'avecEntete'      => $request->query->getBoolean('entete_college', false),
         ]);
 
         return $this->reponsePdf($exporter->exporter($html), 'emploi-du-temps-toutes-les-classes.pdf');
@@ -253,6 +256,7 @@ class EmploiDuTempsController extends AbstractController
     /** Export PDF de imprimerEnseignants() — une page par enseignant (dompdf, cf. exportPdf()). */
     #[Route('/imprimer/enseignants/export-pdf', name: 'imprimer_enseignants_export_pdf')]
     public function exportPdfEnseignants(
+        Request $request,
         AnneeScolaireRepository $anneeRepo,
         EnseignantRepository $enseignantRepo,
         SeanceRepository $seanceRepo,
@@ -289,6 +293,7 @@ class EmploiDuTempsController extends AbstractController
             'creneauxParJour' => $creneauxParJour,
             'joursAffiches'   => $joursAffiches,
             'ordreMax'        => $ordreMax,
+            'avecEntete'      => $request->query->getBoolean('entete_college', false),
         ]);
 
         return $this->reponsePdf($exporter->exporter($html), 'emploi-du-temps-tous-les-enseignants.pdf');
@@ -405,6 +410,7 @@ class EmploiDuTempsController extends AbstractController
     /** Export PDF de la vue globale — même mise en page compacte 1 page que l'impression navigateur. */
     #[Route('/globale/export-pdf', name: 'globale_export_pdf')]
     public function exportPdfGlobale(
+        Request $request,
         AnneeScolaireRepository $anneeRepo,
         ClasseRepository $classeRepo,
         CreneauRepository $creneauRepo,
@@ -434,6 +440,7 @@ class EmploiDuTempsController extends AbstractController
             'joursAffiches'       => $joursAffiches,
             'reserveRowspan'      => $reserveRowspan,
             'reserveContinuation' => $reserveContinuation,
+            'avecEntete'          => $request->query->getBoolean('entete_college', false),
         ]);
 
         return $this->reponsePdf($exporter->exporter($html), 'emploi-du-temps-vue-globale.pdf');

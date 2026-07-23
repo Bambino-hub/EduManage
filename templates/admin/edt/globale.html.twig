@@ -5,7 +5,7 @@
 
 {% block admin_content %}
 <div
-    data-controller="edt-globale"
+    data-controller="edt-globale entete-toggle"
     data-edt-globale-save-url-value="{{ path('admin_edt_globale_permuter') }}"
     data-edt-globale-token-value="{{ csrf_token('edt_globale_permuter') }}"
 >
@@ -38,7 +38,15 @@
             >
                 <i class="bi bi-check-lg me-1"></i>Enregistrer les modifications
             </button>
-            <a href="{{ path('admin_edt_globale_export_pdf') }}" class="btn btn-sm" style="background:var(--college-orange);color:#fff">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteEdtGlobale"
+                       data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+                <label class="form-check-label small" for="toggleEnteteEdtGlobale">En-tête du collège</label>
+            </div>
+            <a href="{{ path('admin_edt_globale_export_pdf') }}"
+               data-base-href="{{ path('admin_edt_globale_export_pdf') }}"
+               data-entete-toggle-target="link"
+               class="btn btn-sm" style="background:var(--college-orange);color:#fff">
                 <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
             </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">

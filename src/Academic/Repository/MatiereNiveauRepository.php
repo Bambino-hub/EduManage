@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Academic\Repository;
 
+use App\Academic\Entity\Matiere;
 use App\Academic\Entity\MatiereNiveau;
+use App\Academic\Entity\Niveau;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -33,5 +35,10 @@ class MatiereNiveauRepository extends ServiceEntityRepository
             ->orderBy('m.nom', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    public function findOneByMatiereEtNiveau(Matiere $matiere, Niveau $niveau): ?MatiereNiveau
+    {
+        return $this->findOneBy(['matiere' => $matiere, 'niveau' => $niveau]);
     }
 }

@@ -83,6 +83,30 @@
                 <i class="bi bi-door-open-fill"></i>
                 Salles
             </a>
+            <a href="{{ path('admin_trimestre_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_trimestre' %}active{% endif %}">
+                <i class="bi bi-calendar3"></i>
+                Trimestres
+            </a>
+
+            {# — Élèves — #}
+            <div class="sidebar-section-label">Élèves</div>
+
+            <a href="{{ path('admin_eleve_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_eleve' or currentRoute starts with 'admin_inscription' %}active{% endif %}">
+                <i class="bi bi-mortarboard-fill"></i>
+                Élèves
+            </a>
+            <a href="{{ path('admin_notes_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_notes' %}active{% endif %}">
+                <i class="bi bi-journal-check"></i>
+                Notes
+            </a>
+            <a href="{{ path('admin_moyennes_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_moyennes' %}active{% endif %}">
+                <i class="bi bi-bar-chart-line-fill"></i>
+                Moyennes
+            </a>
 
             {# — Personnel — #}
             <div class="sidebar-section-label">Personnel</div>
@@ -151,6 +175,15 @@
                class="sidebar-link {% if currentRoute starts with 'admin_regroupement_surveillance' %}active{% endif %}">
                 <i class="bi bi-people-fill"></i>
                 Regroupements surveillance
+            </a>
+
+            {# — Examens nationaux — #}
+            <div class="sidebar-section-label">Examens nationaux</div>
+
+            <a href="{{ path('admin_releve_national_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_releve_national' %}active{% endif %}">
+                <i class="bi bi-bar-chart-line"></i>
+                Statistiques BEPC / BAC
             </a>
 
             {# — Administration — #}

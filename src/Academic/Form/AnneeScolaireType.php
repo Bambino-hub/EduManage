@@ -8,6 +8,7 @@ use App\Academic\Entity\AnneeScolaire;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -36,6 +37,22 @@ class AnneeScolaireType extends AbstractType
                 'label'    => 'Marquer comme année active',
                 'required' => false,
                 'help'     => 'Une seule année peut être active à la fois.',
+            ])
+            ->add('poidsInterrogation', NumberType::class, [
+                'label' => 'Poids des interrogations',
+                'scale' => 2,
+                'attr'  => ['step' => '0.05', 'min' => '0'],
+                'help'  => 'Pas obligé de sommer à 1 avec les autres poids — la moyenne est renormalisée (poids égaux = moyenne simple).',
+            ])
+            ->add('poidsDevoirs', NumberType::class, [
+                'label' => 'Poids des devoirs',
+                'scale' => 2,
+                'attr'  => ['step' => '0.05', 'min' => '0'],
+            ])
+            ->add('poidsComposition', NumberType::class, [
+                'label' => 'Poids de la composition',
+                'scale' => 2,
+                'attr'  => ['step' => '0.05', 'min' => '0'],
             ]);
     }
 

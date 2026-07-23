@@ -22,4 +22,6 @@
 ###> app/uploads ###
 /public/uploads/actualites/*
 !/public/uploads/actualites/.gitkeep
+/public/uploads/eleves/*
+!/public/uploads/eleves/.gitkeep
 ###< app/uploads ###

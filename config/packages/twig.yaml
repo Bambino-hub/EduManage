@@ -2,6 +2,10 @@ twig:
     file_name_pattern: '*.twig'
     form_themes:
         - 'bootstrap_5_layout.html.twig'
+    globals:
+        # Chemin absolu du projet — utilisé par les templates PDF (dompdf) pour référencer
+        # des images locales (logo, photos) par chemin filesystem plutôt que par URL.
+        project_dir: '%kernel.project_dir%'
 
 when@test:
     twig:

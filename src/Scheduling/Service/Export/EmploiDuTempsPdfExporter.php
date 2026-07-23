@@ -6,6 +6,7 @@ namespace App\Scheduling\Service\Export;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Rendu PDF générique (HTML -> PDF via dompdf, même moteur que EnseignantPdfExporter) pour
@@ -18,11 +19,20 @@ use Dompdf\Options;
  */
 class EmploiDuTempsPdfExporter
 {
+    public function __construct(
+        #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+    ) {
+    }
+
     public function exporter(string $html, string $orientation = 'landscape'): string
     {
         $options = new Options();
         $options->setIsRemoteEnabled(false);
         $options->setDefaultFont('DejaVu Sans');
+        // Par défaut, dompdf n'autorise le protocole file:// que sous son propre répertoire
+        // vendor/ — on l'élargit à tout le projet pour permettre aux templates PDF de
+        // référencer des images locales (logo, photos élèves) par chemin absolu.
+        $options->setChroot([$this->projectDir]);
 
         $dompdf = new Dompdf($options);
         $dompdf->setPaper('A4', $orientation);

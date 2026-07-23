@@ -4,12 +4,23 @@
 {% block page_title %}Fiche enseignant{% endblock %}
 
 {% block admin_content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2" data-controller="entete-toggle">
     <div>
         <h1 class="h4 mb-1">{{ enseignant.nomComplet }}</h1>
         <p class="text-muted mb-0 small">{{ enseignant.type.label() }}{{ enseignant.poste ? ' — ' ~ enseignant.poste : '' }}</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0 me-1">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleEnteteFiches"
+                   data-entete-toggle-target="checkbox" data-action="entete-toggle#update">
+            <label class="form-check-label small" for="toggleEnteteFiches">En-tête du collège</label>
+        </div>
+        <a href="{{ path('admin_enseignant_fiches_notes_vierges', {id: enseignant.id}) }}"
+           data-base-href="{{ path('admin_enseignant_fiches_notes_vierges', {id: enseignant.id}) }}"
+           data-entete-toggle-target="link"
+           class="btn btn-outline-primary btn-sm" target="_blank">
+            <i class="bi bi-printer-fill me-1"></i>Imprimer toutes les fiches de notes
+        </a>
         <a href="{{ path('admin_enseignant_edit', {id: enseignant.id}) }}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-pencil me-1"></i>Modifier
         </a>

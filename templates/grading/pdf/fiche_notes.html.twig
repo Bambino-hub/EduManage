@@ -1,0 +1,29 @@
+{#
+    Rendu PDF (dompdf) d'une fiche de notes vierge à imprimer — mêmes colonnes que la grille
+    en ligne (grading/_fiche_body.html.twig), élèves déjà listés, cellules vides à remplir à
+    la main. CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 10px; }
+    h1 { font-size: 15px; margin: 0 0 4px; text-align: center; text-transform: uppercase; }
+    .entete { margin-bottom: 10px; }
+    .entete td { padding: 2px 8px 2px 0; font-size: 10px; }
+    .entete .label { color: #555; }
+    .entete .valeur { font-weight: bold; }
+    table.grille { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+    table.grille th, table.grille td { border: 1px solid #333; padding: 4px 2px; text-align: center; vertical-align: middle; }
+    table.grille th { background: #eef0f5; font-weight: bold; }
+    table.grille td.nom { text-align: left; padding-left: 4px; }
+    table.grille col.nom { width: 26%; }
+    table.grille col.n { width: 3%; }
+</style>
+</head>
+<body>
+    {{ include('grading/pdf/_fiche_notes_body.html.twig') }}
+</body>
+</html>

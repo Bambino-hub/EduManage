@@ -9,6 +9,8 @@ use App\Academic\Entity\Classe;
 use App\Academic\Entity\Matiere;
 use App\Academic\Entity\Niveau;
 use App\Academic\Repository\MatiereRepository;
+use App\Staff\Entity\Enseignant;
+use App\Staff\Repository\EnseignantRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
@@ -43,6 +45,17 @@ class ClasseType extends AbstractType
                 'class'        => AnneeScolaire::class,
                 'choice_label' => 'libelle',
                 'placeholder'  => '— Choisir une année —',
+            ])
+            ->add('titulaire', EntityType::class, [
+                'label'         => 'Titulaire (professeur principal)',
+                'class'         => Enseignant::class,
+                'choice_label'  => fn (Enseignant $e) => $e->getNomComplet(),
+                'placeholder'   => '— Aucun —',
+                'required'      => false,
+                'query_builder' => fn (EnseignantRepository $repo) => $repo->createQueryBuilder('e')
+                    ->where('e.actif = true')
+                    ->orderBy('e.nom', 'ASC'),
+                'help' => 'Son nom est imprimé sur le bulletin sous la case "Appréciation du professeur principal".',
             ])
             ->add('active', CheckboxType::class, [
                 'label'    => 'Classe active cette année',
