@@ -1,0 +1,83 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 9px; }
+
+    table.infos { width: 100%; border-collapse: collapse; margin: 8px 0; border: 1px solid #6a2c91; }
+    table.infos td.colonne { width: 42%; vertical-align: top; padding: 6px; border-right: 1px solid #d9cbe8; }
+    table.infos td.colonne-photo { width: 16%; vertical-align: top; padding: 6px; text-align: center; }
+    table.infos table.champs { width: 100%; }
+    table.infos table.champs td { padding: 1px 4px; }
+    table.infos .label { color: #6a2c91; width: 90px; }
+    table.infos .valeur { font-weight: bold; }
+    .photo-eleve, .photo-vide { width: 72px; height: 96px; border: 1px solid #6a2c91; }
+
+    h2.titre { text-align: center; font-size: 13px; text-transform: uppercase; margin: 10px 0; letter-spacing: .5px; color: #6a2c91; }
+
+    table.matieres { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    table.matieres th, table.matieres td { border: 1px solid #999; padding: 3px 4px; text-align: center; }
+    table.matieres th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 8px; }
+    table.matieres td.discipline { text-align: left; font-weight: bold; }
+    table.matieres tr.totaux td { font-weight: bold; background: #f6f3fa; }
+
+    table.ligne-recap { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    table.ligne-recap > tr > td { vertical-align: top; padding: 0 3px; }
+    .recap-moyenne { border: 1px solid #6a2c91; background: #f6f3fa; padding: 5px 6px; }
+    .recap-moyenne .rang { margin-top: 5px; margin-bottom: 6px; }
+    .recap-moyenne .bilan-domaine { margin-top: 3px; }
+    .recap-moyenne .bilan-domaine .libelle-domaine { color: #6a2c91; }
+
+    table.historique { width: 100%; border-collapse: collapse; }
+    table.historique th, table.historique td { border: 1px solid #999; padding: 3px 5px; text-align: center; }
+    table.historique th { background: #6a2c91; color: #fff; }
+    table.historique tr.mga td { font-weight: bold; background: #f6f3fa; }
+
+    .encadre { border: 1px solid #999; padding: 6px; }
+    .encadre .titre-encadre { font-weight: bold; font-size: 8px; text-transform: uppercase; color: #fff; background: #6a2c91; margin: -6px -6px 5px; padding: 3px 6px; }
+    .decision { border: 1px solid #6a2c91; background: #f6f3fa; padding: 5px 6px; margin-top: 6px; }
+
+    table.bloc-bas { width: 100%; margin-top: 6px; border-collapse: collapse; }
+    table.bloc-bas > tr > td { vertical-align: top; padding: 0 3px; }
+    table.bloc-bas .encadre { min-height: 100px; }
+    ul.mentions { list-style: none; margin: 0; padding: 0; }
+    ul.mentions li { margin-bottom: 2px; }
+
+    table.qr-ligne { width: 100%; margin-top: 8px; border-collapse: collapse; }
+    table.qr-ligne td { padding: 0; }
+    table.qr-ligne td.qr { width: 64px; vertical-align: top; }
+    table.qr-ligne td.qr img { width: 60px; height: 60px; }
+
+    .zone-signature-titulaire { position: relative; height: 60px; }
+    .zone-signature-titulaire .ligne-pointillee { border-bottom: 1px dotted #666; height: 20px; }
+    .zone-signature-titulaire .img-signature-titulaire { position: absolute; left: 0; top: -8px; height: 58px; }
+    .zone-signature-titulaire .nom-titulaire-ligne { position: absolute; left: 0; right: 30px; bottom: 2px; text-align: center; font-size: 8px; }
+
+    .chef-etablissement { text-align: center; }
+    .espace-cachet { height: 68px; position: relative; text-align: center; }
+    .espace-cachet .titre-directrice { position: absolute; left: 0; right: 0; top: 18px; font-weight: bold; }
+    .espace-cachet .img-cachet { height: 84px; opacity: .92; vertical-align: top; margin-top: -2px; }
+    .espace-cachet .img-signature-chef { position: absolute; left: 50%; bottom: -13px; height: 46px; }
+    .nom-directrice { font-size: 8px; margin-top: 11px; text-decoration: underline; }
+
+    table.pied { width: 100%; margin-top: 10px; }
+    .genere { font-size: 7px; color: #888; text-align: left; }
+    .nb-footer { font-size: 7px; color: #6a2c91; font-weight: bold; text-align: right; }
+    .page-suivante { page-break-before: always; }
+
+table.bloc-bas { width:100%; }
+table.bloc-bas td { width: 34%; vertical-align: top; }
+</style></head><body>
+<table class="bloc-bas"><tr><td style="width:34%"><div class="encadre chef-etablissement">
+                        <div class="titre-encadre">Appréciations, signature et cachet du chef d'établissement</div>
+                        <div class="espace-cachet">
+                            <div class="titre-directrice">La Directrice</div>
+                            
+                                <img class="img-cachet" src="/home/bambino/College_Adele/EduManage/public/uploads/etablissement/_test_cachet.png" alt="">
+                            
+                            
+                                <img class="img-signature-chef" src="/home/bambino/College_Adele/EduManage/public/uploads/etablissement/_test_signature_chef.png" alt="">
+                            
+                        </div>
+                        <div class="nom-directrice">Sr. M. Epiphanie KOYE</div>
+                    </div>
+                </td></tr></table>
+</body></html>
