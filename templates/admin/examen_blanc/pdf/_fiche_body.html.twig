@@ -1,0 +1,50 @@
+{#
+    Corps d'une fiche d'examen blanc vierge (entête + grille), réutilisé tel quel par
+    fiche.html.twig (une matière) et fiches_lot.html.twig (toutes les matières évaluées d'un
+    niveau, plusieurs fiches dans un même PDF) — une seule colonne Note/20, pas de détail
+    interro/devoir/compos (voir ExamenBlanc\Entity\ExamenBlancNote). Une fiche = un NIVEAU
+    entier (toutes ses classes réunies, triées alphabétiquement) : pas de champ Classe, et le
+    nom du correcteur n'est jamais pré-rempli — plusieurs classes/enseignants peuvent être
+    concernés, parfois un correcteur externe — à écrire à la main sur la ligne pointillée.
+    Variables attendues : examenBlanc, niveau, matiere, inscriptions, coefficientMatiere,
+    avecEntete (bool, en-tête du collège — voir admin/pdf/_entete_college.html.twig).
+#}
+<div class="fiche-page">
+    {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+    <h1>{{ examenBlanc.libelle }}</h1>
+
+    <table class="entete">
+        <tr>
+            <td class="label">Niveau :</td><td class="valeur">{{ niveau.nomComplet }}</td>
+            <td class="label">Matière :</td><td class="valeur">{{ matiere.nom }}</td>
+            <td class="label">Coefficient :</td><td class="valeur">{{ coefficientMatiere }}</td>
+        </tr>
+        <tr>
+            <td class="label">Correcteur(s) :</td><td class="ligne-manuelle" colspan="3"></td>
+            <td class="label">Année scolaire :</td><td class="valeur">{{ examenBlanc.anneeScolaire.libelle }}</td>
+        </tr>
+    </table>
+
+    <table class="grille">
+        <colgroup>
+            <col class="n">
+            <col class="nom">
+        </colgroup>
+        <thead>
+            <tr>
+                <th>N°</th>
+                <th>Nom et Prénoms</th>
+                <th>Note /20</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inscription in inscriptions %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="nom">{{ inscription.eleve.nomComplet }}</td>
+                    <td>&nbsp;</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

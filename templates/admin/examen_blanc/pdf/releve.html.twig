@@ -1,0 +1,166 @@
+{#
+    Rendu PDF (dompdf) d'un ou plusieurs relevés d'examen blanc — portrait, un élève par page.
+    CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
+
+    Paramètres attendus :
+    - `releves` : liste de ExamenBlanc\Entity\ExamenBlancReleve (1 élément pour un relevé
+      unitaire, N éléments pour l'export par lot d'un niveau)
+    - `avecEntete` : bool — inclut ou non l'en-tête du collège
+    - `etablissement` : Shared\Entity\Etablissement — nom/titre/cachet/signature du chef
+      d'établissement, apposés automatiquement en case "signature et cachet du chef
+      d'établissement" — même bloc que templates/admin/bulletin/pdf/bulletin.html.twig, aligné
+      sur la même ligne que le bilan du niveau (pas de classe affichée : un examen blanc note
+      le NIVEAU entier, la classe de l'élève ne sert qu'en interne à retrouver son professeur).
+
+    `project_dir` est un global Twig (%kernel.project_dir%) — chemin filesystem absolu pour
+    les images locales (cachet, signature), lisibles par dompdf même remote désactivé.
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 9px; }
+
+    table.infos { width: 100%; border-collapse: collapse; margin: 8px 0; border: 1px solid #6a2c91; }
+    table.infos td.colonne { width: 50%; vertical-align: top; padding: 6px; border-right: 1px solid #d9cbe8; }
+    table.infos table.champs { width: 100%; }
+    table.infos table.champs td { padding: 1px 4px; }
+    table.infos .label { color: #6a2c91; width: 90px; }
+    table.infos .valeur { font-weight: bold; }
+
+    h2.titre { text-align: center; font-size: 13px; text-transform: uppercase; margin: 10px 0; letter-spacing: .5px; color: #6a2c91; }
+
+    table.matieres { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    table.matieres th, table.matieres td { border: 1px solid #999; padding: 3px 4px; text-align: center; }
+    table.matieres th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 8px; }
+    table.matieres td.discipline { text-align: left; font-weight: bold; }
+    table.matieres tr.totaux td { font-weight: bold; background: #f6f3fa; }
+
+    table.ligne-recap { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    table.ligne-recap > tr > td { vertical-align: top; padding: 0 3px; }
+    .recap-moyenne { border: 1px solid #6a2c91; background: #f6f3fa; padding: 5px 6px; }
+    .recap-moyenne .rang { margin-top: 5px; margin-bottom: 6px; }
+    .recap-moyenne .bilan-domaine { margin-top: 3px; }
+    .recap-moyenne .bilan-domaine .libelle-domaine { color: #6a2c91; }
+
+    .encadre { border: 1px solid #999; padding: 6px; }
+    .encadre .titre-encadre { font-weight: bold; font-size: 8px; text-transform: uppercase; color: #fff; background: #6a2c91; margin: -6px -6px 5px; padding: 3px 6px; }
+
+    .chef-etablissement { text-align: center; }
+    .espace-cachet { height: 68px; position: relative; text-align: center; }
+    .espace-cachet .titre-directrice { position: absolute; left: 0; right: 0; top: 18px; font-weight: bold; }
+    .espace-cachet .img-cachet { height: 84px; opacity: .92; vertical-align: top; margin-top: -2px; }
+    .espace-cachet .img-signature-chef { position: absolute; left: 50%; bottom: -13px; height: 46px; }
+    .nom-directrice { font-size: 8px; margin-top: 11px; text-decoration: underline; }
+
+    table.pied { width: 100%; margin-top: 10px; }
+    .genere { font-size: 7px; color: #888; text-align: left; }
+    .nb-footer { font-size: 7px; color: #6a2c91; font-weight: bold; text-align: right; }
+    .page-suivante { page-break-before: always; }
+</style>
+</head>
+<body>
+{% for releve in releves %}
+    <div{{ not loop.first ? ' class="page-suivante"' }}>
+        {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+
+        <table class="infos">
+            <tr>
+                <td class="colonne">
+                    <table class="champs">
+                        <tr><td class="label">Matricule</td><td class="valeur">{{ releve.eleve.matricule }}</td></tr>
+                        <tr><td class="label">Nom et prénoms</td><td class="valeur">{{ releve.eleve.nomComplet }}</td></tr>
+                        <tr><td class="label">Sexe</td><td>{{ releve.eleve.sexe ? releve.eleve.sexe.label() : '—' }}</td></tr>
+                    </table>
+                </td>
+                <td class="colonne">
+                    <table class="champs">
+                        <tr><td class="label">Niveau</td><td class="valeur">{{ releve.niveau.nomComplet }}</td></tr>
+                        <tr><td class="label">Année scolaire</td><td>{{ releve.classe.anneeScolaire.libelle }}</td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <h2 class="titre">{{ releve.examenBlanc.libelle }} — Relevé de notes</h2>
+
+        <table class="matieres">
+            <thead>
+                <tr>
+                    <th style="text-align:left">Disciplines</th>
+                    <th>Coef</th>
+                    <th>Note /20</th>
+                    <th>Note × Coef</th>
+                    <th>Appréciation</th>
+                    <th>Nom du professeur</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for matiere in releve.matieres %}
+                    <tr>
+                        <td class="discipline">{{ matiere.matiere.nom }}</td>
+                        <td>{{ matiere.coefficient }}</td>
+                        <td>{{ matiere.note ?? '—' }}</td>
+                        <td>{{ matiere.note is not null ? (matiere.note * matiere.coefficient)|number_format(2) : '—' }}</td>
+                        <td>{{ matiere.appreciation ?? '—' }}</td>
+                        <td style="text-align:left">{{ matiere.enseignantNom }}</td>
+                    </tr>
+                {% endfor %}
+                <tr class="totaux">
+                    <td style="text-align:left">TOTAUX</td>
+                    <td>{{ releve.coefficientTotal }}</td>
+                    <td></td>
+                    <td>{{ releve.noteCoefTotal }}</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table class="ligne-recap">
+            <tr>
+                <td style="width:30%">
+                    <div class="recap-moyenne">
+                        <div><strong>Moyenne :</strong> {{ releve.moyenneGenerale ? releve.moyenneGenerale|replace({'.': ','}) : '—' }}</div>
+                        <div class="rang"><strong>Rang :</strong> {{ releve.rangNiveau ?? '—' }} / {{ releve.effectifNiveau }}</div>
+                        <div class="bilan-domaine"><span class="libelle-domaine">Bilan Littéraire :</span> {{ releve.moyenneLitteraire ? releve.moyenneLitteraire|replace({'.': ','}) : '—' }}</div>
+                        <div class="bilan-domaine"><span class="libelle-domaine">Bilan Scientifique :</span> {{ releve.moyenneScientifique ? releve.moyenneScientifique|replace({'.': ','}) : '—' }}</div>
+                    </div>
+                </td>
+                <td style="width:38%">
+                    <div class="encadre">
+                        <div class="titre-encadre">Bilan du niveau {{ releve.niveau.nomComplet }}</div>
+                        Moyenne la plus faible du niveau : {{ releve.moyenneNiveauFaible ? releve.moyenneNiveauFaible|replace({'.': ','}) : '—' }}<br>
+                        Moyenne la plus forte du niveau : {{ releve.moyenneNiveauForte ? releve.moyenneNiveauForte|replace({'.': ','}) : '—' }}<br>
+                        Moyenne générale du niveau : {{ releve.moyenneNiveauGenerale ? releve.moyenneNiveauGenerale|replace({'.': ','}) : '—' }}
+                    </div>
+                </td>
+                <td style="width:32%">
+                    <div class="encadre chef-etablissement">
+                        <div class="titre-encadre">Signature et cachet du chef d'établissement</div>
+                        <div class="espace-cachet">
+                            <div class="titre-directrice">{{ etablissement.titreChefEtablissement }}</div>
+                            {% if etablissement.cachet %}
+                                <img class="img-cachet" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.cachet }}" alt="">
+                            {% endif %}
+                            {% if etablissement.signatureChefEtablissement %}
+                                <img class="img-signature-chef" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.signatureChefEtablissement }}" alt="">
+                            {% endif %}
+                        </div>
+                        <div class="nom-directrice">{{ etablissement.nomChefEtablissement }}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <table class="pied">
+            <tr>
+                <td class="genere">Relevé généré le {{ releve.createdAt|date('d/m/Y à H:i') }}</td>
+                <td class="nb-footer">Document interne — examen blanc, ne remplace pas un relevé officiel.</td>
+            </tr>
+        </table>
+    </div>
+{% endfor %}
+</body>
+</html>

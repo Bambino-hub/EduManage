@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Student\Repository;
 
+use App\Academic\Entity\AnneeScolaire;
 use App\Academic\Entity\Classe;
 use App\Academic\Entity\Niveau;
 use App\Student\Entity\Inscription;
@@ -29,6 +30,32 @@ class InscriptionRepository extends ServiceEntityRepository
             ->where('i.classe = :classe')
             ->andWhere('i.dateFin IS NULL')
             ->setParameter('classe', $classe)
+            ->orderBy('e.nom', 'ASC')
+            ->addOrderBy('e.prenom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Élèves actuellement inscrits dans une classe active d'un niveau, TOUTES CLASSES DU
+     * NIVEAU CONFONDUES — un examen blanc note le niveau entier comme un seul groupe, pas
+     * classe par classe (voir ExamenBlanc\Service\ExamenBlancMoyenneCalculator) : triés par
+     * nom/prénom sur l'ensemble du niveau, pas groupés par classe.
+     *
+     * @return Inscription[]
+     */
+    public function findActivesByNiveauEtAnnee(Niveau $niveau, AnneeScolaire $anneeScolaire): array
+    {
+        return $this->createQueryBuilder('i')
+            ->addSelect('e', 'c')
+            ->join('i.eleve', 'e')
+            ->join('i.classe', 'c')
+            ->where('c.niveau = :niveau')
+            ->andWhere('c.anneeScolaire = :annee')
+            ->andWhere('c.active = true')
+            ->andWhere('i.dateFin IS NULL')
+            ->setParameter('niveau', $niveau)
+            ->setParameter('annee', $anneeScolaire)
             ->orderBy('e.nom', 'ASC')
             ->addOrderBy('e.prenom', 'ASC')
             ->getQuery()

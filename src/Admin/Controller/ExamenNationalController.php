@@ -9,7 +9,9 @@ use App\ExamenNational\Enum\StatutSessionExamenNational;
 use App\ExamenNational\Repository\NoteMatiereCandidatRepository;
 use App\ExamenNational\Repository\SessionExamenNationalRepository;
 use App\ExamenNational\Service\StatistiqueReleveCalculator;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -113,6 +115,18 @@ class ExamenNationalController extends AbstractController
         $response->headers->set('Content-Disposition', 'attachment; filename="statistiques_'.$this->nomFichier($session).'.csv"');
 
         return $response;
+    }
+
+    #[Route('/{id}/delete', name: 'delete', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function delete(Request $request, SessionExamenNational $session, EntityManagerInterface $em): Response
+    {
+        if ($this->isCsrfTokenValid('delete'.$session->getId(), $request->getPayload()->getString('_token'))) {
+            $em->remove($session);
+            $em->flush();
+            $this->addFlash('success', 'Session d\'examen supprimée.');
+        }
+
+        return $this->redirectToRoute('admin_releve_national_index');
     }
 
     private function refuserSiBrouillon(SessionExamenNational $session): void

@@ -1,0 +1,70 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Examens blancs — EduManage{% endblock %}
+{% block page_title %}Examens blancs{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Examens blancs {{ annee ? '— ' ~ annee.libelle : '' }}</h1>
+    <a href="{{ path('admin_examen_blanc_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nouvel examen blanc
+    </a>
+</div>
+
+{% if not annee %}
+    <div class="alert alert-warning">Aucune année scolaire active — activez-en une avant de créer un examen blanc.</div>
+{% endif %}
+
+<div class="admin-card">
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
+            <thead class="table-light">
+                <tr>
+                    <th>Libellé</th>
+                    <th>Niveaux concernés</th>
+                    <th>Dates</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for examenBlanc in examensBlancs %}
+                <tr>
+                    <td class="fw-semibold td-title">
+                        <a href="{{ path('admin_examen_blanc_show', {id: examenBlanc.id}) }}">{{ examenBlanc.libelle }}</a>
+                    </td>
+                    <td data-label="Niveaux">
+                        {% for niveau in examenBlanc.niveaux %}
+                            <span class="badge bg-light text-dark border fw-normal">{{ niveau.nomComplet }}</span>
+                        {% else %}
+                            <span class="text-muted fst-italic small">Aucun niveau</span>
+                        {% endfor %}
+                    </td>
+                    <td data-label="Dates">
+                        {% if examenBlanc.dateDebut or examenBlanc.dateFin %}
+                            {{ examenBlanc.dateDebut ? examenBlanc.dateDebut|date('d/m/Y') : '—' }}
+                            {{ examenBlanc.dateFin ? ' au ' ~ examenBlanc.dateFin|date('d/m/Y') : '' }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ ui.actions(
+                            path('admin_examen_blanc_edit', {id: examenBlanc.id}),
+                            path('admin_examen_blanc_delete', {id: examenBlanc.id}),
+                            examenBlanc.id,
+                            'Supprimer l\'examen blanc ' ~ examenBlanc.libelle ~ ' ? Les notes et relevés associés seront supprimés.',
+                            path('admin_examen_blanc_show', {id: examenBlanc.id})
+                        ) }}
+                    </td>
+                </tr>
+                {% else %}
+                    {{ ui.empty_row(4, 'Aucun examen blanc enregistré.') }}
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

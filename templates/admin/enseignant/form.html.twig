@@ -31,6 +31,20 @@
                     <div class="col-6">{{ form_row(form.specialite) }}</div>
                     <div class="col-6">{{ form_row(form.cycle) }}</div>
                     <div class="col-12">{{ form_row(form.actif) }}</div>
+                    <div class="col-12">
+                        {% if enseignant.signature %}
+                            <div class="mb-2">
+                                <span class="text-muted d-block mb-1" style="font-size:.85rem">Signature actuelle :</span>
+                                <img src="{{ asset('uploads/signatures/enseignants/' ~ enseignant.signature) }}" alt=""
+                                     style="height:50px;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;border:1px solid #ccc;padding:4px">
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form_widget(form.supprimerSignature) }}
+                                {{ form_label(form.supprimerSignature, null, {label_attr: {class: 'form-check-label text-danger'}}) }}
+                            </div>
+                        {% endif %}
+                        {{ form_row(form.signature) }}
+                    </div>
                 </div>
 
                 <div class="d-flex gap-2 mt-4">

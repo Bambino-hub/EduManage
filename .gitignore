@@ -24,4 +24,8 @@
 !/public/uploads/actualites/.gitkeep
 /public/uploads/eleves/*
 !/public/uploads/eleves/.gitkeep
+/public/uploads/signatures/enseignants/*
+!/public/uploads/signatures/enseignants/.gitkeep
+/public/uploads/etablissement/*
+!/public/uploads/etablissement/.gitkeep
 ###< app/uploads ###

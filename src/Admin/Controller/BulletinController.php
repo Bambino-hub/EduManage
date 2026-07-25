@@ -12,6 +12,8 @@ use App\Grading\Repository\BulletinRepository;
 use App\Grading\Repository\TrimestreRepository;
 use App\Grading\Service\BulletinGenerator;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
+use App\Shared\Repository\EtablissementRepository;
+use App\Student\Repository\EleveRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +28,7 @@ use Symfony\Component\String\Slugger\AsciiSlugger;
 #[Route('/admin/bulletins', name: 'admin_bulletin_')]
 class BulletinController extends AbstractController
 {
+    /** Génère les bulletins manquants de la classe — ceux déjà générés (individuellement ou non) ne sont pas touchés. */
     #[Route('/generer/{classeId}/{trimestreId}', name: 'generer', methods: ['POST'])]
     public function generer(
         Request $request,
@@ -33,7 +36,6 @@ class BulletinController extends AbstractController
         int $trimestreId,
         ClasseRepository $classeRepo,
         TrimestreRepository $trimestreRepo,
-        BulletinRepository $bulletinRepo,
         BulletinGenerator $generator,
     ): Response {
         $classe    = $classeRepo->find($classeId) ?? throw $this->createNotFoundException();
@@ -44,13 +46,45 @@ class BulletinController extends AbstractController
             return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
         }
 
-        if ($bulletinRepo->findByClasseEtTrimestre($classe, $trimestre) !== []) {
-            $this->addFlash('error', 'Des bulletins existent déjà pour cette classe et ce trimestre — supprimez-les avant d\'en générer de nouveaux.');
+        $bulletinsCrees = $generator->genererPourClasse($classe, $trimestre);
+
+        if ($bulletinsCrees === []) {
+            $this->addFlash('error', 'Tous les bulletins de cette classe sont déjà générés pour ce trimestre.');
+        } else {
+            $this->addFlash('success', count($bulletinsCrees).' bulletin(s) généré(s).');
+        }
+
+        return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
+    }
+
+    #[Route('/generer-eleve/{classeId}/{trimestreId}/{eleveId}', name: 'generer_eleve', methods: ['POST'])]
+    public function genererPourEleve(
+        Request $request,
+        int $classeId,
+        int $trimestreId,
+        int $eleveId,
+        ClasseRepository $classeRepo,
+        TrimestreRepository $trimestreRepo,
+        EleveRepository $eleveRepo,
+        BulletinRepository $bulletinRepo,
+        BulletinGenerator $generator,
+    ): Response {
+        $classe    = $classeRepo->find($classeId) ?? throw $this->createNotFoundException();
+        $trimestre = $trimestreRepo->find($trimestreId) ?? throw $this->createNotFoundException();
+        $eleve     = $eleveRepo->find($eleveId) ?? throw $this->createNotFoundException();
+
+        if (!$this->isCsrfTokenValid('generer_bulletin_eleve_'.$classeId.'_'.$trimestreId.'_'.$eleveId, $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
             return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
         }
 
-        $generator->genererPourClasse($classe, $trimestre);
-        $this->addFlash('success', 'Bulletins générés.');
+        if ($bulletinRepo->findOneBy(['eleve' => $eleve, 'trimestre' => $trimestre]) !== null) {
+            $this->addFlash('error', 'Un bulletin existe déjà pour cet élève ce trimestre — supprimez-le avant d\'en générer un nouveau.');
+            return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
+        }
+
+        $generator->genererPourEleve($classe, $trimestre, $eleve);
+        $this->addFlash('success', 'Bulletin de '.$eleve->getNomComplet().' généré.');
 
         return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
     }
@@ -83,9 +117,36 @@ class BulletinController extends AbstractController
         return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
     }
 
-    #[Route('/{id}/pdf', name: 'pdf')]
-    public function pdf(Bulletin $bulletin, Request $request, BulletinRepository $bulletinRepo, EmploiDuTempsPdfExporter $exporter): Response
+    /** Supprime le bulletin d'un seul élève (contrairement à `supprimer`, qui vide toute la classe) — permet de le régénérer seul après une correction. */
+    #[Route('/{id}/supprimer-eleve', name: 'supprimer_eleve', methods: ['POST'])]
+    public function supprimerPourEleve(Bulletin $bulletin, Request $request, EntityManagerInterface $em): Response
     {
+        if (!$this->isCsrfTokenValid('supprimer_bulletin_eleve_'.$bulletin->getId(), $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+        } else {
+            $classeId    = $bulletin->getClasse()->getId();
+            $trimestreId = $bulletin->getTrimestre()->getId();
+            $em->remove($bulletin);
+            $em->flush();
+            $this->addFlash('success', 'Bulletin supprimé — vous pouvez le régénérer.');
+
+            return $this->redirectToRoute('admin_moyennes_index', ['classe' => $classeId, 'trimestre' => $trimestreId]);
+        }
+
+        return $this->redirectToRoute('admin_moyennes_index', [
+            'classe'    => $bulletin->getClasse()->getId(),
+            'trimestre' => $bulletin->getTrimestre()->getId(),
+        ]);
+    }
+
+    #[Route('/{id}/pdf', name: 'pdf')]
+    public function pdf(
+        Bulletin $bulletin,
+        Request $request,
+        BulletinRepository $bulletinRepo,
+        EtablissementRepository $etablissementRepo,
+        EmploiDuTempsPdfExporter $exporter,
+    ): Response {
         $html = $this->renderView('admin/bulletin/pdf/bulletin.html.twig', [
             'bulletins'               => [$bulletin],
             'historiqueParBulletinId' => [$bulletin->getId() => $bulletinRepo->findByEleveEtAnneeScolaire(
@@ -94,6 +155,7 @@ class BulletinController extends AbstractController
             )],
             'mentionsDisponibles'     => MentionConseil::cases(),
             'avecEntete'              => $request->query->getBoolean('entete_college', true),
+            'etablissement'           => $etablissementRepo->getOuCreer(),
         ]);
 
         $nomFichier = (new AsciiSlugger())->slug(
@@ -111,6 +173,7 @@ class BulletinController extends AbstractController
         ClasseRepository $classeRepo,
         TrimestreRepository $trimestreRepo,
         BulletinRepository $bulletinRepo,
+        EtablissementRepository $etablissementRepo,
         EmploiDuTempsPdfExporter $exporter,
     ): Response {
         $classe    = $classeRepo->find($classeId) ?? throw $this->createNotFoundException();
@@ -130,6 +193,7 @@ class BulletinController extends AbstractController
             'historiqueParBulletinId' => $historiqueParBulletinId,
             'mentionsDisponibles'     => MentionConseil::cases(),
             'avecEntete'              => $request->query->getBoolean('entete_college', true),
+            'etablissement'           => $etablissementRepo->getOuCreer(),
         ]);
 
         $nomFichier = (new AsciiSlugger())->slug(

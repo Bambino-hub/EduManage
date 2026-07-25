@@ -11,9 +11,11 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Image;
 
 class EnseignantType extends AbstractType
 {
@@ -74,6 +76,25 @@ class EnseignantType extends AbstractType
             ])
             ->add('actif', CheckboxType::class, [
                 'label'    => 'Enseignant actif',
+                'required' => false,
+            ])
+            ->add('signature', FileType::class, [
+                'label'       => 'Signature (scan sur papier blanc — optionnelle)',
+                'mapped'      => false,
+                'required'    => false,
+                'help'        => 'Apposée automatiquement sur les bulletins des classes dont il/elle est titulaire. Fond blanc retiré automatiquement.',
+                'constraints' => [
+                    new Image(
+                        maxSize: '4M',
+                        mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+                        mimeTypesMessage: 'Formats acceptés : JPG, PNG, WEBP.',
+                        maxSizeMessage: 'L\'image ne doit pas dépasser {{ limit }} {{ suffix }}.',
+                    ),
+                ],
+            ])
+            ->add('supprimerSignature', CheckboxType::class, [
+                'label'    => 'Retirer la signature actuelle',
+                'mapped'   => false,
                 'required' => false,
             ]);
     }

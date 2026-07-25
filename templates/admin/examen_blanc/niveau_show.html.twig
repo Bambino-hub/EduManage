@@ -1,0 +1,139 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ niveau.nomComplet }} — {{ examenBlanc.libelle }} — EduManage{% endblock %}
+{% block page_title %}{{ examenBlanc.libelle }} — {{ niveau.nomComplet }}{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">{{ niveau.nomComplet }}</h1>
+        <p class="text-muted mb-0 small">{{ examenBlanc.libelle }} — toutes les classes du niveau réunies en un seul groupe, trié alphabétiquement.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_examen_blanc_show', {id: examenBlanc.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Tous les niveaux
+        </a>
+    </div>
+</div>
+
+<div class="admin-card mb-4">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">
+            <i class="bi bi-clipboard-check me-2 text-college-purple"></i>
+            Fiches à remplir
+        </h2>
+    </div>
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Matière</th>
+                    <th class="text-end">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                    {% set statut = ligne.statutParNiveauId[niveau.id] %}
+                    <tr>
+                        <td class="fw-semibold td-title">{{ ligne.matiere.nom }}</td>
+                        <td class="text-end">
+                            <a href="{{ path('admin_examen_blanc_note_fiche', {examenBlancId: examenBlanc.id, niveauId: niveau.id, matiereId: ligne.matiere.id}) }}"
+                               class="btn btn-sm {{ statut.renseignee ? 'btn-success' : 'btn-outline-secondary' }}"
+                               title="{{ statut.effectif }} élève(s)">
+                                <i class="bi {{ statut.renseignee ? 'bi-check-lg' : 'bi-pencil' }} me-1"></i>
+                                {{ statut.renseignee ? 'Renseignée' : 'À remplir' }}
+                            </a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted py-4">
+                            Aucune matière évaluée pour ce niveau — modifiez l'examen pour en sélectionner.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-header flex-wrap gap-2">
+        <h2 class="admin-card-title">
+            <i class="bi bi-journal-text me-2 text-college-purple"></i>
+            Relevés
+            {% if releves|length > 0 %}
+                <span class="badge bg-success ms-2">{{ releves|length }} généré(s)</span>
+            {% endif %}
+        </h2>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ path('admin_examen_blanc_fiches_pdf', {id: examenBlanc.id, niveauId: niveau.id}) }}"
+               class="btn btn-outline-secondary btn-sm" target="_blank">
+                <i class="bi bi-printer me-1"></i>Fiches vierges
+            </a>
+            {% if releves|length > 0 %}
+                <a href="{{ path('admin_examen_blanc_releves_pdf', {id: examenBlanc.id, niveauId: niveau.id}) }}"
+                   class="btn btn-outline-secondary btn-sm" target="_blank">
+                    <i class="bi bi-eye me-1"></i>Visualiser / imprimer tous
+                </a>
+                <form method="post" action="{{ path('admin_examen_blanc_releves_delete', {id: examenBlanc.id, niveauId: niveau.id}) }}"
+                      onsubmit="return confirm('Supprimer les {{ releves|length }} relevé(s) de {{ niveau.nomComplet }} ? Ils pourront être régénérés ensuite.')">
+                    <input type="hidden" name="_token" value="{{ csrf_token('releves_delete_' ~ examenBlanc.id ~ '_' ~ niveau.id) }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash me-1"></i>Supprimer tous les relevés
+                    </button>
+                </form>
+            {% endif %}
+            <form method="post" action="{{ path('admin_examen_blanc_generer', {id: examenBlanc.id, niveauId: niveau.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('generer_releves_' ~ examenBlanc.id ~ '_' ~ niveau.id) }}">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-calculator me-1"></i>Générer les relevés
+                </button>
+            </form>
+        </div>
+    </div>
+    {% if releves|length > 0 %}
+        <div class="admin-card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Rang</th>
+                        <th>Élève</th>
+                        <th>Classe</th>
+                        <th>Moyenne</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for releve in releves %}
+                        <tr>
+                            <td>{{ releve.rangNiveau ?? '—' }}</td>
+                            <td>{{ releve.eleve.nomComplet }}</td>
+                            <td>{{ releve.classe.nom }}</td>
+                            <td>{{ releve.moyenneGenerale ? releve.moyenneGenerale|replace({'.': ','}) : '—' }}</td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <a href="{{ path('admin_examen_blanc_releve_pdf', {releveId: releve.id}) }}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Voir">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <form method="post" action="{{ path('admin_examen_blanc_releve_delete', {releveId: releve.id}) }}"
+                                          onsubmit="return confirm('Supprimer le relevé de {{ releve.eleve.nomComplet }} ?')">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('releve_delete_' ~ releve.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

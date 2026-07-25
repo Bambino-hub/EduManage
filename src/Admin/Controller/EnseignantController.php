@@ -21,8 +21,11 @@ use App\Staff\Repository\EnseignantRepository;
 use App\Staff\Service\Export\EnseignantPdfExporter;
 use App\Staff\Service\Export\EnseignantWordExporter;
 use App\Student\Repository\InscriptionRepository;
+use App\Shared\Service\ImageTransparenceProcessor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -64,13 +67,21 @@ class EnseignantController extends AbstractController
     }
 
     #[Route('/new', name: 'new')]
-    public function new(Request $request, EntityManagerInterface $em): Response
-    {
+    public function new(
+        Request $request,
+        EntityManagerInterface $em,
+        #[Autowire('%kernel.project_dir%')] string $projectDir,
+        ImageTransparenceProcessor $transparenceProcessor,
+    ): Response {
         $enseignant = new Enseignant();
         $form       = $this->createForm(EnseignantType::class, $enseignant);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            if ($form->get('supprimerSignature')->getData()) {
+                self::supprimerSignature($enseignant, $projectDir);
+            }
+            self::traiterSignature($form->get('signature')->getData(), $enseignant, $projectDir, $transparenceProcessor);
             $em->persist($enseignant);
             $em->flush();
             $this->addFlash('success', 'Enseignant enregistré.');
@@ -81,18 +92,70 @@ class EnseignantController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit')]
-    public function edit(Request $request, Enseignant $enseignant, EntityManagerInterface $em): Response
-    {
+    public function edit(
+        Request $request,
+        Enseignant $enseignant,
+        EntityManagerInterface $em,
+        #[Autowire('%kernel.project_dir%')] string $projectDir,
+        ImageTransparenceProcessor $transparenceProcessor,
+    ): Response {
         $form = $this->createForm(EnseignantType::class, $enseignant);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            if ($form->get('supprimerSignature')->getData()) {
+                self::supprimerSignature($enseignant, $projectDir);
+            }
+            self::traiterSignature($form->get('signature')->getData(), $enseignant, $projectDir, $transparenceProcessor);
             $em->flush();
             $this->addFlash('success', 'Enseignant modifié.');
             return $this->redirectToRoute('admin_enseignant_index');
         }
 
         return $this->render('admin/enseignant/form.html.twig', ['form' => $form, 'enseignant' => $enseignant]);
+    }
+
+    /**
+     * Retire le fond blanc du scan envoyé (voir ImageTransparenceProcessor) et l'enregistre
+     * sous public/uploads/signatures/enseignants/ sous un nom aléatoire ; supprime l'ancienne
+     * signature si elle est remplacée. Ne fait rien si aucun fichier n'a été envoyé.
+     */
+    private static function traiterSignature(
+        ?UploadedFile $fichier,
+        Enseignant $enseignant,
+        string $projectDir,
+        ImageTransparenceProcessor $transparenceProcessor,
+    ): void {
+        if ($fichier === null) {
+            return;
+        }
+
+        $ancienne   = $enseignant->getSignature();
+        $dossier    = $projectDir.'/public/uploads/signatures/enseignants';
+        $nomFichier = bin2hex(random_bytes(8)).'.png';
+
+        if (!is_dir($dossier)) {
+            mkdir($dossier, 0775, true);
+        }
+
+        $transparenceProcessor->traiter($fichier->getPathname(), $dossier.'/'.$nomFichier);
+        $enseignant->setSignature($nomFichier);
+
+        if ($ancienne) {
+            @unlink($dossier.'/'.$ancienne);
+        }
+    }
+
+    /** Retire la signature existante (sans remplacement) : supprime le fichier et vide le champ. */
+    private static function supprimerSignature(Enseignant $enseignant, string $projectDir): void
+    {
+        $ancienne = $enseignant->getSignature();
+        if ($ancienne === null) {
+            return;
+        }
+
+        @unlink($projectDir.'/public/uploads/signatures/enseignants/'.$ancienne);
+        $enseignant->setSignature(null);
     }
 
     #[Route('/{id}/delete', name: 'delete', methods: ['POST'])]

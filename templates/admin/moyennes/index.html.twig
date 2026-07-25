@@ -49,13 +49,18 @@
         </div>
     </div>
 {% else %}
+    {% set nombreEleves = classement.classement|length %}
     <div{{ bulletins is not empty ? ' data-controller="entete-toggle"' }}>
     <div class="admin-card mb-4">
         <div class="admin-card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
             {% if bulletins is not empty %}
                 <div>
                     <i class="bi bi-lock-fill text-success me-1"></i>
-                    Bulletins générés le {{ bulletins[0].createdAt|date('d/m/Y à H:i') }}
+                    {{ bulletins|length }} bulletin{{ bulletins|length > 1 ? 's' }} généré{{ bulletins|length > 1 ? 's' }}
+                    {% if bulletins|length < nombreEleves %}
+                        <span class="text-warning-emphasis">— {{ nombreEleves - bulletins|length }} restant{{ (nombreEleves - bulletins|length) > 1 ? 's' }}</span>
+                    {% endif %}
+                    (premier le {{ bulletins[0].createdAt|date('d/m/Y à H:i') }})
                     <span class="text-muted small d-block">Ce tableau reste calculé en direct ; les bulletins déjà générés ne bougent pas tant qu'ils ne sont pas supprimés puis régénérés.</span>
                     <div class="form-check form-switch mt-2">
                         <input class="form-check-input" type="checkbox" role="switch" id="toggleEntete" checked
@@ -64,17 +69,25 @@
                     </div>
                 </div>
                 <div class="d-flex gap-2">
+                    {% if bulletins|length < nombreEleves %}
+                        <form method="post" action="{{ path('admin_bulletin_generer', {classeId: classe.id, trimestreId: trimestre.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('generer_bulletins_' ~ classe.id ~ '_' ~ trimestre.id) }}">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-file-earmark-plus-fill me-1"></i>Générer les {{ nombreEleves - bulletins|length }} restant{{ (nombreEleves - bulletins|length) > 1 ? 's' }}
+                            </button>
+                        </form>
+                    {% endif %}
                     <a href="{{ path('admin_bulletin_classe_pdf', {classeId: classe.id, trimestreId: trimestre.id}) }}"
                        data-base-href="{{ path('admin_bulletin_classe_pdf', {classeId: classe.id, trimestreId: trimestre.id}) }}"
                        data-entete-toggle-target="link"
                        class="btn btn-outline-primary btn-sm" target="_blank">
-                        <i class="bi bi-eye-fill me-1"></i>Aperçu de tous les bulletins
+                        <i class="bi bi-eye-fill me-1"></i>Aperçu de tous les bulletins générés
                     </a>
                     <form method="post" action="{{ path('admin_bulletin_supprimer', {classeId: classe.id, trimestreId: trimestre.id}) }}"
-                          onsubmit="return confirm('Supprimer les bulletins de cette classe pour ce trimestre ? Il faudra les régénérer.')">
+                          onsubmit="return confirm('Supprimer tous les bulletins de cette classe pour ce trimestre ? Il faudra les régénérer.')">
                         <input type="hidden" name="_token" value="{{ csrf_token('supprimer_bulletins_' ~ classe.id ~ '_' ~ trimestre.id) }}">
                         <button type="submit" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-trash me-1"></i>Supprimer
+                            <i class="bi bi-trash me-1"></i>Tout supprimer
                         </button>
                     </form>
                 </div>
@@ -137,8 +150,20 @@
                                     <a href="{{ path('admin_bulletin_completer', {id: bulletinEleve.id}) }}" class="btn btn-sm btn-outline-secondary" title="Compléter (décision du conseil, mentions...)">
                                         <i class="bi bi-pencil-fill"></i>
                                     </a>
+                                    <form method="post" action="{{ path('admin_bulletin_supprimer_eleve', {id: bulletinEleve.id}) }}"
+                                          class="d-inline" onsubmit="return confirm('Supprimer le bulletin de {{ ligne.moyenneEleve.eleve.nomComplet|e('js') }} ? Il faudra le régénérer.')">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('supprimer_bulletin_eleve_' ~ bulletinEleve.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer ce bulletin">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <form method="post" action="{{ path('admin_bulletin_generer_eleve', {classeId: classe.id, trimestreId: trimestre.id, eleveId: ligne.moyenneEleve.eleve.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('generer_bulletin_eleve_' ~ classe.id ~ '_' ~ trimestre.id ~ '_' ~ ligne.moyenneEleve.eleve.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Générer le bulletin de cet élève">
+                                            <i class="bi bi-file-earmark-plus-fill me-1"></i>Générer
+                                        </button>
+                                    </form>
                                 {% endif %}
                             </td>
                         </tr>

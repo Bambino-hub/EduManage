@@ -56,6 +56,10 @@ class Enseignant
     #[ORM\Column(length: 60, nullable: true)]
     private ?string $poste = null;
 
+    /** Nom de fichier (public/uploads/signatures/enseignants/) — PNG à fond transparent, apposée automatiquement sur les bulletins des classes dont il est titulaire. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $signature = null;
+
     /** Cycle(s) où l'agent intervient habituellement : "1", "2" ou "1/2". Informatif, indépendant des Attributions. */
     #[ORM\Column(length: 10, nullable: true)]
     private ?string $cycle = null;
@@ -233,6 +237,17 @@ class Enseignant
     public function setPoste(?string $poste): static
     {
         $this->poste = $poste;
+        return $this;
+    }
+
+    public function getSignature(): ?string
+    {
+        return $this->signature;
+    }
+
+    public function setSignature(?string $signature): static
+    {
+        $this->signature = $signature;
         return $this;
     }
 

@@ -35,7 +35,7 @@ RUN composer dump-autoload --optimize --no-dev \
     && php bin/console importmap:install \
     && php bin/console asset-map:compile \
     && mkdir -p var/cache var/log \
-    && chown -R www-data:www-data var public/documents
+    && chown -R www-data:www-data var public/documents public/uploads
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

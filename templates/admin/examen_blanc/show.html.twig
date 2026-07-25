@@ -1,0 +1,85 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ examenBlanc.libelle }} — EduManage{% endblock %}
+{% block page_title %}{{ examenBlanc.libelle }}{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">{{ examenBlanc.libelle }}</h1>
+        <p class="text-muted mb-0 small">
+            {% if examenBlanc.dateDebut or examenBlanc.dateFin %}
+                {{ examenBlanc.dateDebut ? examenBlanc.dateDebut|date('d/m/Y') : '—' }}
+                {{ examenBlanc.dateFin ? ' au ' ~ examenBlanc.dateFin|date('d/m/Y') : '' }} —
+            {% endif %}
+            Chaque niveau est un examen à traiter séparément — cliquez sur « Traiter » pour ouvrir ses fiches et relevés.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('admin_examen_blanc_edit', {id: examenBlanc.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Modifier
+        </a>
+        <a href="{{ path('admin_examen_blanc_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">
+            <i class="bi bi-mortarboard-fill me-2 text-college-purple"></i>
+            Niveaux de la session
+        </h2>
+    </div>
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Niveau</th>
+                    <th>Fiches renseignées</th>
+                    <th>Relevés générés</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for niveau in niveaux %}
+                    {% set stats = statsParNiveauId[niveau.id] %}
+                    <tr>
+                        <td class="fw-semibold td-title">{{ niveau.nomComplet }}</td>
+                        <td data-label="Fiches renseignées">
+                            {% if stats.matieresAttendues > 0 %}
+                                <span class="badge {{ stats.matieresRenseignees == stats.matieresAttendues ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ stats.matieresRenseignees }} / {{ stats.matieresAttendues }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted fst-italic small">Aucune matière évaluée</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Relevés générés">
+                            {% if stats.releves > 0 %}
+                                <span class="badge bg-success">{{ stats.releves }} généré(s)</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ path('admin_examen_blanc_niveau_show', {id: examenBlanc.id, niveauId: niveau.id}) }}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-arrow-right-circle me-1"></i>Traiter
+                            </a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            Aucun niveau sélectionné pour cet examen blanc — modifiez-le pour en choisir.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

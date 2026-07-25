@@ -9,6 +9,7 @@ use App\Academic\Enum\DomaineMatiere;
 use App\Academic\Enum\GroupeOptionnel;
 use App\Academic\Enum\TypeSalle;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\ColorType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
@@ -61,6 +62,11 @@ class MatiereType extends AbstractType
                 'required'    => false,
                 'help'        => 'Utilisé par la génération auto du tableau de surveillance pour '
                     .'prioriser les enseignants du même domaine sur les épreuves scientifiques.',
+            ])
+            ->add('eps', CheckboxType::class, [
+                'label'    => 'Éducation Physique et Sportive',
+                'required' => false,
+                'help'     => 'Exclut automatiquement cette matière des examens blancs (comme les matières facultatives).',
             ])
             ->add('matiereNiveaux', CollectionType::class, [
                 'entry_type'   => MatiereNiveauType::class,

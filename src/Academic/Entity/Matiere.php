@@ -47,6 +47,14 @@ class Matiere
     #[ORM\Column(length: 20, nullable: true, enumType: DomaineMatiere::class)]
     private ?DomaineMatiere $domaine = null;
 
+    /**
+     * Identifie l'EPS de façon fiable (au lieu de comparer Matiere::code === 'EPS' en dur,
+     * comme le fait encore ImportVolumesHorairesCommand) : utilisé pour l'exclure des
+     * examens blancs, qui ne portent que sur les matières écrites théoriques.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $eps = false;
+
     #[ORM\OneToMany(
         targetEntity: MatiereNiveau::class,
         mappedBy: 'matiere',
@@ -111,6 +119,14 @@ class Matiere
     public function setDomaine(?DomaineMatiere $domaine): static
     {
         $this->domaine = $domaine;
+        return $this;
+    }
+
+    public function isEps(): bool { return $this->eps; }
+
+    public function setEps(bool $eps): static
+    {
+        $this->eps = $eps;
         return $this;
     }
 

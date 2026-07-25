@@ -1,0 +1,87 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Fiche — {{ examenBlanc.libelle }} — {{ niveau.nomComplet }} — {{ matiere.nom }} — EduManage{% endblock %}
+{% block page_title %}Fiche d'examen blanc{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <p class="text-muted mb-0">{{ examenBlanc.libelle }}</p>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ path('admin_examen_blanc_note_fiche_pdf', {examenBlancId: examenBlanc.id, niveauId: niveau.id, matiereId: matiere.id}) }}"
+           class="btn btn-outline-secondary btn-sm" target="_blank">
+            <i class="bi bi-printer me-1"></i>Imprimer une fiche vierge
+        </a>
+        <a href="{{ path('admin_examen_blanc_note_import_new', {examenBlancId: examenBlanc.id, niveauId: niveau.id, matiereId: matiere.id}) }}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-camera-fill me-1"></i>Importer une fiche scannée
+        </a>
+        <a href="{{ path('admin_examen_blanc_niveau_show', {id: examenBlanc.id, niveauId: niveau.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</div>
+
+<div class="admin-card mb-3">
+    <div class="admin-card-body">
+        <div class="row row-cols-2 row-cols-md-3 g-2 small">
+            <div><span class="text-muted">Niveau :</span> <strong>{{ niveau.nomComplet }}</strong></div>
+            <div><span class="text-muted">Matière :</span> <strong>{{ matiere.nom }}</strong></div>
+            <div><span class="text-muted">Coefficient :</span> <strong>{{ coefficientMatiere }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    <i class="bi bi-info-circle me-1"></i>
+    Toutes les classes de {{ niveau.nomComplet }} sont réunies dans une seule fiche, triée par ordre alphabétique.
+</p>
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('fiche_blanc' ~ examenBlanc.id ~ '_' ~ niveau.id ~ '_' ~ matiere.id) }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-sm table-bordered align-middle mb-0 text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>N°</th>
+                        <th class="text-start">Nom et Prénoms</th>
+                        <th style="width:140px">Note /20</th>
+                        <th style="width:90px">Absent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscription in inscriptions %}
+                        {% set eleve = inscription.eleve %}
+                        {% set note = notesParInscription[inscription.id] ?? null %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td class="text-start">{{ eleve.nomComplet }}</td>
+                            <td>
+                                <input type="number" min="0" max="20" step="0.25" class="form-control form-control-sm text-center"
+                                       name="notes[{{ eleve.id }}][valeur]" value="{{ note and not note.absent ? note.valeur : '' }}">
+                            </td>
+                            <td>
+                                <input type="checkbox" class="form-check-input" name="notes[{{ eleve.id }}][absent]" value="1" {{ note and note.absent ? 'checked' }}>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                Aucun élève inscrit dans ce niveau.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Enregistrer les notes
+        </button>
+    </div>
+</form>
+{% endblock %}

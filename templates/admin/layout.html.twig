@@ -157,7 +157,7 @@
             <div class="sidebar-section-label">Examens</div>
 
             <a href="{{ path('admin_examen_index') }}"
-               class="sidebar-link {% if currentRoute starts with 'admin_examen' %}active{% endif %}">
+               class="sidebar-link {% if currentRoute starts with 'admin_examen' and not (currentRoute starts with 'admin_examen_blanc') %}active{% endif %}">
                 <i class="bi bi-journal-text"></i>
                 Examens
             </a>
@@ -175,6 +175,15 @@
                class="sidebar-link {% if currentRoute starts with 'admin_regroupement_surveillance' %}active{% endif %}">
                 <i class="bi bi-people-fill"></i>
                 Regroupements surveillance
+            </a>
+
+            {# — Examens blancs — #}
+            <div class="sidebar-section-label">Examens blancs</div>
+
+            <a href="{{ path('admin_examen_blanc_index') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_examen_blanc' %}active{% endif %}">
+                <i class="bi bi-journal-check"></i>
+                Examens blancs
             </a>
 
             {# — Examens nationaux — #}
@@ -197,6 +206,11 @@
             <a href="{{ path('website_home') }}" class="sidebar-link">
                 <i class="bi bi-globe2"></i>
                 Site public
+            </a>
+            <a href="{{ path('admin_etablissement_edit') }}"
+               class="sidebar-link {% if currentRoute starts with 'admin_etablissement' %}active{% endif %}">
+                <i class="bi bi-building-fill"></i>
+                Établissement
             </a>
             <a href="{{ path('security_change_password') }}"
                class="sidebar-link {% if currentRoute == 'security_change_password' %}active{% endif %}">

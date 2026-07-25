@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Academic\Repository;
 
+use App\Academic\Entity\AnneeScolaire;
 use App\Academic\Entity\Classe;
+use App\Academic\Entity\Niveau;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -37,6 +39,26 @@ class ClasseRepository extends ServiceEntityRepository
             ->andWhere('c.active = true')
             ->orderBy('n.ordre', 'ASC')
             ->addOrderBy('c.nom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Classes actives d'un niveau pour une année scolaire donnée — utilisé par les examens
+     * blancs, qui fusionnent toutes les classes d'un niveau (voir ExamenBlanc\Entity\ExamenBlanc,
+     * même déduction "niveaux → classes" que Exam\Entity\Examen).
+     *
+     * @return Classe[]
+     */
+    public function findActivesByNiveauEtAnnee(Niveau $niveau, AnneeScolaire $anneeScolaire): array
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.niveau = :niveau')
+            ->andWhere('c.anneeScolaire = :annee')
+            ->andWhere('c.active = true')
+            ->setParameter('niveau', $niveau)
+            ->setParameter('annee', $anneeScolaire)
+            ->orderBy('c.nom', 'ASC')
             ->getQuery()
             ->getResult();
     }

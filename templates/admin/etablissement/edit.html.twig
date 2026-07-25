@@ -1,0 +1,67 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Établissement — EduManage{% endblock %}
+{% block page_title %}Établissement{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-building-fill me-2 text-college-purple"></i>
+                    Chef d'établissement
+                </h2>
+            </div>
+            <div class="admin-card-body">
+                <p class="text-muted" style="font-size:.85rem">
+                    Le cachet et la signature ci-dessous sont apposés automatiquement sur les bulletins générés
+                    (case « Appréciations, signature et cachet du chef d'établissement »).
+                </p>
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3">
+                    <div class="col-7">{{ form_row(form.nomChefEtablissement) }}</div>
+                    <div class="col-5">{{ form_row(form.titreChefEtablissement) }}</div>
+
+                    <div class="col-6">
+                        {% if etablissement.cachet %}
+                            <div class="mb-2">
+                                <span class="text-muted d-block mb-1" style="font-size:.85rem">Cachet actuel :</span>
+                                <img src="{{ asset('uploads/etablissement/' ~ etablissement.cachet) }}" alt=""
+                                     style="height:70px;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;border:1px solid #ccc;padding:4px">
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form_widget(form.supprimerCachet) }}
+                                {{ form_label(form.supprimerCachet, null, {label_attr: {class: 'form-check-label text-danger'}}) }}
+                            </div>
+                        {% endif %}
+                        {{ form_row(form.cachet) }}
+                    </div>
+                    <div class="col-6">
+                        {% if etablissement.signatureChefEtablissement %}
+                            <div class="mb-2">
+                                <span class="text-muted d-block mb-1" style="font-size:.85rem">Signature actuelle :</span>
+                                <img src="{{ asset('uploads/etablissement/' ~ etablissement.signatureChefEtablissement) }}" alt=""
+                                     style="height:70px;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;border:1px solid #ccc;padding:4px">
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form_widget(form.supprimerSignatureChefEtablissement) }}
+                                {{ form_label(form.supprimerSignatureChefEtablissement, null, {label_attr: {class: 'form-check-label text-danger'}}) }}
+                            </div>
+                        {% endif %}
+                        {{ form_row(form.signatureChefEtablissement) }}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                    </button>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
