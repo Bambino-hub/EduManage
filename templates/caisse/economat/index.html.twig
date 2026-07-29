@@ -1,0 +1,85 @@
+{% extends 'caisse/layout.html.twig' %}
+
+{% block title %}Paiements écolage — EduManage{% endblock %}
+{% block page_title %}Paiements écolage{% endblock %}
+
+{% block content %}
+<div class="admin-card mb-4">
+    <div class="admin-card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-auto">
+                <label class="form-label mb-1" for="niveau">Niveau</label>
+                <select name="niveau" id="niveau" class="form-select" onchange="this.form.submit()">
+                    <option value="">— Choisir un niveau —</option>
+                    {% for n in niveaux %}
+                        <option value="{{ n.id }}" {{ niveau and niveau.id == n.id ? 'selected' }}>{{ n.nomComplet }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if anneeActive is null %}
+    <div class="alert alert-warning">Aucune année scolaire active.</div>
+{% elseif niveau %}
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h2 class="admin-card-title">{{ niveau.nomComplet }} — {{ anneeActive.libelle }}</h2>
+        </div>
+        <div class="admin-card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-stack">
+                <thead class="table-light">
+                    <tr>
+                        <th>Élève</th>
+                        <th>Classe</th>
+                        <th>Montant dû</th>
+                        <th>Montant payé</th>
+                        <th>Solde</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    {% set eleve = ligne.inscription.eleve %}
+                    {% set solde = ligne.solde %}
+                    <tr>
+                        <td class="fw-semibold td-title">{{ eleve.nomComplet }}</td>
+                        <td data-label="Classe">{{ ligne.inscription.classe ? ligne.inscription.classe.nom : '—' }}</td>
+                        <td data-label="Montant dû">
+                            {% if solde.tarifDefini %}
+                                {{ solde.montantDu|number_format(0, ',', ' ') }} FCFA
+                            {% else %}
+                                <span class="text-muted">Tarif non défini</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Montant payé">{{ solde.montantPaye|number_format(0, ',', ' ') }} FCFA</td>
+                        <td data-label="Solde">
+                            {% if solde.estSolde %}
+                                <span class="badge bg-success">SOLDÉ</span>
+                            {% elseif solde.tarifDefini %}
+                                <span class="badge bg-warning text-dark">{{ solde.solde|number_format(0, ',', ' ') }} FCFA</span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ path('caisse_economat_historique_eleve', {id: eleve.id}) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-clock-history"></i>
+                            </a>
+                            <a href="{{ path('caisse_economat_nouveau_recu', {id: eleve.id}) }}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-cash-coin me-1"></i>Encaisser
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="text-center text-muted py-5">Aucun élève inscrit à ce niveau.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

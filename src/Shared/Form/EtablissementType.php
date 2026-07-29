@@ -63,6 +63,53 @@ class EtablissementType extends AbstractType
                 'label'    => 'Retirer la signature actuelle',
                 'mapped'   => false,
                 'required' => false,
+            ])
+            ->add('nomEconome', TextType::class, [
+                'label'    => 'Nom de l\'économe / caissier(ère)',
+                'required' => false,
+                'attr'     => ['placeholder' => 'KOLANI Agnès'],
+            ])
+            ->add('titreEconome', TextType::class, [
+                'label' => 'Titre / Fonction',
+                'attr'  => ['placeholder' => 'Caissier(ère)'],
+            ])
+            ->add('cachetEconome', FileType::class, [
+                'label'       => 'Cachet de l\'économat (scan sur papier blanc)',
+                'mapped'      => false,
+                'required'    => false,
+                'help'        => 'Apposé automatiquement sur les reçus de paiement. Fond blanc retiré automatiquement.',
+                'constraints' => [
+                    new Image(
+                        maxSize: '4M',
+                        mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+                        mimeTypesMessage: 'Formats acceptés : JPG, PNG, WEBP.',
+                        maxSizeMessage: 'L\'image ne doit pas dépasser {{ limit }} {{ suffix }}.',
+                    ),
+                ],
+            ])
+            ->add('supprimerCachetEconome', CheckboxType::class, [
+                'label'    => 'Retirer le cachet actuel',
+                'mapped'   => false,
+                'required' => false,
+            ])
+            ->add('signatureEconome', FileType::class, [
+                'label'       => 'Signature de l\'économe (scan sur papier blanc)',
+                'mapped'      => false,
+                'required'    => false,
+                'help'        => 'Apposée automatiquement sur les reçus de paiement. Fond blanc retiré automatiquement.',
+                'constraints' => [
+                    new Image(
+                        maxSize: '4M',
+                        mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+                        mimeTypesMessage: 'Formats acceptés : JPG, PNG, WEBP.',
+                        maxSizeMessage: 'L\'image ne doit pas dépasser {{ limit }} {{ suffix }}.',
+                    ),
+                ],
+            ])
+            ->add('supprimerSignatureEconome', CheckboxType::class, [
+                'label'    => 'Retirer la signature actuelle',
+                'mapped'   => false,
+                'required' => false,
             ]);
     }
 

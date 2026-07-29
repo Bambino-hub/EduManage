@@ -120,7 +120,7 @@ final class EmploiDuTempsPermutationService
      * Valide l'état obtenu une fois TOUT le lot appliqué : aucun enseignant ni aucune
      * salle ne doit se retrouver à deux endroits en même temps, aucune classe ne doit
      * recevoir 2 séances non-parallèles au même créneau, et les règles de placement
-     * (EPS/FHR/8ème heure, cf. ReglesPlacementCreneau) doivent rester respectées pour les
+     * (EPS/FHR/8ème heure/indisponibilité enseignant, cf. ReglesPlacementCreneau) doivent rester respectées pour les
      * séances effectivement déplacées.
      *
      * @param Seance[] $seances
@@ -213,6 +213,8 @@ final class EmploiDuTempsPermutationService
                 $erreurs[] = "L'EPS ne peut pas être placée à la 4ème ni à la 5ème heure.";
             } elseif ($matiereCode === 'FHR' && $creneau->getHeureDebut() !== null && ReglesPlacementCreneau::fhrInterdit($creneau->getJourSemaine(), $creneau->getHeureDebut())) {
                 $erreurs[] = 'Le FHR ne peut pas être placé le vendredi après-midi.';
+            } elseif (ReglesPlacementCreneau::premieresHeuresInterdites($creneau->getOrdre(), $attribution->getEnseignant()->getNbPremieresHeuresAEviter())) {
+                $erreurs[] = sprintf('%s est indisponible aux %d première(s) heure(s) de la journée.', $attribution->getEnseignant()->getNomComplet(), $attribution->getEnseignant()->getNbPremieresHeuresAEviter());
             }
         }
 

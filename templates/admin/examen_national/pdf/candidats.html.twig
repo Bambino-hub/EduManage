@@ -1,0 +1,68 @@
+{#
+    Rendu PDF (dompdf) de la liste des candidats d'une session d'examen national — portrait.
+    CSS volontairement simple (pas de flexbox/grid, dompdf les supporte mal).
+
+    Paramètres attendus :
+    - `session` : ExamenNational\Entity\SessionExamenNational
+    - `candidats` : Collection<CandidatExamenNational> (ordre pageNumero ASC, cf. entité)
+    - `avecEntete` : bool — inclut ou non l'en-tête du collège
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 1cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 9px; }
+    h1 { font-size: 14px; margin: 10px 0 2px; text-align: center; text-transform: uppercase; color: #6a2c91; }
+    .sous-titre { color: #555; font-size: 9px; margin: 0 0 10px; text-align: center; }
+
+    table.candidats { width: 100%; border-collapse: collapse; }
+    table.candidats th, table.candidats td { border: 1px solid #999; padding: 3px 4px; text-align: center; }
+    table.candidats th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 8px; }
+    table.candidats td.nom { text-align: left; font-weight: bold; }
+
+    .genere { font-size: 7px; color: #888; margin-top: 8px; }
+</style>
+</head>
+<body>
+{% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+
+<h1>{{ session.type.label }} — Série {{ session.serie }}{{ session.libelleSerie ? ' (' ~ session.libelleSerie ~ ')' }}</h1>
+<p class="sous-titre">
+    {{ session.anneeSession ?? '—' }}{{ session.centreExamen ? ' — ' ~ session.centreExamen }}
+    — Liste des candidats ({{ candidats|length }})
+</p>
+
+<table class="candidats">
+    <thead>
+        <tr>
+            <th style="width:6%">N° Table</th>
+            <th style="text-align:left">Nom</th>
+            <th style="text-align:left">Prénoms</th>
+            <th style="width:8%">Sexe</th>
+            <th style="width:12%">Date de naissance</th>
+            <th style="width:16%">Lieu de naissance</th>
+            <th style="width:10%">Moyenne globale</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for candidat in candidats %}
+            <tr>
+                <td>{{ candidat.numeroTable ?? '—' }}</td>
+                <td class="nom">{{ candidat.nom }}</td>
+                <td style="text-align:left">{{ candidat.prenoms }}</td>
+                <td>{{ candidat.sexe ? candidat.sexe.label() : '—' }}</td>
+                <td>{{ candidat.dateNaissance ? candidat.dateNaissance|date('d/m/Y') : '—' }}</td>
+                <td style="text-align:left">{{ candidat.lieuNaissance ?? '—' }}</td>
+                <td>{{ candidat.moyenneGlobaleAffichee ? candidat.moyenneGlobaleAffichee|replace({'.': ','}) : '—' }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7">Aucun candidat pour cette session.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="genere">Document généré le {{ "now"|date('d/m/Y à H:i') }}</p>
+</body>
+</html>

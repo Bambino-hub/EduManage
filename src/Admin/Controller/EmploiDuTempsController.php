@@ -407,7 +407,12 @@ class EmploiDuTempsController extends AbstractController
         );
     }
 
-    /** Export PDF de la vue globale — même mise en page compacte 1 page que l'impression navigateur. */
+    /**
+     * Export PDF de la vue globale — même mise en page compacte que l'impression
+     * navigateur. `?affichage=matiere` (défaut, 1 page A4 paysage, code matière seul) ou
+     * `?affichage=enseignant` (matière + nom de l'enseignant par case, 1 page A3 paysage :
+     * ~27 colonnes avec ce texte en plus ne tiennent plus lisiblement en A4).
+     */
     #[Route('/globale/export-pdf', name: 'globale_export_pdf')]
     public function exportPdfGlobale(
         Request $request,
@@ -432,6 +437,8 @@ class EmploiDuTempsController extends AbstractController
         [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
         [$reserveRowspan, $reserveContinuation]        = $this->calculerRunsReserves($creneauxParJour);
 
+        $avecEnseignant = $request->query->getString('affichage', 'matiere') === 'enseignant';
+
         $html = $this->renderView('admin/edt/pdf/globale.html.twig', [
             'annee'               => $annee,
             'classes'             => $classes,
@@ -441,9 +448,13 @@ class EmploiDuTempsController extends AbstractController
             'reserveRowspan'      => $reserveRowspan,
             'reserveContinuation' => $reserveContinuation,
             'avecEntete'          => $request->query->getBoolean('entete_college', false),
+            'avecEnseignant'      => $avecEnseignant,
         ]);
 
-        return $this->reponsePdf($exporter->exporter($html), 'emploi-du-temps-vue-globale.pdf');
+        $contenu   = $exporter->exporter($html, 'landscape', $avecEnseignant ? 'A3' : 'A4');
+        $nomFichier = $avecEnseignant ? 'emploi-du-temps-vue-globale-detaillee.pdf' : 'emploi-du-temps-vue-globale.pdf';
+
+        return $this->reponsePdf($contenu, $nomFichier);
     }
 
     /**

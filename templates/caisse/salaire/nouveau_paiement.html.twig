@@ -1,0 +1,78 @@
+{% extends 'caisse/layout.html.twig' %}
+
+{% block title %}Nouveau paiement — {{ enseignant.nomComplet }} — EduManage{% endblock %}
+{% block page_title %}Nouveau paiement — {{ enseignant.nomComplet }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-cash-coin me-2 text-college-purple"></i>
+                    {{ enseignant.nomComplet }}{{ enseignant.poste ? ' — ' ~ enseignant.poste : '' }}
+                </h2>
+                <a href="{{ path('caisse_salaire_historique', {id: enseignant.id}) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+
+                <h6 class="fw-semibold mb-3 border-bottom pb-2">Lignes du paiement</h6>
+
+                {% set prototypeLigne %}
+                <tr data-collection-ligne-target="ligne">
+                    <td>{{ form_widget(form.lignes.vars.prototype.libelle) }}</td>
+                    <td>{{ form_widget(form.lignes.vars.prototype.montant) }}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-action="click->collection-ligne#retirer">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endset %}
+
+                <div data-controller="collection-ligne"
+                     data-collection-ligne-prototype-value="{{ prototypeLigne|e('html_attr') }}"
+                     data-collection-ligne-index-value="{{ form.lignes|length }}">
+                    <table class="table table-sm align-middle mb-2">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nature du versement</th>
+                                <th style="width:180px">Montant (FCFA)</th>
+                                <th style="width:50px"></th>
+                            </tr>
+                        </thead>
+                        <tbody data-collection-ligne-target="container">
+                            {% for ligneForm in form.lignes %}
+                                <tr data-collection-ligne-target="ligne">
+                                    <td>{{ form_widget(ligneForm.libelle) }}</td>
+                                    <td>{{ form_widget(ligneForm.montant) }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-action="click->collection-ligne#retirer">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-primary mb-4" data-action="click->collection-ligne#ajouter">
+                        <i class="bi bi-plus-lg me-1"></i>Ajouter une ligne
+                    </button>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer le paiement
+                    </button>
+                    <a href="{{ path('caisse_salaire_historique', {id: enseignant.id}) }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

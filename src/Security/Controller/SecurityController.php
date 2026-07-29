@@ -27,13 +27,17 @@ class SecurityController extends AbstractController
     /**
      * Point de redirection unique après connexion : `default_target_path` ne peut pas
      * différer par rôle nativement dans le firewall, donc on route ici puis on renvoie
-     * chacun vers son espace (admin ou enseignant).
+     * chacun vers son espace (admin, caisse ou enseignant).
      */
     #[Route('/apres-connexion', name: 'security_apres_connexion')]
     public function apresConnexion(): Response
     {
         if ($this->isGranted('ROLE_ADMIN')) {
             return $this->redirectToRoute('admin_dashboard');
+        }
+
+        if ($this->isGranted('ROLE_CAISSIER')) {
+            return $this->redirectToRoute('caisse_dashboard');
         }
 
         return $this->redirectToRoute('teacher_dashboard');

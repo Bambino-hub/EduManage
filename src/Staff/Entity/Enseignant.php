@@ -64,6 +64,15 @@ class Enseignant
     #[ORM\Column(length: 10, nullable: true)]
     private ?string $cycle = null;
 
+    /**
+     * Nombre de premières heures de chaque jour à ne jamais lui programmer (0 = aucune
+     * contrainte). Sert par exemple une enseignante en difficulté pour arriver tôt après
+     * un accouchement — contrainte stricte respectée par EmploiDuTempsGenerator (exclusion,
+     * pas simple préférence), voir ReglesPlacementCreneau::indisponiblePremieresHeures().
+     */
+    #[ORM\Column]
+    private int $nbPremieresHeuresAEviter = 0;
+
     /* --------------------------------------------------------------
        Champs "stage" : pertinents uniquement quand $type = STAGIAIRE
        (stage pédagogique en classe OU stage administratif de bureau).
@@ -259,6 +268,17 @@ class Enseignant
     public function setCycle(?string $cycle): static
     {
         $this->cycle = $cycle;
+        return $this;
+    }
+
+    public function getNbPremieresHeuresAEviter(): int
+    {
+        return $this->nbPremieresHeuresAEviter;
+    }
+
+    public function setNbPremieresHeuresAEviter(int $nbPremieresHeuresAEviter): static
+    {
+        $this->nbPremieresHeuresAEviter = $nbPremieresHeuresAEviter;
         return $this;
     }
 

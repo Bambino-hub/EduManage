@@ -1,0 +1,144 @@
+{#
+    Rendu PDF (dompdf) d'un reçu de paiement d'écolage — reprend le style "encadré" du
+    bulletin (bordures, bandeau violet, boîte titrée) mais réorganisé en une seule colonne
+    pour tenir sur un ticket étroit (80mm, voir EconomatController::recuPdf()).
+    En-tête reconstruit ici en colonne (logo au-dessus du texte) plutôt que d'inclure
+    admin/pdf/_entete_college.html.twig : ce fragment partagé est pensé pour une largeur A4
+    (logo + texte côte à côte), inadapté à 80mm.
+
+    Paramètres attendus :
+    - `recu` : Economat\Entity\Recu
+    - `solde` : Economat\Dto\SoldeInfo — récapitulatif recalculé au moment de l'impression
+      (pas un snapshot figé : réimprimer un reçu ancien reflète les versements ultérieurs)
+    - `avecEntete` : bool — inclut ou non l'en-tête du collège
+    - `etablissement` : Shared\Entity\Etablissement — cachet/signature/nom de l'ÉCONOME
+      (pas du chef d'établissement : c'est l'économe qui émet les reçus de paiement)
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 8pt; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 8px; }
+
+    .entete { text-align: center; margin-bottom: 6px; }
+    .entete .logo { width: 36px; margin-bottom: 2px; }
+    .entete .pays { font-size: 7px; margin: 0; }
+    .entete .nom-college { font-size: 12px; font-weight: bold; color: #6a2c91; margin: 1px 0; }
+    .entete .coord { font-size: 6px; color: #444; margin: 0; }
+    .entete .devise { font-size: 6.5px; font-weight: bold; margin: 4px 0 0; background: #f6f3fa; color: #6a2c91; border-top: 1px solid #6a2c91; border-bottom: 1px solid #6a2c91; padding: 2px 0; }
+
+    h2.titre { text-align: center; font-size: 11px; text-transform: uppercase; margin: 8px 0 6px; letter-spacing: .5px; color: #6a2c91; }
+
+    table.infos { width: 100%; border-collapse: collapse; border: 1px solid #6a2c91; margin-bottom: 6px; }
+    table.infos td { padding: 2px 4px; }
+    table.infos .label { color: #6a2c91; width: 42%; }
+    table.infos .valeur { font-weight: bold; text-align: right; }
+
+    table.lignes { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    table.lignes th, table.lignes td { border: 1px solid #999; padding: 3px 4px; }
+    table.lignes th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 7px; text-align: left; }
+    table.lignes th.montant, table.lignes td.montant { text-align: right; }
+    table.lignes tr.total td { font-weight: bold; background: #f6f3fa; }
+
+    .encadre { border: 1px solid #999; padding: 6px; margin-top: 6px; }
+    .encadre .titre-encadre { font-weight: bold; font-size: 7px; text-transform: uppercase; color: #fff; background: #6a2c91; margin: -6px -6px 5px; padding: 3px 6px; }
+
+    table.recap-lignes { width: 100%; border-collapse: collapse; }
+    table.recap-lignes td { padding: 2px 0; }
+    table.recap-lignes .valeur { text-align: right; font-weight: bold; }
+    .badge-solde { display: inline-block; padding: 1px 6px; border-radius: 3px; font-weight: bold; font-size: 8px; }
+    .badge-solde.solde { background: #d4edda; color: #155724; }
+    .badge-solde.reste { background: #fff3cd; color: #856404; }
+
+    .chef-etablissement { text-align: center; }
+    .espace-cachet { height: 50px; position: relative; margin-top: 4px; }
+    .espace-cachet .img-cachet { height: 56px; opacity: .92; }
+    .espace-cachet .img-signature { position: absolute; left: 50%; bottom: -8px; height: 30px; margin-left: -20px; }
+    .nom-econome { font-size: 7px; margin-top: 10px; text-decoration: underline; }
+
+    .pied { margin-top: 10px; font-size: 6px; color: #888; text-align: center; }
+    .pied .nb { color: #6a2c91; font-weight: bold; margin-top: 2px; }
+</style>
+</head>
+<body>
+{% if avecEntete %}
+<div class="entete">
+    <img class="logo" src="{{ project_dir }}/assets/images/logo-college-adele.png" alt="">
+    <p class="pays">République du Togo</p>
+    <p class="nom-college">COLLÈGE ADÈLE</p>
+    <p class="coord">BP 788 Kara — Tél : (+228) 26 60 13 84 / 92 16 82 17</p>
+    <p class="devise">SUCCÈS - VERTU - EN ESPRIT DE FAMILLE</p>
+</div>
+{% endif %}
+
+<h2 class="titre">Reçu de paiement N° {{ recu.numero }}</h2>
+
+<table class="infos">
+    <tr><td class="label">Élève</td><td class="valeur">{{ recu.eleve.nomComplet }}</td></tr>
+    <tr><td class="label">Classe</td><td class="valeur">{{ recu.inscription.classe ? recu.inscription.classe.nom : recu.inscription.niveau.nomComplet }}</td></tr>
+    <tr><td class="label">Année scolaire</td><td class="valeur">{{ recu.anneeScolaire.libelle }}</td></tr>
+    <tr><td class="label">Date</td><td class="valeur">{{ recu.dateEmission|date('d/m/Y') }}</td></tr>
+    {% if recu.nomPayeur %}
+    <tr><td class="label">Payeur</td><td class="valeur">{{ recu.nomPayeur }}</td></tr>
+    {% endif %}
+</table>
+
+<table class="lignes">
+    <thead>
+        <tr><th>Nature de recette</th><th class="montant">Montant</th></tr>
+    </thead>
+    <tbody>
+        {% for ligne in recu.lignes %}
+        <tr>
+            <td>{{ ligne.libelle }}</td>
+            <td class="montant">{{ ligne.montant|number_format(0, ',', ' ') }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="total">
+            <td>Total versé</td>
+            <td class="montant">{{ recu.montantTotal|number_format(0, ',', ' ') }} FCFA</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="encadre">
+    <div class="titre-encadre">Point récapitulatif — {{ recu.anneeScolaire.libelle }}</div>
+    <table class="recap-lignes">
+        <tr><td>Montant total dû</td><td class="valeur">{{ solde.tarifDefini ? solde.montantDu|number_format(0, ',', ' ') ~ ' FCFA' : 'Non défini' }}</td></tr>
+        <tr><td>Montant total payé</td><td class="valeur">{{ solde.montantPaye|number_format(0, ',', ' ') }} FCFA</td></tr>
+        <tr>
+            <td>Solde restant dû</td>
+            <td class="valeur">
+                {% if solde.estSolde %}
+                    <span class="badge-solde solde">SOLDÉ</span>
+                {% elseif solde.tarifDefini %}
+                    <span class="badge-solde reste">{{ solde.solde|number_format(0, ',', ' ') }}</span>
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div class="encadre chef-etablissement">
+    <div class="titre-encadre">{{ etablissement.titreEconome }}</div>
+    <div class="espace-cachet">
+        {% if etablissement.cachetEconome %}
+            <img class="img-cachet" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.cachetEconome }}" alt="">
+        {% endif %}
+        {% if etablissement.signatureEconome %}
+            <img class="img-signature" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.signatureEconome }}" alt="">
+        {% endif %}
+    </div>
+    {% if etablissement.nomEconome %}<div class="nom-econome">{{ etablissement.nomEconome }}</div>{% endif %}
+</div>
+
+<div class="pied">
+    Reçu généré le {{ recu.createdAt|date('d/m/Y à H:i') }}
+    <div class="nb">Toute année commencée est due en totalité. Aucun remboursement possible.</div>
+</div>
+</body>
+</html>

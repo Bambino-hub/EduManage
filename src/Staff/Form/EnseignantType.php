@@ -12,10 +12,12 @@ use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
+use Symfony\Component\Validator\Constraints\Range;
 
 class EnseignantType extends AbstractType
 {
@@ -77,6 +79,14 @@ class EnseignantType extends AbstractType
             ->add('actif', CheckboxType::class, [
                 'label'    => 'Enseignant actif',
                 'required' => false,
+            ])
+            ->add('nbPremieresHeuresAEviter', IntegerType::class, [
+                'label'       => 'Indisponible aux premières heures',
+                'required'    => false,
+                'empty_data'  => '0',
+                'attr'        => ['min' => 0, 'max' => 4, 'placeholder' => '0'],
+                'help'        => 'Nombre de premières heures de chaque jour à ne jamais lui programmer (0 = aucune contrainte). Ex : difficulté à arriver tôt après un accouchement.',
+                'constraints' => [new Range(min: 0, max: 4)],
             ])
             ->add('signature', FileType::class, [
                 'label'       => 'Signature (scan sur papier blanc — optionnelle)',

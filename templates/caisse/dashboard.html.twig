@@ -1,0 +1,31 @@
+{% extends 'caisse/layout.html.twig' %}
+
+{% block title %}Caisse — EduManage{% endblock %}
+{% block page_title %}Caisse{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-6">
+        <a href="{{ path('caisse_economat_index') }}" class="text-decoration-none">
+            <div class="admin-card h-100">
+                <div class="admin-card-body text-center py-5">
+                    <i class="bi bi-cash-coin fs-1 text-college-purple d-block mb-3"></i>
+                    <h2 class="h5 mb-2">Paiements écolage</h2>
+                    <p class="text-muted small mb-0">Encaisser les versements d'écolage des élèves et imprimer les reçus.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6">
+        <a href="{{ path('caisse_salaire_index') }}" class="text-decoration-none">
+            <div class="admin-card h-100">
+                <div class="admin-card-body text-center py-5">
+                    <i class="bi bi-wallet2 fs-1 text-college-purple d-block mb-3"></i>
+                    <h2 class="h5 mb-2">Salaires du personnel</h2>
+                    <p class="text-muted small mb-0">Enregistrer les versements de salaire et imprimer les reçus.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

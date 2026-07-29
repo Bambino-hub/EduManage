@@ -518,6 +518,22 @@
     cursor: pointer;
 }
 
+/* Bascule "Afficher l'enseignant" (contrôleur Stimulus edt-affichage-toggle) : les deux
+   variantes de texte sont toujours dans le DOM, seule la visibilité change — nécessaire
+   pour que le glisser-déposer (qui reparente les <span> tels quels) ne perde jamais le
+   texte enseignant d'une case à l'autre. */
+.edt-txt-enseignant {
+    display: none;
+}
+
+.edt-grid-globale.edt-affichage-enseignant .edt-txt-matiere {
+    display: none;
+}
+
+.edt-grid-globale.edt-affichage-enseignant .edt-txt-enseignant {
+    display: inline;
+}
+
 /* Séparateur entre matières parallèles (ex. ALL/ESP) dans une même case — généré en CSS
    plutôt qu'en texte dans le HTML : reste correct même après un glisser-déposer qui
    déplace les <span> d'une case à l'autre (pas de "/" orphelin laissé derrière). */

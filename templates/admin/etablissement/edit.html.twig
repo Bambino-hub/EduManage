@@ -54,6 +54,49 @@
                     </div>
                 </div>
 
+                <hr class="my-4">
+                <h6 class="fw-semibold mb-3">
+                    <i class="bi bi-cash-coin me-1 text-college-purple"></i>
+                    Économe (reçus de paiement)
+                </h6>
+                <p class="text-muted" style="font-size:.85rem">
+                    Le cachet et la signature ci-dessous sont apposés automatiquement sur les reçus de paiement
+                    d'écolage (module Économat), à la place de ceux du chef d'établissement.
+                </p>
+                <div class="row g-3">
+                    <div class="col-7">{{ form_row(form.nomEconome) }}</div>
+                    <div class="col-5">{{ form_row(form.titreEconome) }}</div>
+
+                    <div class="col-6">
+                        {% if etablissement.cachetEconome %}
+                            <div class="mb-2">
+                                <span class="text-muted d-block mb-1" style="font-size:.85rem">Cachet actuel :</span>
+                                <img src="{{ asset('uploads/etablissement/' ~ etablissement.cachetEconome) }}" alt=""
+                                     style="height:70px;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;border:1px solid #ccc;padding:4px">
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form_widget(form.supprimerCachetEconome) }}
+                                {{ form_label(form.supprimerCachetEconome, null, {label_attr: {class: 'form-check-label text-danger'}}) }}
+                            </div>
+                        {% endif %}
+                        {{ form_row(form.cachetEconome) }}
+                    </div>
+                    <div class="col-6">
+                        {% if etablissement.signatureEconome %}
+                            <div class="mb-2">
+                                <span class="text-muted d-block mb-1" style="font-size:.85rem">Signature actuelle :</span>
+                                <img src="{{ asset('uploads/etablissement/' ~ etablissement.signatureEconome) }}" alt=""
+                                     style="height:70px;background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;border:1px solid #ccc;padding:4px">
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ form_widget(form.supprimerSignatureEconome) }}
+                                {{ form_label(form.supprimerSignatureEconome, null, {label_attr: {class: 'form-check-label text-danger'}}) }}
+                            </div>
+                        {% endif %}
+                        {{ form_row(form.signatureEconome) }}
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-check-lg me-1"></i>Enregistrer

@@ -24,7 +24,12 @@ class EmploiDuTempsPdfExporter
     ) {
     }
 
-    public function exporter(string $html, string $orientation = 'landscape'): string
+    /**
+     * @param string|array{0:float,1:float,2:float,3:float} $paper Nom de format dompdf ('A4', 'A5'...)
+     *   ou tableau [x1, y1, x2, y2] en points pour un format personnalisé (ex. ticket de caisse
+     *   étroit — voir EconomatController::recuPdf()). Un tableau ignore `$orientation`.
+     */
+    public function exporter(string $html, string $orientation = 'landscape', string|array $paper = 'A4'): string
     {
         $options = new Options();
         $options->setIsRemoteEnabled(false);
@@ -35,7 +40,7 @@ class EmploiDuTempsPdfExporter
         $options->setChroot([$this->projectDir]);
 
         $dompdf = new Dompdf($options);
-        $dompdf->setPaper('A4', $orientation);
+        $dompdf->setPaper($paper, $orientation);
         $dompdf->loadHtml($html);
         $dompdf->render();
 

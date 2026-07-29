@@ -8,7 +8,9 @@ use App\ExamenNational\Entity\SessionExamenNational;
 use App\ExamenNational\Enum\StatutSessionExamenNational;
 use App\ExamenNational\Repository\NoteMatiereCandidatRepository;
 use App\ExamenNational\Repository\SessionExamenNationalRepository;
+use App\ExamenNational\Service\Export\CandidatExamenNationalXlsxExporter;
 use App\ExamenNational\Service\StatistiqueReleveCalculator;
+use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -115,6 +117,37 @@ class ExamenNationalController extends AbstractController
         $response->headers->set('Content-Disposition', 'attachment; filename="statistiques_'.$this->nomFichier($session).'.csv"');
 
         return $response;
+    }
+
+    #[Route('/{id}/export/candidats.pdf', name: 'export_candidats_pdf')]
+    public function exportCandidatsPdf(
+        SessionExamenNational $session,
+        Request $request,
+        EmploiDuTempsPdfExporter $exporter,
+    ): Response {
+        $this->refuserSiBrouillon($session);
+
+        $html = $this->renderView('admin/examen_national/pdf/candidats.html.twig', [
+            'session'    => $session,
+            'candidats'  => $session->getCandidats(),
+            'avecEntete' => $request->query->getBoolean('entete_college', false),
+        ]);
+
+        return new Response($exporter->exporter($html, 'portrait'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="candidats_'.$this->nomFichier($session).'.pdf"',
+        ]);
+    }
+
+    #[Route('/{id}/export/candidats.xlsx', name: 'export_candidats_xlsx')]
+    public function exportCandidatsXlsx(SessionExamenNational $session, CandidatExamenNationalXlsxExporter $exporter): Response
+    {
+        $this->refuserSiBrouillon($session);
+
+        return new Response($exporter->exporter($session->getCandidats()), 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="candidats_'.$this->nomFichier($session).'.xlsx"',
+        ]);
     }
 
     #[Route('/{id}/delete', name: 'delete', methods: ['POST'], requirements: ['id' => '\d+'])]

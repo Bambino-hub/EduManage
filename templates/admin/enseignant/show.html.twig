@@ -85,6 +85,16 @@
                             <span class="badge bg-danger">Inactif</span>
                         {% endif %}
                     </dd>
+
+                    {% if enseignant.nbPremieresHeuresAEviter > 0 %}
+                        <dt class="col-5 text-muted small">Disponibilité EDT</dt>
+                        <dd class="col-7">
+                            <span class="badge bg-warning text-dark" title="Prise en compte automatique lors de la génération de l'emploi du temps">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                Indisponible {{ enseignant.nbPremieresHeuresAEviter }} heure{{ enseignant.nbPremieresHeuresAEviter > 1 ? 's' : '' }} en début de journée
+                            </span>
+                        </dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -99,6 +109,9 @@
                 {% if utilisateur %}
                     <p class="mb-2">
                         <span class="badge bg-success">Compte actif</span>
+                        {% if 'ROLE_ADMIN' in utilisateur.roles %}<span class="badge bg-college-purple">Administrateur</span>{% endif %}
+                        {% if 'ROLE_CAISSIER' in utilisateur.roles %}<span class="badge bg-info text-dark">Caissier(ère)</span>{% endif %}
+                        {% if 'ROLE_ENSEIGNANT' in utilisateur.roles %}<span class="badge bg-secondary">Enseignant</span>{% endif %}
                         <span class="text-muted small ms-1">{{ utilisateur.email }}</span>
                     </p>
                     <form method="post" action="{{ path('admin_enseignant_reinitialiser_mdp', {id: enseignant.id}) }}"
@@ -110,12 +123,20 @@
                     </form>
                 {% elseif enseignant.email %}
                     <p class="text-muted small mb-2">Aucun accès créé pour cet enseignant.</p>
-                    <form method="post" action="{{ path('admin_enseignant_creer_acces', {id: enseignant.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('creer_acces' ~ enseignant.id) }}">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="bi bi-person-plus-fill me-1"></i>Créer un accès
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2">
+                        <form method="post" action="{{ path('admin_enseignant_creer_acces', {id: enseignant.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('creer_acces' ~ enseignant.id) }}">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-person-plus-fill me-1"></i>Créer un accès enseignant
+                            </button>
+                        </form>
+                        <form method="post" action="{{ path('admin_enseignant_creer_acces_caissier', {id: enseignant.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('creer_acces_caissier' ~ enseignant.id) }}">
+                            <button type="submit" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-cash-coin me-1"></i>Créer un accès caissier
+                            </button>
+                        </form>
+                    </div>
                 {% else %}
                     <p class="text-muted small mb-0">Ajoutez une adresse e-mail à cet enseignant pour pouvoir lui créer un accès.</p>
                 {% endif %}

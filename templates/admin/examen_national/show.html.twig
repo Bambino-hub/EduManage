@@ -29,6 +29,12 @@
         <a href="{{ path('admin_releve_national_export_statistiques', {id: session.id}) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-download me-1"></i>Télécharger les statistiques
         </a>
+        <a href="{{ path('admin_releve_national_export_candidats_pdf', {id: session.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Liste des candidats (PDF)
+        </a>
+        <a href="{{ path('admin_releve_national_export_candidats_xlsx', {id: session.id}) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Liste des candidats (Excel)
+        </a>
         <a href="{{ path('admin_releve_national_index') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i>Retour
         </a>

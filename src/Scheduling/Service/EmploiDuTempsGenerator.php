@@ -526,8 +526,36 @@ class EmploiDuTempsGenerator
     {
         $cycle     = $unite->classes[0]->getNiveau()->getCycle()->getType();
         $eligibles = $this->filtrerFHR($unite, $creneauxEligiblesParCycle[$cycle->value]);
+        $eligibles = $this->filtrerEPS($unite, $eligibles);
 
-        return $this->filtrerEPS($unite, $eligibles);
+        return $this->filtrerIndisponibiliteEnseignant($unite, $eligibles);
+    }
+
+    /**
+     * Un enseignant indisponible aux premières heures (Enseignant::getNbPremieresHeuresAEviter())
+     * ne se voit jamais programmer sur ces créneaux, quel que soit le jour — contrainte
+     * stricte (exclusion), pas une simple préférence contournable comme scorePreference().
+     * Si l'unité regroupe plusieurs enseignants (unité parallèle/fusionnée) au seuil
+     * différent, le seuil le plus contraignant s'applique à toute l'unité : le créneau
+     * est de toute façon indisponible pour l'un d'eux.
+     *
+     * @param Creneau[] $eligibles @return Creneau[]
+     */
+    private function filtrerIndisponibiliteEnseignant(GenerationUnit $unite, array $eligibles): array
+    {
+        $seuil = 0;
+        foreach ($unite->attributions as $attribution) {
+            $seuil = max($seuil, $attribution->getEnseignant()?->getNbPremieresHeuresAEviter() ?? 0);
+        }
+
+        if ($seuil === 0) {
+            return $eligibles;
+        }
+
+        return array_values(array_filter(
+            $eligibles,
+            static fn (Creneau $c) => !ReglesPlacementCreneau::premieresHeuresInterdites($c->getOrdre(), $seuil),
+        ));
     }
 
     /** L'unité contient-elle une Attribution de la matière au code donné ? */

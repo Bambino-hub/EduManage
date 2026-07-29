@@ -20,8 +20,12 @@ export default class extends Controller {
     update() {
         const avecEntete = this.checkboxTarget.checked ? '1' : '0';
 
+        // Part de l'URL courante (pas systématiquement `data-base-href`) : une page peut
+        // avoir un second toggle sur le même lien (ex. vue globale EDT, affichage
+        // matière/enseignant) — repartir de l'état actuel préserve son paramètre au lieu
+        // de l'écraser à chaque bascule.
         this.linkTargets.forEach((link) => {
-            const url = new URL(link.dataset.baseHref, window.location.origin);
+            const url = new URL(link.href || link.dataset.baseHref, window.location.origin);
             url.searchParams.set('entete_college', avecEntete);
             link.href = url.pathname + url.search;
         });

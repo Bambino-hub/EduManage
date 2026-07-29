@@ -1,0 +1,109 @@
+{#
+    Rendu PDF (dompdf) d'un reçu de paiement de salaire — même style "encadré" (bordures,
+    bandeau violet) que le reçu d'écolage (templates/caisse/economat/pdf/recu.html.twig),
+    réorganisé pour un ticket étroit (80mm, voir SalaireController::pdf()). Contenu différent :
+    pas de bloc récapitulatif dû/payé/solde (pas de notion de montant dû pour le salaire).
+
+    Paramètres attendus :
+    - `paiement` : Salaire\Entity\PaiementSalaire
+    - `avecEntete` : bool — inclut ou non l'en-tête du collège
+    - `etablissement` : Shared\Entity\Etablissement — cachet/signature/nom de l'ÉCONOME
+      (même signataire que pour l'écolage)
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 8pt; }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; font-size: 8px; }
+
+    .entete { text-align: center; margin-bottom: 6px; }
+    .entete .logo { width: 36px; margin-bottom: 2px; }
+    .entete .pays { font-size: 7px; margin: 0; }
+    .entete .nom-college { font-size: 12px; font-weight: bold; color: #6a2c91; margin: 1px 0; }
+    .entete .coord { font-size: 6px; color: #444; margin: 0; }
+    .entete .devise { font-size: 6.5px; font-weight: bold; margin: 4px 0 0; background: #f6f3fa; color: #6a2c91; border-top: 1px solid #6a2c91; border-bottom: 1px solid #6a2c91; padding: 2px 0; }
+
+    h2.titre { text-align: center; font-size: 11px; text-transform: uppercase; margin: 8px 0 6px; letter-spacing: .5px; color: #6a2c91; }
+
+    table.infos { width: 100%; border-collapse: collapse; border: 1px solid #6a2c91; margin-bottom: 6px; }
+    table.infos td { padding: 2px 4px; }
+    table.infos .label { color: #6a2c91; width: 42%; }
+    table.infos .valeur { font-weight: bold; text-align: right; }
+
+    table.lignes { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    table.lignes th, table.lignes td { border: 1px solid #999; padding: 3px 4px; }
+    table.lignes th { background: #6a2c91; color: #fff; font-weight: bold; font-size: 7px; text-align: left; }
+    table.lignes th.montant, table.lignes td.montant { text-align: right; }
+    table.lignes tr.total td { font-weight: bold; background: #f6f3fa; }
+
+    .encadre { border: 1px solid #999; padding: 6px; margin-top: 6px; }
+    .encadre .titre-encadre { font-weight: bold; font-size: 7px; text-transform: uppercase; color: #fff; background: #6a2c91; margin: -6px -6px 5px; padding: 3px 6px; }
+
+    .chef-etablissement { text-align: center; }
+    .espace-cachet { height: 50px; position: relative; margin-top: 4px; }
+    .espace-cachet .img-cachet { height: 56px; opacity: .92; }
+    .espace-cachet .img-signature { position: absolute; left: 50%; bottom: -8px; height: 30px; margin-left: -20px; }
+    .nom-econome { font-size: 7px; margin-top: 10px; text-decoration: underline; }
+
+    .pied { margin-top: 10px; font-size: 6px; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+{% if avecEntete %}
+<div class="entete">
+    <img class="logo" src="{{ project_dir }}/assets/images/logo-college-adele.png" alt="">
+    <p class="pays">République du Togo</p>
+    <p class="nom-college">COLLÈGE ADÈLE</p>
+    <p class="coord">BP 788 Kara — Tél : (+228) 26 60 13 84 / 92 16 82 17</p>
+    <p class="devise">SUCCÈS - VERTU - EN ESPRIT DE FAMILLE</p>
+</div>
+{% endif %}
+
+<h2 class="titre">Reçu de paiement N° {{ paiement.numero }}</h2>
+
+<table class="infos">
+    <tr><td class="label">Employé</td><td class="valeur">{{ paiement.enseignant.nomComplet }}</td></tr>
+    {% if paiement.enseignant.poste %}
+    <tr><td class="label">Poste</td><td class="valeur">{{ paiement.enseignant.poste }}</td></tr>
+    {% endif %}
+    <tr><td class="label">Date</td><td class="valeur">{{ paiement.dateEmission|date('d/m/Y') }}</td></tr>
+</table>
+
+<table class="lignes">
+    <thead>
+        <tr><th>Nature du versement</th><th class="montant">Montant</th></tr>
+    </thead>
+    <tbody>
+        {% for ligne in paiement.lignes %}
+        <tr>
+            <td>{{ ligne.libelle }}</td>
+            <td class="montant">{{ ligne.montant|number_format(0, ',', ' ') }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="total">
+            <td>Total versé</td>
+            <td class="montant">{{ paiement.montantTotal|number_format(0, ',', ' ') }} FCFA</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="encadre chef-etablissement">
+    <div class="titre-encadre">{{ etablissement.titreEconome }}</div>
+    <div class="espace-cachet">
+        {% if etablissement.cachetEconome %}
+            <img class="img-cachet" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.cachetEconome }}" alt="">
+        {% endif %}
+        {% if etablissement.signatureEconome %}
+            <img class="img-signature" src="{{ project_dir }}/public/uploads/etablissement/{{ etablissement.signatureEconome }}" alt="">
+        {% endif %}
+    </div>
+    {% if etablissement.nomEconome %}<div class="nom-econome">{{ etablissement.nomEconome }}</div>{% endif %}
+</div>
+
+<div class="pied">
+    Reçu généré le {{ paiement.createdAt|date('d/m/Y à H:i') }}
+</div>
+</body>
+</html>

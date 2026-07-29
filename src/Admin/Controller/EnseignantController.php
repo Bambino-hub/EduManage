@@ -308,6 +308,52 @@ class EnseignantController extends AbstractController
         return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
     }
 
+    /** Crée l'accès caissier (espace /caisse — écolage + salaires) d'un membre du personnel. */
+    #[Route('/{id}/creer-acces-caissier', name: 'creer_acces_caissier', methods: ['POST'])]
+    public function creerAccesCaissier(
+        Request $request,
+        Enseignant $enseignant,
+        UtilisateurRepository $utilisateurRepo,
+        MotDePasseGenerator $motDePasseGenerator,
+        UserPasswordHasherInterface $passwordHasher,
+        EntityManagerInterface $em,
+    ): Response {
+        if (!$this->isCsrfTokenValid('creer_acces_caissier'.$enseignant->getId(), $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        if (!$enseignant->getEmail()) {
+            $this->addFlash('error', 'Cet enseignant n\'a pas d\'adresse e-mail : impossible de créer un accès.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        if ($utilisateurRepo->findOneBy(['enseignant' => $enseignant])) {
+            $this->addFlash('error', 'Cet enseignant a déjà un accès.');
+            return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+        }
+
+        $motDePasse = $motDePasseGenerator->generer();
+
+        $utilisateur = new Utilisateur();
+        $utilisateur->setEmail($enseignant->getEmail());
+        $utilisateur->setRoles(['ROLE_CAISSIER']);
+        $utilisateur->setEnseignant($enseignant);
+        $utilisateur->setDoitChangerMotDePasse(true);
+        $utilisateur->setPassword($passwordHasher->hashPassword($utilisateur, $motDePasse));
+
+        $em->persist($utilisateur);
+        $em->flush();
+
+        $this->addFlash('success', sprintf(
+            'Accès caissier créé pour %s. Mot de passe temporaire : %s — transmettez-le en main propre, il ne sera plus affiché.',
+            $enseignant->getNomComplet(),
+            $motDePasse,
+        ));
+
+        return $this->redirectToRoute('admin_enseignant_show', ['id' => $enseignant->getId()]);
+    }
+
     /** Régénère un mot de passe temporaire (accès perdu ou oublié — pas de "mot de passe oublié" en libre-service). */
     #[Route('/{id}/reinitialiser-mot-de-passe', name: 'reinitialiser_mdp', methods: ['POST'])]
     public function reinitialiserMotDePasse(

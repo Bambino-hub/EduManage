@@ -38,6 +38,21 @@ class Etablissement
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $signatureChefEtablissement = null;
 
+    /** Économe/caissier(ère) — apposé sur les reçus de paiement (voir Economat), pas sur les bulletins. */
+    #[ORM\Column(length: 150, options: ['default' => ''])]
+    private string $nomEconome = '';
+
+    #[ORM\Column(length: 80, options: ['default' => 'Caissier(ère)'])]
+    private string $titreEconome = 'Caissier(ère)';
+
+    /** Nom de fichier (public/uploads/etablissement/) — PNG à fond transparent. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $cachetEconome = null;
+
+    /** Nom de fichier (public/uploads/etablissement/) — PNG à fond transparent. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $signatureEconome = null;
+
     public function getId(): ?int { return $this->id; }
 
     public function getNomChefEtablissement(): string { return $this->nomChefEtablissement; }
@@ -69,6 +84,38 @@ class Etablissement
     public function setSignatureChefEtablissement(?string $signatureChefEtablissement): static
     {
         $this->signatureChefEtablissement = $signatureChefEtablissement;
+        return $this;
+    }
+
+    public function getNomEconome(): string { return $this->nomEconome; }
+
+    public function setNomEconome(string $nomEconome): static
+    {
+        $this->nomEconome = $nomEconome;
+        return $this;
+    }
+
+    public function getTitreEconome(): string { return $this->titreEconome; }
+
+    public function setTitreEconome(string $titreEconome): static
+    {
+        $this->titreEconome = $titreEconome;
+        return $this;
+    }
+
+    public function getCachetEconome(): ?string { return $this->cachetEconome; }
+
+    public function setCachetEconome(?string $cachetEconome): static
+    {
+        $this->cachetEconome = $cachetEconome;
+        return $this;
+    }
+
+    public function getSignatureEconome(): ?string { return $this->signatureEconome; }
+
+    public function setSignatureEconome(?string $signatureEconome): static
+    {
+        $this->signatureEconome = $signatureEconome;
         return $this;
     }
 }

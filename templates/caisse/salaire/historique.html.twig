@@ -1,0 +1,64 @@
+{% extends 'caisse/layout.html.twig' %}
+
+{% block title %}Salaire — {{ enseignant.nomComplet }} — EduManage{% endblock %}
+{% block page_title %}Salaire — {{ enseignant.nomComplet }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ path('caisse_salaire_index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Retour à la liste du personnel
+    </a>
+    <a href="{{ path('caisse_salaire_nouveau', {id: enseignant.id}) }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-cash-coin me-1"></i>Nouveau paiement
+    </a>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">Historique des paiements</h2>
+    </div>
+    <div class="admin-card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-stack">
+            <thead class="table-light">
+                <tr>
+                    <th>Paiement N°</th>
+                    <th>Date</th>
+                    <th>Lignes</th>
+                    <th>Montant total</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for paiement in paiements %}
+                <tr>
+                    <td class="fw-semibold td-title">{{ paiement.numero }}</td>
+                    <td data-label="Date">{{ paiement.dateEmission|date('d/m/Y') }}</td>
+                    <td data-label="Lignes">
+                        {% for ligne in paiement.lignes %}
+                            <div>{{ ligne.libelle }} — {{ ligne.montant|number_format(0, ',', ' ') }} FCFA</div>
+                        {% endfor %}
+                    </td>
+                    <td data-label="Montant total">{{ paiement.montantTotal|number_format(0, ',', ' ') }} FCFA</td>
+                    <td class="text-end">
+                        <a href="{{ path('caisse_salaire_pdf', {id: paiement.id}) }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        <form method="post" action="{{ path('caisse_salaire_supprimer', {id: paiement.id}) }}" class="d-inline"
+                              onsubmit="return confirm('Supprimer le paiement n°{{ paiement.numero }} ?')">
+                            <input type="hidden" name="_token" value="{{ csrf_token('supprimer_paiement_salaire_' ~ paiement.id) }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-5">Aucun paiement enregistré.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

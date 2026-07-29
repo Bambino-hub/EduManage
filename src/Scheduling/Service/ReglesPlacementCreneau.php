@@ -37,4 +37,13 @@ final class ReglesPlacementCreneau
     {
         return $jour === JourSemaine::VENDREDI && (int) $heureDebut->format('H') >= 13;
     }
+
+    /**
+     * Un enseignant marqué indisponible aux N premières heures (Enseignant::getNbPremieresHeuresAEviter())
+     * ne se voit jamais programmer un créneau d'ordre <= N, quel que soit le jour de la semaine.
+     */
+    public static function premieresHeuresInterdites(int $ordre, int $nbPremieresHeuresAEviter): bool
+    {
+        return $nbPremieresHeuresAEviter > 0 && $ordre <= $nbPremieresHeuresAEviter;
+    }
 }

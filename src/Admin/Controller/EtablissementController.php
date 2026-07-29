@@ -43,8 +43,16 @@ class EtablissementController extends AbstractController
             if ($form->get('supprimerSignatureChefEtablissement')->getData()) {
                 self::supprimerImage($etablissement, 'signatureChefEtablissement', $projectDir);
             }
+            if ($form->get('supprimerCachetEconome')->getData()) {
+                self::supprimerImage($etablissement, 'cachetEconome', $projectDir);
+            }
+            if ($form->get('supprimerSignatureEconome')->getData()) {
+                self::supprimerImage($etablissement, 'signatureEconome', $projectDir);
+            }
             self::traiterImage($form->get('cachet')->getData(), $etablissement, 'cachet', $projectDir, $transparenceProcessor);
             self::traiterImage($form->get('signatureChefEtablissement')->getData(), $etablissement, 'signatureChefEtablissement', $projectDir, $transparenceProcessor);
+            self::traiterImage($form->get('cachetEconome')->getData(), $etablissement, 'cachetEconome', $projectDir, $transparenceProcessor);
+            self::traiterImage($form->get('signatureEconome')->getData(), $etablissement, 'signatureEconome', $projectDir, $transparenceProcessor);
             $em->flush();
             $this->addFlash('success', 'Réglages de l\'établissement enregistrés.');
             return $this->redirectToRoute('admin_etablissement_edit');

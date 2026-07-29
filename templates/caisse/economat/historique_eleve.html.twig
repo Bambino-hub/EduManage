@@ -1,0 +1,101 @@
+{% extends 'caisse/layout.html.twig' %}
+
+{% block title %}Économat — {{ eleve.nomComplet }} — EduManage{% endblock %}
+{% block page_title %}Économat — {{ eleve.nomComplet }} ({{ eleve.matricule }}){% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ path('caisse_economat_index', inscription ? {niveau: inscription.niveau.id} : {}) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Retour à la liste des élèves
+    </a>
+    <a href="{{ path('caisse_economat_nouveau_recu', {id: eleve.id}) }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-cash-coin me-1"></i>Nouveau reçu
+    </a>
+</div>
+
+{% if inscription is null %}
+    <div class="alert alert-warning">Cet élève n'a aucune inscription en cours.</div>
+{% elseif solde %}
+    <div class="admin-card mb-4">
+        <div class="admin-card-body">
+            <div class="row text-center">
+                <div class="col">
+                    <div class="text-muted small">Niveau / classe</div>
+                    <div class="fw-semibold">{{ inscription.niveau.nomComplet }}{{ inscription.classe ? ' — ' ~ inscription.classe.nom : '' }}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">Montant dû ({{ anneeActive.libelle }})</div>
+                    <div class="fw-semibold">{{ solde.tarifDefini ? solde.montantDu|number_format(0, ',', ' ') ~ ' FCFA' : 'Non défini' }}</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">Montant payé</div>
+                    <div class="fw-semibold">{{ solde.montantPaye|number_format(0, ',', ' ') }} FCFA</div>
+                </div>
+                <div class="col">
+                    <div class="text-muted small">Solde</div>
+                    <div>
+                        {% if solde.estSolde %}
+                            <span class="badge bg-success">SOLDÉ</span>
+                        {% elseif solde.tarifDefini %}
+                            <span class="badge bg-warning text-dark">{{ solde.solde|number_format(0, ',', ' ') }} FCFA</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% for groupe in recusParAnnee %}
+    <div class="admin-card mb-4">
+        <div class="admin-card-header">
+            <h2 class="admin-card-title">{{ groupe.annee.libelle }}</h2>
+        </div>
+        <div class="admin-card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-stack">
+                <thead class="table-light">
+                    <tr>
+                        <th>Reçu N°</th>
+                        <th>Date</th>
+                        <th>Lignes</th>
+                        <th>Montant total</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recu in groupe.recus %}
+                    <tr>
+                        <td class="fw-semibold td-title">{{ recu.numero }}</td>
+                        <td data-label="Date">{{ recu.dateEmission|date('d/m/Y') }}</td>
+                        <td data-label="Lignes">
+                            {% for ligne in recu.lignes %}
+                                <div>{{ ligne.libelle }} — {{ ligne.montant|number_format(0, ',', ' ') }} FCFA</div>
+                            {% endfor %}
+                        </td>
+                        <td data-label="Montant total">{{ recu.montantTotal|number_format(0, ',', ' ') }} FCFA</td>
+                        <td class="text-end">
+                            <a href="{{ path('caisse_economat_recu_pdf', {id: recu.id}) }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                            </a>
+                            <form method="post" action="{{ path('caisse_economat_recu_supprimer', {id: recu.id}) }}" class="d-inline"
+                                  onsubmit="return confirm('Supprimer le reçu n°{{ recu.numero }} ?')">
+                                <input type="hidden" name="_token" value="{{ csrf_token('supprimer_recu_' ~ recu.id) }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-light border">Aucun reçu enregistré pour cet élève.</div>
+{% endfor %}
+{% endblock %}
