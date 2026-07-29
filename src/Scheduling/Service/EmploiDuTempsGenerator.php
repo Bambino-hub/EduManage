@@ -91,13 +91,24 @@ class EmploiDuTempsGenerator
 
     /**
      * Budget de temps total (secondes) pour l'ensemble des tentatives + réparations.
-     * Marge volontairement large sous la limite d'exécution PHP côté web (30s observée
-     * en local, potentiellement différente en production) : mieux vaut rendre un
-     * résultat "meilleur effort" incomplet que de se faire tuer par le serveur en plein
-     * calcul, APRÈS la purge des séances existantes et AVANT le flush() final — un
-     * timeout à ce moment-là laisserait l'emploi du temps entièrement vide en base.
+     * La vraie limite dure n'est pas `max_execution_time` (300s côté PHP, voir
+     * docker/uploads.ini) mais le timeout HTTP fixe de Render (~100s, non
+     * configurable) : au-delà, la plateforme coupe la requête elle-même, quoi que
+     * fasse PHP. 45s laisse une marge large sous ce plafond pour la purge des
+     * séances, le flush() final et une connexion DB plus lente que d'habitude —
+     * mieux vaut rendre un résultat "meilleur effort" incomplet que de se faire
+     * tuer en plein calcul, APRÈS la purge des séances existantes et AVANT le
+     * flush() final, ce qui laisserait l'emploi du temps entièrement vide en base.
      */
-    private const BUDGET_TEMPS_SECONDES = 18.0;
+    private const BUDGET_TEMPS_SECONDES = 45.0;
+
+    /**
+     * Index [matiereId][niveauId] => MatiereNiveau, chargé en une seule requête au
+     * début de generer() — voir MatiereNiveauRepository::findIndexeParMatiereEtNiveau().
+     *
+     * @var array<int, array<int, \App\Academic\Entity\MatiereNiveau>>
+     */
+    private array $matiereNiveauIndex = [];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -111,8 +122,9 @@ class EmploiDuTempsGenerator
 
     public function generer(AnneeScolaire $annee, int $maxRestarts = 20): GenerationResult
     {
-        $debut        = microtime(true);
-        $attributions = $this->attributionRepo->findByAnneeScolaire((int) $annee->getId());
+        $debut                    = microtime(true);
+        $this->matiereNiveauIndex = $this->matiereNiveauRepo->findIndexeParMatiereEtNiveau();
+        $attributions             = $this->attributionRepo->findByAnneeScolaire((int) $annee->getId());
         $this->purgerSeances($attributions);
 
         if ($attributions === []) {
@@ -425,10 +437,9 @@ class EmploiDuTempsGenerator
 
     private function resoudreHeures(Attribution $attribution): int
     {
-        $mn = $this->matiereNiveauRepo->findOneBy([
-            'matiere' => $attribution->getMatiere(),
-            'niveau'  => $attribution->getClasse()->getNiveau(),
-        ]);
+        $matiereId = $attribution->getMatiere()->getId();
+        $niveauId  = $attribution->getClasse()->getNiveau()->getId();
+        $mn        = $this->matiereNiveauIndex[$matiereId][$niveauId] ?? null;
 
         if ($mn === null) {
             return 0;

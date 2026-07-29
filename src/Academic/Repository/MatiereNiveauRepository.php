@@ -41,4 +41,30 @@ class MatiereNiveauRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['matiere' => $matiere, 'niveau' => $niveau]);
     }
+
+    /**
+     * Toutes les lignes indexées par [matiereId][niveauId], en une seule requête —
+     * évite un findOneBy() par attribution (N+1) dans EmploiDuTempsGenerator, dont le
+     * coût cumulé (une centaine d'attributions) rogne sur le budget de temps alloué
+     * aux tentatives de génération, d'autant plus si la latence réseau vers la base
+     * est plus élevée qu'en local.
+     *
+     * @return array<int, array<int, MatiereNiveau>>
+     */
+    public function findIndexeParMatiereEtNiveau(): array
+    {
+        $rows = $this->createQueryBuilder('mn')
+            ->addSelect('m', 'n')
+            ->join('mn.matiere', 'm')
+            ->join('mn.niveau', 'n')
+            ->getQuery()
+            ->getResult();
+
+        $index = [];
+        foreach ($rows as $mn) {
+            $index[$mn->getMatiere()->getId()][$mn->getNiveau()->getId()] = $mn;
+        }
+
+        return $index;
+    }
 }
