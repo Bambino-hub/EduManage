@@ -23,6 +23,24 @@ class AttributionRepository extends ServiceEntityRepository
         parent::__construct($registry, Attribution::class);
     }
 
+    /**
+     * Enseignants ayant au moins une attribution, triés par nom — pour alimenter
+     * le filtre « par enseignant » de la liste des attributions.
+     *
+     * @return Enseignant[]
+     */
+    public function findEnseignantsAvecAttributions(): array
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('e')
+            ->from(Enseignant::class, 'e')
+            ->where('EXISTS (SELECT 1 FROM '.Attribution::class.' a WHERE a.enseignant = e)')
+            ->orderBy('e.nom', 'ASC')
+            ->addOrderBy('e.prenom', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Attribution[] */
     public function findByClasse(int $classeId): array
     {

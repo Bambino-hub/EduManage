@@ -22,6 +22,31 @@
     </div>
 </div>
 
+<div class="admin-card mb-3">
+    <div class="admin-card-body d-flex flex-wrap gap-2 align-items-end">
+        <form method="get" class="flex-grow-1" style="max-width:340px">
+            <label class="form-label small fw-semibold mb-1">Rechercher par enseignant</label>
+            <select name="enseignant" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Tous les enseignants —</option>
+                {% for e in enseignants %}
+                    <option value="{{ e.id }}" {{ enseignantSelectionne == e.id ? 'selected' }}>
+                        {{ e.nomComplet }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% if enseignantSelectionne %}
+            <a href="{{ path('admin_attribution_index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x-lg me-1"></i>Réinitialiser
+            </a>
+        {% endif %}
+        <a href="{{ path('admin_attribution_export_pdf', enseignantSelectionne ? {enseignant: enseignantSelectionne} : {}) }}"
+           class="btn btn-outline-secondary btn-sm ms-auto">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exporter PDF
+        </a>
+    </div>
+</div>
+
 <div class="admin-card">
     <!-- Bureau : tableau groupé par enseignant (rowspan) — pas adapté aux cartes mobiles,
          voir la vue en cartes juste en dessous (d-md-none) pour les petits écrans. -->

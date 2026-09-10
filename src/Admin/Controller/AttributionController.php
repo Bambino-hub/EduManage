@@ -11,33 +11,86 @@ use App\Scheduling\Form\AttributionCreateType;
 use App\Scheduling\Form\AttributionType;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Service\AttributionCompletudeChecker;
+use App\Scheduling\Service\Export\AttributionPdfExporter;
+use App\Staff\Repository\EnseignantRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 
 #[Route('/admin/attributions', name: 'admin_attribution_')]
 class AttributionController extends AbstractController
 {
     #[Route('', name: 'index')]
-    public function index(AttributionRepository $repo): Response
+    public function index(Request $request, AttributionRepository $repo): Response
     {
-        $attributions = $repo->createQueryBuilder('a')
+        $enseignantId = (int) $request->query->getString('enseignant') ?: null;
+
+        return $this->render('admin/attribution/index.html.twig', [
+            'groupes'               => $this->grouperParEnseignantEtMatiere(
+                $this->chargerAttributions($repo, $enseignantId),
+                $repo->totalHeuresParEnseignant(),
+            ),
+            'enseignants'           => $repo->findEnseignantsAvecAttributions(),
+            'enseignantSelectionne' => $enseignantId,
+        ]);
+    }
+
+    /**
+     * Export PDF de la liste des attributions (rendu serveur dompdf, identique quel
+     * que soit le navigateur — cf. EmploiDuTempsController). Respecte le filtre
+     * `?enseignant=<id>` de la liste et l'option `?entete_college=1`.
+     */
+    #[Route('/export-pdf', name: 'export_pdf')]
+    public function exportPdf(
+        Request $request,
+        AttributionRepository $repo,
+        EnseignantRepository $enseignantRepo,
+        AttributionPdfExporter $exporter,
+    ): Response {
+        $enseignantId = (int) $request->query->getString('enseignant') ?: null;
+        $enseignant   = $enseignantId ? $enseignantRepo->find($enseignantId) : null;
+
+        $groupes = $this->grouperParEnseignantEtMatiere(
+            $this->chargerAttributions($repo, $enseignantId),
+            $repo->totalHeuresParEnseignant(),
+        );
+
+        $titre = $enseignant
+            ? 'Attributions — '.$enseignant->getNomComplet()
+            : 'Attributions enseignant / matière / classe';
+
+        $contenu   = $exporter->exporter($groupes, $titre, $request->query->getBoolean('entete_college', false));
+        $nomFichier = (new AsciiSlugger())->slug($titre)->lower().'.pdf';
+
+        return new Response($contenu, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$nomFichier.'"',
+        ]);
+    }
+
+    /**
+     * @return Attribution[]
+     */
+    private function chargerAttributions(AttributionRepository $repo, ?int $enseignantId): array
+    {
+        $qb = $repo->createQueryBuilder('a')
             ->join('a.classe', 'cl')
             ->join('a.enseignant', 'e')
             ->join('a.matiere', 'm')
             ->orderBy('e.nom', 'ASC')
             ->addOrderBy('e.prenom', 'ASC')
             ->addOrderBy('m.nom', 'ASC')
-            ->addOrderBy('cl.nom', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('cl.nom', 'ASC');
 
-        return $this->render('admin/attribution/index.html.twig', [
-            'groupes' => $this->grouperParEnseignantEtMatiere($attributions, $repo->totalHeuresParEnseignant()),
-        ]);
+        if ($enseignantId !== null) {
+            $qb->andWhere('e.id = :enseignantId')->setParameter('enseignantId', $enseignantId);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**

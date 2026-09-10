@@ -9,6 +9,7 @@ use App\Academic\Entity\MatiereNiveau;
 use App\Academic\Form\MatiereType;
 use App\Academic\Repository\MatiereRepository;
 use App\Academic\Repository\NiveauRepository;
+use App\Scheduling\Service\AttributionVolumeHoraireSynchronizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -54,8 +55,13 @@ class MatiereController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit')]
-    public function edit(Request $request, Matiere $matiere, EntityManagerInterface $em, NiveauRepository $niveauRepo): Response
-    {
+    public function edit(
+        Request $request,
+        Matiere $matiere,
+        EntityManagerInterface $em,
+        NiveauRepository $niveauRepo,
+        AttributionVolumeHoraireSynchronizer $volumeSync,
+    ): Response {
         $this->preRemplirNiveaux($matiere, $niveauRepo);
 
         $form = $this->createForm(MatiereType::class, $matiere);
@@ -63,7 +69,25 @@ class MatiereController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $em->flush();
-            $this->addFlash('success', 'Matière modifiée.');
+
+            // Le volume horaire des attributions est dérivé de la grille MatiereNiveau :
+            // si les heures/semaine viennent d'être modifiées ici, on répercute sur les
+            // attributions déjà en place (sinon elles gardent l'ancienne valeur).
+            $sync = $volumeSync->synchroniserMatiere($matiere);
+            $message = 'Matière modifiée.';
+            if ($sync['misAJour'] > 0) {
+                $message .= sprintf(
+                    ' %d attribution(s) réalignée(s) sur le nouveau volume horaire.',
+                    $sync['misAJour'],
+                );
+            }
+            if ($sync['ignorees'] !== []) {
+                $message .= sprintf(
+                    ' %d attribution(s) laissée(s) telle(s) quelle(s) (aucun volume défini pour leur niveau) — à vérifier.',
+                    count($sync['ignorees']),
+                );
+            }
+            $this->addFlash('success', $message);
             return $this->redirectToRoute('admin_matiere_index');
         }
 
