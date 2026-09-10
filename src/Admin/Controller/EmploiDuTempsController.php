@@ -8,11 +8,15 @@ use App\Academic\Repository\AnneeScolaireRepository;
 use App\Academic\Repository\ClasseRepository;
 use App\Academic\Repository\SalleRepository;
 use App\Scheduling\Entity\Creneau;
+use App\Scheduling\Entity\EmploiDuTempsVersion;
+use App\Scheduling\Enum\OrigineVersionEdt;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Repository\CreneauRepository;
+use App\Scheduling\Repository\EmploiDuTempsVersionRepository;
 use App\Scheduling\Repository\RegroupementClasseRepository;
 use App\Scheduling\Repository\SeanceRepository;
 use App\Scheduling\Service\EmploiDuTempsGenerator;
+use App\Scheduling\Service\EmploiDuTempsHistorique;
 use App\Scheduling\Service\GrilleEmploiDuTempsBuilder;
 use App\Scheduling\Service\EmploiDuTempsPermutationService;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
@@ -516,6 +520,7 @@ class EmploiDuTempsController extends AbstractController
         CreneauRepository $creneauRepo,
         SalleRepository $salleRepo,
         EmploiDuTempsGenerator $generator,
+        EmploiDuTempsHistorique $historique,
     ): Response {
         $annee    = $anneeRepo->findActive();
         $resultat = null;
@@ -531,7 +536,33 @@ class EmploiDuTempsController extends AbstractController
                 return $this->redirectToRoute('admin_edt_generate');
             }
 
+            // Filet de sécurité : la génération PURGE l'emploi du temps existant
+            // avant de recalculer. On en dépose donc un instantané dans l'historique
+            // AVANT de lancer le générateur — inutile de penser à « Enregistrer
+            // l'état actuel » à la main. Ne fait rien s'il n'y a encore aucune séance.
+            $historique->capturer(
+                $annee,
+                OrigineVersionEdt::PreGeneration,
+                'Emploi du temps existant, sauvegardé avant la génération du '
+                    .(new \DateTimeImmutable())->format('d/m/Y à H\hi'),
+            );
+
             $resultat = $generator->generer($annee);
+
+            // Instantané de l'emploi du temps fraîchement généré : il rejoint
+            // l'historique (borné à EmploiDuTempsHistorique::MAX_VERSIONS) pour
+            // pouvoir y revenir plus tard même après une nouvelle génération.
+            $historique->capturer(
+                $annee,
+                OrigineVersionEdt::Generation,
+                sprintf(
+                    'Génération du %s — %dh placées%s',
+                    (new \DateTimeImmutable())->format('d/m/Y à H\hi'),
+                    $resultat->heuresPlacees,
+                    $resultat->heuresNonPlacees > 0 ? sprintf(', %dh non placées', $resultat->heuresNonPlacees) : '',
+                ),
+                $resultat,
+            );
 
             if ($resultat->succes()) {
                 $this->addFlash('success', sprintf(
@@ -556,5 +587,100 @@ class EmploiDuTempsController extends AbstractController
             'nbCreneaux'     => count($creneauRepo->findOrdonnes()),
             'nbSalles'       => count($salleRepo->findAll()),
         ]);
+    }
+
+    /**
+     * Historique des emplois du temps de l'année active : chaque génération auto (et
+     * chaque enregistrement manuel) y dépose un instantané restaurable. L'historique
+     * est borné à EmploiDuTempsHistorique::MAX_VERSIONS entrées par année.
+     */
+    #[Route('/historique', name: 'historique')]
+    public function historique(
+        AnneeScolaireRepository $anneeRepo,
+        EmploiDuTempsVersionRepository $versionRepo,
+        SeanceRepository $seanceRepo,
+    ): Response {
+        $annee    = $anneeRepo->findActive();
+        $versions = $annee ? $versionRepo->findByAnnee((int) $annee->getId()) : [];
+
+        return $this->render('admin/edt/historique.html.twig', [
+            'annee'        => $annee,
+            'versions'     => $versions,
+            'maxVersions'  => EmploiDuTempsHistorique::MAX_VERSIONS,
+            'nbSeancesNow' => $annee ? count($seanceRepo->findByAnneeScolaire((int) $annee->getId())) : 0,
+        ]);
+    }
+
+    /** Enregistre l'état actuel de l'emploi du temps dans l'historique (bouton « Enregistrer l'état actuel »). */
+    #[Route('/historique/enregistrer', name: 'historique_enregistrer', methods: ['POST'])]
+    public function historiqueEnregistrer(
+        Request $request,
+        AnneeScolaireRepository $anneeRepo,
+        EmploiDuTempsHistorique $historique,
+    ): Response {
+        if (!$this->isCsrfTokenValid('edt_historique', $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_edt_historique');
+        }
+
+        $annee = $anneeRepo->findActive();
+        if ($annee === null) {
+            $this->addFlash('error', 'Aucune année scolaire active.');
+            return $this->redirectToRoute('admin_edt_historique');
+        }
+
+        $libelle = trim($request->getPayload()->getString('libelle'))
+            ?: 'Enregistrement du '.(new \DateTimeImmutable())->format('d/m/Y à H\hi');
+
+        $version = $historique->capturer($annee, OrigineVersionEdt::Manuel, $libelle);
+
+        $this->addFlash(
+            $version ? 'success' : 'warning',
+            $version
+                ? 'État actuel enregistré dans l\'historique.'
+                : 'Aucune séance à enregistrer pour le moment.',
+        );
+
+        return $this->redirectToRoute('admin_edt_historique');
+    }
+
+    /** Restaure une version : l'état courant est sauvegardé, puis remplacé par celui de la version choisie. */
+    #[Route('/historique/{id}/restaurer', name: 'historique_restaurer', methods: ['POST'])]
+    public function historiqueRestaurer(
+        Request $request,
+        EmploiDuTempsVersion $version,
+        EmploiDuTempsHistorique $historique,
+    ): Response {
+        if (!$this->isCsrfTokenValid('edt_historique', $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_edt_historique');
+        }
+
+        $recreees = $historique->restaurer($version);
+
+        $this->addFlash('success', sprintf(
+            'Emploi du temps restauré : %d séance(s) rétablie(s). L\'état précédent a été sauvegardé dans l\'historique.',
+            $recreees,
+        ));
+
+        return $this->redirectToRoute('admin_edt_index');
+    }
+
+    /** Supprime une entrée de l'historique. */
+    #[Route('/historique/{id}/supprimer', name: 'historique_supprimer', methods: ['POST'])]
+    public function historiqueSupprimer(
+        Request $request,
+        EmploiDuTempsVersion $version,
+        EmploiDuTempsHistorique $historique,
+    ): Response {
+        if (!$this->isCsrfTokenValid('edt_historique', $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_edt_historique');
+        }
+
+        $historique->supprimer($version);
+        $this->addFlash('success', 'Entrée supprimée de l\'historique.');
+
+        return $this->redirectToRoute('admin_edt_historique');
     }
 }

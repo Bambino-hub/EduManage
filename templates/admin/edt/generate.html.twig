@@ -13,9 +13,14 @@
                     <i class="bi bi-lightning-charge-fill me-2" style="color:var(--college-orange)"></i>
                     Génération automatique
                 </h2>
-                <a href="{{ path('admin_edt_index') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>Retour
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="{{ path('admin_edt_historique') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-clock-history me-1"></i>Historique
+                    </a>
+                    <a href="{{ path('admin_edt_index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Retour
+                    </a>
+                </div>
             </div>
             <div class="admin-card-body">
                 {% if annee is null %}
@@ -45,6 +50,10 @@
                                 cette année (les séances déjà générées seront supprimées et recalculées). La
                                 génération est aléatoire et de type « meilleur effort » : ce qui ne peut pas être
                                 placé sans conflit est signalé ci-dessous après génération.
+                                <br>
+                                L'emploi du temps actuel est <strong>automatiquement sauvegardé dans
+                                l'<a href="{{ path('admin_edt_historique') }}">historique</a></strong> avant la
+                                génération — vous pourrez y revenir si le nouveau résultat ne convient pas.
                             </div>
                         </div>
                         <form method="post">
@@ -154,9 +163,14 @@
                         </div>
                     {% endif %}
 
-                    <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-primary btn-sm mt-2">
-                        <i class="bi bi-calendar-week me-1"></i>Voir l'emploi du temps généré
-                    </a>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-calendar-week me-1"></i>Voir l'emploi du temps généré
+                        </a>
+                        <a href="{{ path('admin_edt_historique') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-clock-history me-1"></i>Historique des versions
+                        </a>
+                    </div>
                 </div>
             </div>
         {% endif %}
