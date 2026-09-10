@@ -9,6 +9,7 @@ use App\Staff\Enum\Sexe;
 use App\Staff\Enum\TypePersonnel;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
@@ -87,6 +88,18 @@ class EnseignantType extends AbstractType
                 'attr'        => ['min' => 0, 'max' => 4, 'placeholder' => '0'],
                 'help'        => 'Nombre de premières heures de chaque jour à ne jamais lui programmer (0 = aucune contrainte). Ex : difficulté à arriver tôt après un accouchement.',
                 'constraints' => [new Range(min: 0, max: 4)],
+            ])
+            ->add('heuresApresMidiInterdites', ChoiceType::class, [
+                'label'    => 'Indisponible l\'après-midi',
+                'required' => false,
+                'multiple' => true,
+                'expanded' => true,
+                'choices'  => [
+                    '6ème heure (15h00 – 15h55)' => 6,
+                    '7ème heure (15h55 – 16h50)' => 7,
+                    '8ème heure (16h50 – 17h45, lycée lun./jeu.)' => 8,
+                ],
+                'help'     => 'Cocher les heures de l\'après-midi à ne jamais lui programmer (rien = aucune contrainte, tout = jamais l\'après-midi). Contrainte stricte appliquée à la génération de l\'emploi du temps.',
             ])
             ->add('signature', FileType::class, [
                 'label'       => 'Signature (scan sur papier blanc — optionnelle)',

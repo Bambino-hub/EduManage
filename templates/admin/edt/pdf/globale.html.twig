@@ -25,6 +25,12 @@
     th, td { border: 1px solid #333; padding: 1px 2px; text-align: center; vertical-align: middle; }
     th { background: #eef0f5; font-weight: bold; }
     td.jour { background: #f7f7fb; font-weight: bold; text-transform: uppercase; }
+    /* La colonne "Jour" n'utilise PAS rowspan : dompdf décale toutes les lignes suivantes
+       d'une colonne vers la gauche quand une cellule rowspan est coupée par un saut de
+       page (bug connu). On répète donc une cellule par ligne, libellé sur la 1ère
+       seulement, et on masque les bordures horizontales internes pour garder l'aspect
+       d'une cellule fusionnée. */
+    td.jour-vide { background: #f7f7fb; border-top-color: #f7f7fb; border-bottom-color: #f7f7fb; }
     td.heure { background: #f7f7fb; color: #555; }
     td.reserve { background: #f7f7fb; font-style: italic; color: #555; }
     td.case-cours { overflow-wrap: break-word; }
@@ -46,31 +52,28 @@
                 {% set ordresJour = creneauxParJour[jour.value]|keys %}
                 {% for ordre in ordresJour %}
                     {% set creneau = creneauxParJour[jour.value][ordre] %}
-                    {% set estContinuation = reserveContinuation[jour.value][ordre] ?? false %}
                     <tr>
                         {% if loop.first %}
-                            <td class="jour" rowspan="{{ ordresJour|length }}">{{ jour.label() }}</td>
+                            <td class="jour">{{ jour.label() }}</td>
+                        {% else %}
+                            <td class="jour-vide"></td>
                         {% endif %}
                         <td class="heure">{{ ordre }}</td>
-                        {% if not estContinuation %}
-                            {% if creneau.reserve %}
-                                <td class="reserve" colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}">
-                                    {{ creneau.libelleReserve }}
+                        {% if creneau.reserve %}
+                            <td class="reserve" colspan="{{ classes|length }}">{{ creneau.libelleReserve }}</td>
+                        {% else %}
+                            {% for classe in classes %}
+                                {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
+                                <td class="case-cours">
+                                    {% if seancesCase is not empty %}
+                                        {% for s in seancesCase %}
+                                            {{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{{ avecEnseignant ? ' ' ~ s.attribution.enseignant.nom }}
+                                        {% endfor %}
+                                    {% else %}
+                                        ·
+                                    {% endif %}
                                 </td>
-                            {% else %}
-                                {% for classe in classes %}
-                                    {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
-                                    <td class="case-cours">
-                                        {% if seancesCase is not empty %}
-                                            {% for s in seancesCase %}
-                                                {{ not loop.first ? '/' }}{{ s.attribution.matiere.code }}{{ avecEnseignant ? ' ' ~ s.attribution.enseignant.nom }}
-                                            {% endfor %}
-                                        {% else %}
-                                            ·
-                                        {% endif %}
-                                    </td>
-                                {% endfor %}
-                            {% endif %}
+                            {% endfor %}
                         {% endif %}
                     </tr>
                 {% endfor %}

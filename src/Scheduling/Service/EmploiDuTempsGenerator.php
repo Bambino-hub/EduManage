@@ -81,6 +81,14 @@ class EmploiDuTempsGenerator
     private const BUDGET_REPARATION_SECONDE_CHANCE = 3000;
 
     /**
+     * Budget de réparation par unité pour la passe de défragmentation de generer()
+     * (reconstituer un bloc de 2h cassé en 1h+1h). Plus modeste que la deuxième chance :
+     * la défragmentation ne joue que sur une poignée d'unités et son résultat n'est
+     * gardé que s'il est strictement meilleur, donc inutile d'y engloutir du temps.
+     */
+    private const BUDGET_DEFRAGMENTATION = 1500;
+
+    /**
      * Nombre de passages de la "deuxième chance" — sortie anticipée dès que tout est
      * complet. Volontairement bas (1) : chaque passage supplémentaire coûte cher en
      * temps (rebalaie toutes les unités encore incomplètes avec un budget dédié) pour
@@ -179,6 +187,7 @@ class EmploiDuTempsGenerator
             $nbPremiereHeurePrefereeParUnite = [];
             $budgetReparation                = self::BUDGET_REPARATION_PAR_TENTATIVE;
             $resultatsUnites                 = [];
+            $idealParIndex                   = []; // index d'unité => décomposition idéale (pas de repli 2h → 1h+1h) ?
             $heuresPlaceesTotal              = 0;
 
             // La marge entre heures demandées et créneaux disponibles est quasi nulle
@@ -195,7 +204,7 @@ class EmploiDuTempsGenerator
                 static fn (GenerationUnit $a, GenerationUnit $b) => $scoreParUnite[spl_object_id($b)] <=> $scoreParUnite[spl_object_id($a)],
             );
 
-            foreach ($ordreUnites as $unite) {
+            foreach ($ordreUnites as $index => $unite) {
                 $resultat = $this->placerUnite(
                     $unite,
                     $creneauxEligiblesParCycle,
@@ -212,6 +221,7 @@ class EmploiDuTempsGenerator
                 );
 
                 $heuresPlaceesTotal += $resultat['heures'];
+                $idealParIndex[$index] = $resultat['ideal'];
 
                 $raisons = $resultat['heures'] < $unite->heures
                     ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
@@ -261,6 +271,7 @@ class EmploiDuTempsGenerator
 
                     if ($resultat['heures'] > 0) {
                         $heuresPlaceesTotal += $resultat['heures'];
+                        $idealParIndex[$index]   = $resultat['ideal'];
                         $resultatsUnites[$index] = new UnitResult($unite->libelle, $unite->heures, $resultat['heures'], []);
                     } else {
                         $resteDesIncompletes = true;
@@ -269,6 +280,54 @@ class EmploiDuTempsGenerator
 
                 if (!$resteDesIncompletes) {
                     break;
+                }
+            }
+
+            // Passe de défragmentation : quelques unités lycée ont pu être posées avec le
+            // repli 2h → 1h+1h faute de créneau double libre au moment de leur traitement
+            // (grille momentanément saturée, budget de réparation de la passe épuisé). On
+            // ne la lance que sur une tentative complète — c'est celle qu'on gardera (cf.
+            // le break juste après) — pour ne pas polir une tentative qui sera jetée. Pour
+            // chaque unité dégradée : snapshot complet de l'état, on retire ses blocs, on
+            // la repose avec un budget dédié frais, et on ne garde le résultat QUE s'il a
+            // strictement moins de fragments qu'avant — sinon on restaure le snapshot
+            // (placerUnite() peut avoir committé des réparations sur d'autres unités,
+            // seul un retour à l'état complet est sûr).
+            if ($heuresPlaceesTotal === $heuresTotalDemandees && microtime(true) - $debut <= self::BUDGET_TEMPS_SECONDES) {
+                foreach ($ordreUnites as $index => $unite) {
+                    if (($idealParIndex[$index] ?? true) !== false) {
+                        continue;
+                    }
+                    if (microtime(true) - $debut > self::BUDGET_TEMPS_SECONDES) {
+                        break;
+                    }
+
+                    $uniteId        = spl_object_id($unite);
+                    $fragmentsAvant = $this->compterFragments($this->blocsDeLUnite($blocs, $uniteId), $unite->heures);
+                    if ($fragmentsAvant === 0) {
+                        continue;
+                    }
+
+                    $snap = [$classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $prochainBlocId];
+
+                    $this->evincerBlocsDeLUnite($uniteId, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+
+                    $budgetDefrag = self::BUDGET_DEFRAGMENTATION;
+                    $rd = $this->placerUnite(
+                        $unite, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                        $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                        $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $budgetDefrag,
+                    );
+
+                    $fragmentsApres = $rd['heures'] === $unite->heures
+                        ? $this->compterFragments($this->blocsDeLUnite($blocs, $uniteId), $unite->heures)
+                        : PHP_INT_MAX;
+
+                    if ($fragmentsApres < $fragmentsAvant) {
+                        $idealParIndex[$index] = $fragmentsApres === 0;
+                    } else {
+                        [$classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $prochainBlocId] = $snap;
+                    }
                 }
             }
 
@@ -476,7 +535,12 @@ class EmploiDuTempsGenerator
         if ($heures % 2 === 1) {
             $blocs[] = 1;
         }
-        shuffle($blocs);
+
+        // Blocs de 2h placés en premier (le 1h reliquat en dernier) : un créneau de 2h
+        // d'affilée libre est bien plus rare qu'un créneau d'1h, il faut le réserver tant
+        // qu'il en reste. Placer le 1h avant pouvait "manger" la seule paire encore libre
+        // d'un jour et forcer le repli 2h → 1h+1h (matière de 3h finissant en 1h/1h/1h).
+        rsort($blocs);
 
         return $blocs;
     }
@@ -543,30 +607,69 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Un enseignant indisponible aux premières heures (Enseignant::getNbPremieresHeuresAEviter())
-     * ne se voit jamais programmer sur ces créneaux, quel que soit le jour — contrainte
-     * stricte (exclusion), pas une simple préférence contournable comme scorePreference().
-     * Si l'unité regroupe plusieurs enseignants (unité parallèle/fusionnée) au seuil
-     * différent, le seuil le plus contraignant s'applique à toute l'unité : le créneau
-     * est de toute façon indisponible pour l'un d'eux.
+     * Indisponibilités strictes d'un enseignant (exclusion, pas préférence contournable
+     * comme scorePreference()), quel que soit le jour :
+     *  - premières heures de la journée (Enseignant::getNbPremieresHeuresAEviter()) ;
+     *  - certaines heures de l'après-midi (Enseignant::getHeuresApresMidiInterdites(),
+     *    ordres parmi [6, 7, 8] — 8ème heure seule, toute l'après-midi, etc.).
+     * Si l'unité regroupe plusieurs enseignants (unité parallèle/fusionnée), la contrainte
+     * la plus stricte s'applique à toute l'unité : le créneau serait de toute façon
+     * indisponible pour l'un d'eux.
      *
      * @param Creneau[] $eligibles @return Creneau[]
      */
     private function filtrerIndisponibiliteEnseignant(GenerationUnit $unite, array $eligibles): array
     {
-        $seuil = 0;
+        $seuil                    = 0;
+        $heuresApresMidiInterdites = [];
         foreach ($unite->attributions as $attribution) {
-            $seuil = max($seuil, $attribution->getEnseignant()?->getNbPremieresHeuresAEviter() ?? 0);
+            $enseignant = $attribution->getEnseignant();
+            if ($enseignant === null) {
+                continue;
+            }
+            $seuil = max($seuil, $enseignant->getNbPremieresHeuresAEviter());
+            foreach ($enseignant->getHeuresApresMidiInterdites() as $ordre) {
+                $heuresApresMidiInterdites[$ordre] = true;
+            }
         }
 
-        if ($seuil === 0) {
+        if ($seuil === 0 && $heuresApresMidiInterdites === []) {
             return $eligibles;
         }
 
         return array_values(array_filter(
             $eligibles,
-            static fn (Creneau $c) => !ReglesPlacementCreneau::premieresHeuresInterdites($c->getOrdre(), $seuil),
+            static fn (Creneau $c) => !ReglesPlacementCreneau::premieresHeuresInterdites($c->getOrdre(), $seuil)
+                && !isset($heuresApresMidiInterdites[$c->getOrdre()]),
         ));
+    }
+
+    /**
+     * Étend l'ensemble des jours interdits pour une unité EPS : à chaque jour déjà pris
+     * on ajoute ses voisins immédiats (lundi pris ⇒ mardi interdit ; mercredi et au-delà
+     * restent possibles). Garantit au moins un jour plein entre 2 séances d'EPS — jamais
+     * deux jours qui se suivent.
+     *
+     * @param array<string, true> $joursUtilises
+     * @return array<string, true>
+     */
+    private function etendreJoursInterditsEps(array $joursUtilises): array
+    {
+        $ordresPris = [];
+        foreach (array_keys($joursUtilises) as $valeur) {
+            $ordresPris[] = JourSemaine::from($valeur)->ordre();
+        }
+
+        $etendu = $joursUtilises;
+        foreach (JourSemaine::cases() as $jour) {
+            foreach ($ordresPris as $ordre) {
+                if (abs($jour->ordre() - $ordre) <= 1) {
+                    $etendu[$jour->value] = true;
+                }
+            }
+        }
+
+        return $etendu;
     }
 
     /** L'unité contient-elle une Attribution de la matière au code donné ? */
@@ -880,7 +983,7 @@ class EmploiDuTempsGenerator
      * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
-     * @return array{heures: int}
+     * @return array{heures: int, ideal: bool}
      */
     private function placerUnite(
         GenerationUnit $unite,
@@ -918,6 +1021,7 @@ class EmploiDuTempsGenerator
 
         $blocsTailles = $this->decomposerHeures($unite, $unite->heures, $cycle);
         $journal      = [];
+        $ideal        = true;
 
         foreach ($blocsTailles as $taille) {
             $id = $this->placerBlocAvecReparation(
@@ -939,13 +1043,14 @@ class EmploiDuTempsGenerator
             );
 
             if ($id === null && $taille === 2) {
-                // Repli : aucun bloc de 2h d'affilée disponible (planning déjà très tendu —
-                // cf. décompte "quasi nulle" en tête de generer()), y compris après
+                // Repli : aucun bloc de 2h d'affilée disponible (planning déjà très tendu
+                // — cf. décompte "quasi nulle" en tête de generer()), y compris après
                 // réparation locale. Plutôt que d'abandonner tout le volume horaire de
-                // l'unité pour ce seul bloc, on tente 2 séances isolées d'1h (qui tombent
-                // naturellement sur 2 jours distincts, cf. règle "1 bloc par jour").
-                // Toujours mieux qu'un volume à 0h, même si un vrai bloc de 2h reste
-                // pédagogiquement préférable.
+                // l'unité pour ce seul bloc, on pose 2 séances isolées d'1h (qui tombent
+                // naturellement sur 2 jours distincts). Toujours mieux qu'un volume à 0h —
+                // et la passe de défragmentation de generer() retentera ensuite de
+                // reconstituer le bloc de 2h avec un budget dédié frais.
+                $ideal = false;
                 $id = $this->placerBlocAvecReparation(
                     $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
                     $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
@@ -966,11 +1071,11 @@ class EmploiDuTempsGenerator
             if ($id === null) {
                 $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
 
-                return ['heures' => 0];
+                return ['heures' => 0, 'ideal' => false];
             }
         }
 
-        return ['heures' => $unite->heures];
+        return ['heures' => $unite->heures, 'ideal' => $ideal];
     }
 
     /**
@@ -1022,6 +1127,14 @@ class EmploiDuTempsGenerator
         $uniteId       = spl_object_id($unite);
         $eligibles     = $eligiblesForcees ?? $this->eligiblesPourUnite($unite, $creneauxEligiblesParCycle);
         $joursUtilises = $ignorerJourUtilise ? [] : ($joursUtilisesParUnite[$uniteId] ?? []);
+
+        // EPS : deux séances d'une même classe ne doivent jamais tomber sur deux jours
+        // qui se suivent (au moins un jour plein entre les deux, les 2 cycles). On
+        // interdit donc, en plus des jours déjà pris par l'unité, ceux qui les jouxtent —
+        // voir ReglesPlacementCreneau::epsJoursTropProches().
+        if (!$ignorerJourUtilise && $joursUtilises !== [] && $this->estMatiereCode($unite, 'EPS')) {
+            $joursUtilises = $this->etendreJoursInterditsEps($joursUtilises);
+        }
 
         $candidats = $taille === 1
             ? array_map(static fn (Creneau $c) => [$c], $this->shuffleArray($eligibles))
@@ -1134,7 +1247,7 @@ class EmploiDuTempsGenerator
      * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
-     * @return array{heures: int}
+     * @return array{heures: int, ideal: bool}
      */
     private function placerUniteCollegeSixHeures(
         GenerationUnit $unite,
@@ -1207,13 +1320,15 @@ class EmploiDuTempsGenerator
             }
 
             if ($succes) {
-                return ['heures' => 6];
+                // Structure inhérente en séances d'1h (jamais de bloc de 2h à casser) :
+                // pas de notion de décomposition "dégradée" ici.
+                return ['heures' => 6, 'ideal' => true];
             }
 
             $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
         }
 
-        return ['heures' => 0];
+        return ['heures' => 0, 'ideal' => false];
     }
 
     /**
@@ -1301,6 +1416,69 @@ class EmploiDuTempsGenerator
         $journal[] = ['action' => 'remove', 'id' => $id, 'data' => $blocData];
 
         return $blocData;
+    }
+
+    /**
+     * Blocs actuellement posés pour une unité donnée (par spl_object_id), indexés par
+     * leur id — snapshot utilisé par la passe de défragmentation pour pouvoir restaurer
+     * l'état d'origine si la re-pose échoue.
+     *
+     * @param array<int, array{uniteId: int, ...}> $blocs
+     * @return array<int, array>
+     */
+    private function blocsDeLUnite(array $blocs, int $uniteId): array
+    {
+        $resultat = [];
+        foreach ($blocs as $blocId => $blocData) {
+            if ($blocData['uniteId'] === $uniteId) {
+                $resultat[$blocId] = $blocData;
+            }
+        }
+
+        return $resultat;
+    }
+
+    /**
+     * Nombre de séances d'1h "en trop" dans la décomposition actuelle d'une unité par
+     * rapport à sa décomposition idéale (que des blocs de 2h + un seul 1h si le volume
+     * est impair). 0 = décomposition idéale.
+     *
+     * @param array<int, array{groupeCreneaux: Creneau[], ...}> $blocsUnite
+     */
+    private function compterFragments(array $blocsUnite, int $heures): int
+    {
+        $nb1h = 0;
+        foreach ($blocsUnite as $blocData) {
+            if (count($blocData['groupeCreneaux']) === 1) {
+                $nb1h++;
+            }
+        }
+
+        return max(0, $nb1h - ($heures % 2));
+    }
+
+    /**
+     * Retire du registre tous les blocs d'une unité (sans passer par le journal —
+     * réservé à la passe de défragmentation, qui gère sa propre sauvegarde/restauration).
+     *
+     * @param array<int, array{uniteId: int, ...}> $blocs
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     */
+    private function evincerBlocsDeLUnite(
+        int $uniteId,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+    ): void {
+        foreach (array_keys($blocs) as $blocId) {
+            if (($blocs[$blocId]['uniteId'] ?? null) === $uniteId) {
+                $this->retirerBlocBrut($blocId, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+            }
+        }
     }
 
     /**

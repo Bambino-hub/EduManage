@@ -73,6 +73,18 @@ class Enseignant
     #[ORM\Column]
     private int $nbPremieresHeuresAEviter = 0;
 
+    /**
+     * Heures de l'après-midi (ordre du créneau : 6 = 15h00, 7 = 15h55, 8 = 16h50) à ne
+     * jamais lui programmer. Liste libre parmi [6, 7, 8] : [] = aucune contrainte,
+     * [8] = pas de 8ème heure, [6, 7, 8] = jamais l'après-midi. Contrainte stricte
+     * respectée par EmploiDuTempsGenerator (exclusion, pas préférence), voir
+     * ReglesPlacementCreneau::apresMidiInterdit().
+     *
+     * @var int[]
+     */
+    #[ORM\Column(type: Types::JSON)]
+    private array $heuresApresMidiInterdites = [];
+
     /* --------------------------------------------------------------
        Champs "stage" : pertinents uniquement quand $type = STAGIAIRE
        (stage pédagogique en classe OU stage administratif de bureau).
@@ -279,6 +291,21 @@ class Enseignant
     public function setNbPremieresHeuresAEviter(int $nbPremieresHeuresAEviter): static
     {
         $this->nbPremieresHeuresAEviter = $nbPremieresHeuresAEviter;
+        return $this;
+    }
+
+    /** @return int[] */
+    public function getHeuresApresMidiInterdites(): array
+    {
+        return $this->heuresApresMidiInterdites;
+    }
+
+    /** @param array<int|string> $heures */
+    public function setHeuresApresMidiInterdites(array $heures): static
+    {
+        $heures = array_values(array_unique(array_map('intval', $heures)));
+        sort($heures);
+        $this->heuresApresMidiInterdites = $heures;
         return $this;
     }
 

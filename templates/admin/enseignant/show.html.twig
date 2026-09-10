@@ -86,13 +86,25 @@
                         {% endif %}
                     </dd>
 
-                    {% if enseignant.nbPremieresHeuresAEviter > 0 %}
+                    {% if enseignant.nbPremieresHeuresAEviter > 0 or enseignant.heuresApresMidiInterdites is not empty %}
                         <dt class="col-5 text-muted small">Disponibilité EDT</dt>
-                        <dd class="col-7">
-                            <span class="badge bg-warning text-dark" title="Prise en compte automatique lors de la génération de l'emploi du temps">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                                Indisponible {{ enseignant.nbPremieresHeuresAEviter }} heure{{ enseignant.nbPremieresHeuresAEviter > 1 ? 's' : '' }} en début de journée
-                            </span>
+                        <dd class="col-7 d-flex flex-column gap-1 align-items-start">
+                            {% if enseignant.nbPremieresHeuresAEviter > 0 %}
+                                <span class="badge bg-warning text-dark" title="Prise en compte automatique lors de la génération de l'emploi du temps">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    Indisponible {{ enseignant.nbPremieresHeuresAEviter }} heure{{ enseignant.nbPremieresHeuresAEviter > 1 ? 's' : '' }} en début de journée
+                                </span>
+                            {% endif %}
+                            {% if enseignant.heuresApresMidiInterdites is not empty %}
+                                <span class="badge bg-warning text-dark" title="Prise en compte automatique lors de la génération de l'emploi du temps">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    {% if enseignant.heuresApresMidiInterdites == [6, 7, 8] %}
+                                        Indisponible toute l'après-midi
+                                    {% else %}
+                                        Indisponible : {{ enseignant.heuresApresMidiInterdites|map(h => h ~ 'ème h')|join(', ') }}
+                                    {% endif %}
+                                </span>
+                            {% endif %}
                         </dd>
                     {% endif %}
                 </dl>

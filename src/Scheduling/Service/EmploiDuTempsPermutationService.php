@@ -215,9 +215,53 @@ final class EmploiDuTempsPermutationService
                 $erreurs[] = 'Le FHR ne peut pas être placé le vendredi après-midi.';
             } elseif (ReglesPlacementCreneau::premieresHeuresInterdites($creneau->getOrdre(), $attribution->getEnseignant()->getNbPremieresHeuresAEviter())) {
                 $erreurs[] = sprintf('%s est indisponible aux %d première(s) heure(s) de la journée.', $attribution->getEnseignant()->getNomComplet(), $attribution->getEnseignant()->getNbPremieresHeuresAEviter());
+            } elseif (ReglesPlacementCreneau::apresMidiInterdit($creneau->getOrdre(), $attribution->getEnseignant()->getHeuresApresMidiInterdites())) {
+                $erreurs[] = sprintf('%s est indisponible à la %dème heure (après-midi).', $attribution->getEnseignant()->getNomComplet(), $creneau->getOrdre());
             }
         }
 
-        return $erreurs;
+        // EPS : deux séances d'EPS d'une même classe séparées d'au moins 2 jours pleins.
+        // On ne contrôle que les classes dont une séance d'EPS est effectivement déplacée
+        // (une violation préexistante sur une autre classe ne doit pas bloquer un
+        // déplacement sans rapport).
+        $classesEpsModifiees = [];
+        foreach ($creneauParSeanceId as $seanceId => $creneauId) {
+            $seance = $seancesParId[$seanceId];
+            if ($seance->getAttribution()->getMatiere()->getCode() === 'EPS') {
+                $classesEpsModifiees[$seance->getAttribution()->getClasse()->getId()] = true;
+            }
+        }
+
+        if ($classesEpsModifiees !== []) {
+            $epsParClasse    = [];
+            $nomParClasseId  = [];
+            foreach ($seances as $seance) {
+                $attribution = $seance->getAttribution();
+                $classeId    = $attribution->getClasse()->getId();
+                if ($attribution->getMatiere()->getCode() !== 'EPS' || !isset($classesEpsModifiees[$classeId])) {
+                    continue;
+                }
+                $nomParClasseId[$classeId] = $attribution->getClasse()->getNom();
+                $epsParClasse[$classeId][] = $creneauxParId[$creneauFinalParSeanceId[$seance->getId()]];
+            }
+
+            foreach ($epsParClasse as $classeId => $creneauxEps) {
+                $nbCreneaux = count($creneauxEps);
+                for ($i = 0; $i < $nbCreneaux; $i++) {
+                    for ($j = $i + 1; $j < $nbCreneaux; $j++) {
+                        if (ReglesPlacementCreneau::epsJoursTropProches($creneauxEps[$i]->getJourSemaine(), $creneauxEps[$j]->getJourSemaine())) {
+                            $erreurs[] = sprintf(
+                                'EPS (%s) : les séances de %s et %s sont trop rapprochées — il faut au moins 2 jours pleins d\'écart.',
+                                $nomParClasseId[$classeId],
+                                $creneauxEps[$i]->getJourSemaine()->label(),
+                                $creneauxEps[$j]->getJourSemaine()->label(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($erreurs));
     }
 }

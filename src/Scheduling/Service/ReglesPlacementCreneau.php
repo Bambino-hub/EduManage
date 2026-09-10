@@ -46,4 +46,26 @@ final class ReglesPlacementCreneau
     {
         return $nbPremieresHeuresAEviter > 0 && $ordre <= $nbPremieresHeuresAEviter;
     }
+
+    /**
+     * Un enseignant peut être marqué indisponible sur certaines heures de l'après-midi
+     * (Enseignant::getHeuresApresMidiInterdites() — liste d'ordres parmi [6, 7, 8],
+     * paramétrable finement : seulement la 8ème heure, ou toute l'après-midi, etc.).
+     *
+     * @param int[] $heuresApresMidiInterdites
+     */
+    public static function apresMidiInterdit(int $ordre, array $heuresApresMidiInterdites): bool
+    {
+        return in_array($ordre, $heuresApresMidiInterdites, true);
+    }
+
+    /**
+     * Deux séances d'EPS d'une même classe ne doivent jamais tomber sur deux jours qui
+     * se suivent (au moins un jour plein entre les deux : lundi puis mercredi au plus
+     * tôt). Retourne true si les deux jours sont consécutifs.
+     */
+    public static function epsJoursTropProches(JourSemaine $a, JourSemaine $b): bool
+    {
+        return $a !== $b && abs($a->ordre() - $b->ordre()) <= 1;
+    }
 }
