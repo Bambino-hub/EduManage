@@ -5,13 +5,27 @@
     mémoire projet sur ce sujet) — sauf que le rendu est ici identique quel que soit le
     navigateur utilisé pour cliquer sur "Exporter PDF".
 
-    `avecEntete` (bool) : en-tête du collège, optionnelle et décochée par défaut — la grille
-    est déjà à la limite de tenir sur une page, l'ajouter mange de la hauteur utile.
+    `avecEntete` (bool) : en-tête du collège, optionnelle et décochée par défaut — affichée
+    une seule fois en haut de la 1ère page (pas répétée), elle mange de la hauteur utile
+    de cette page (donc du budget de lignes de la 1ère page, cf. plus bas).
 
-    `avecEnseignant` (bool) : code matière seul (défaut, 1 page A4 paysage — cf.
+    `avecEnseignant` (bool) : code matière seul (A4 paysage — cf.
     EmploiDuTempsController::exportPdfGlobale) ou matière + nom de l'enseignant par case
-    (1 page A3 paysage, choisie par le contrôleur selon ce même booléen — le texte
-    supplémentaire ne tient plus lisiblement en A4).
+    (A3 paysage, choisi par le contrôleur selon ce même booléen — le texte supplémentaire
+    ne tient plus lisiblement en A4). La taille de police est choisie pour rester lisible
+    à l'impression plutôt que pour tenir sur une seule page — la grille peut donc déborder
+    sur une 2e page, sans problème.
+
+    `joursSautDePage` (calculé par EmploiDuTempsController::calculerSautsDePage, sur un
+    budget de lignes conservateur) force un saut de page (`page-break-before: always` sur
+    le `<tr>`) avant certains jours, pour regrouper autant de jours que possible par page
+    SANS jamais couper un jour en deux : `page-break-inside: avoid` sur un `<tbody>` ne
+    suffit pas (testé — dompdf l'ignore et coupe quand même au milieu d'un jour, ce qui
+    désynchronise les lignes suivantes du rowspan de la colonne "Jour"). Un jour qui
+    démarre en haut d'une page neuve et tient dans le budget ne peut, par construction,
+    jamais être scindé — la cellule "Jour" (et celle d'un créneau réservé — récréation,
+    pause déjeuner — étendue sur plusieurs lignes) peut donc utiliser un vrai `rowspan` en
+    toute sécurité, sans répéter le jour sur chaque ligne.
 #}
 <!DOCTYPE html>
 <html lang="fr">
@@ -21,16 +35,11 @@
     @page { margin: 0.8cm; }
     body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; }
     h1 { font-size: 15px; margin: 0 0 8px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: {{ avecEnseignant ? '7.5px' : '6.5px' }}; }
-    th, td { border: 1px solid #333; padding: 1px 2px; text-align: center; vertical-align: middle; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: {{ avecEnseignant ? '10px' : '9px' }}; }
+    th, td { border: 1px solid #333; padding: 3px 2px; text-align: center; vertical-align: middle; }
     th { background: #eef0f5; font-weight: bold; }
+    tr.jour-nouvelle-page { page-break-before: always; }
     td.jour { background: #f7f7fb; font-weight: bold; text-transform: uppercase; }
-    /* La colonne "Jour" n'utilise PAS rowspan : dompdf décale toutes les lignes suivantes
-       d'une colonne vers la gauche quand une cellule rowspan est coupée par un saut de
-       page (bug connu). On répète donc une cellule par ligne, libellé sur la 1ère
-       seulement, et on masque les bordures horizontales internes pour garder l'aspect
-       d'une cellule fusionnée. */
-    td.jour-vide { background: #f7f7fb; border-top-color: #f7f7fb; border-bottom-color: #f7f7fb; }
     td.heure { background: #f7f7fb; color: #555; }
     td.reserve { background: #f7f7fb; font-style: italic; color: #555; }
     td.case-cours { overflow-wrap: break-word; }
@@ -42,25 +51,27 @@
     <table>
         <thead>
             <tr>
-                <th style="width:24px">Jour</th>
-                <th style="width:18px">Hres</th>
+                <th style="width:38px">Jour</th>
+                <th style="width:22px">Hres</th>
                 {% for classe in classes %}<th>{{ classe.nom }}</th>{% endfor %}
             </tr>
         </thead>
-        <tbody>
-            {% for jour in joursAffiches %}
-                {% set ordresJour = creneauxParJour[jour.value]|keys %}
+        {% for jour in joursAffiches %}
+            {% set ordresJour = creneauxParJour[jour.value]|keys %}
+            {% set sautDePage = joursSautDePage[jour.value] ?? false %}
+            <tbody>
                 {% for ordre in ordresJour %}
                     {% set creneau = creneauxParJour[jour.value][ordre] %}
-                    <tr>
+                    {% set estContinuationReserve = reserveContinuation[jour.value][ordre] ?? false %}
+                    <tr{{ loop.first and sautDePage ? ' class="jour-nouvelle-page"' }}>
                         {% if loop.first %}
-                            <td class="jour">{{ jour.label() }}</td>
-                        {% else %}
-                            <td class="jour-vide"></td>
+                            <td class="jour" rowspan="{{ ordresJour|length }}">{{ jour.label() }}</td>
                         {% endif %}
                         <td class="heure">{{ ordre }}</td>
                         {% if creneau.reserve %}
-                            <td class="reserve" colspan="{{ classes|length }}">{{ creneau.libelleReserve }}</td>
+                            {% if not estContinuationReserve %}
+                                <td class="reserve" colspan="{{ classes|length }}" rowspan="{{ reserveRowspan[jour.value][ordre] ?? 1 }}">{{ creneau.libelleReserve }}</td>
+                            {% endif %}
                         {% else %}
                             {% for classe in classes %}
                                 {% set seancesCase = grille[jour.value][ordre][classe.id] ?? [] %}
@@ -77,8 +88,8 @@
                         {% endif %}
                     </tr>
                 {% endfor %}
-            {% endfor %}
-        </tbody>
+            </tbody>
+        {% endfor %}
     </table>
 </body>
 </html>

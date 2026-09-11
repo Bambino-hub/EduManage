@@ -558,6 +558,9 @@ class EmploiDuTempsController extends AbstractController
         [$reserveRowspan, $reserveContinuation]        = $this->calculerRunsReserves($creneauxParJour);
 
         $avecEnseignant = $request->query->getString('affichage', 'matiere') === 'enseignant';
+        // Budget testé empiriquement sur les 2 variantes (matière/enseignant) — cf.
+        // calculerSautsDePage().
+        $joursSautDePage = $this->calculerSautsDePage($creneauxParJour, $joursAffiches, 15);
 
         $html = $this->renderView('admin/edt/pdf/globale.html.twig', [
             'annee'               => $annee,
@@ -567,6 +570,7 @@ class EmploiDuTempsController extends AbstractController
             'joursAffiches'       => $joursAffiches,
             'reserveRowspan'      => $reserveRowspan,
             'reserveContinuation' => $reserveContinuation,
+            'joursSautDePage'     => $joursSautDePage,
             'avecEntete'          => $request->query->getBoolean('entete_college', false),
             'avecEnseignant'      => $avecEnseignant,
         ]);
@@ -626,6 +630,39 @@ class EmploiDuTempsController extends AbstractController
         }
 
         return [$rowspan, $continuation];
+    }
+
+    /**
+     * Détermine, pour l'export PDF de la vue globale, avant quels jours forcer un saut de
+     * page (`JourSemaine::value => bool`) — un jour ne tient JAMAIS à cheval sur 2 pages
+     * (dompdf coupe alors le rowspan de la colonne "Jour" et désynchronise les lignes
+     * suivantes, bug constaté). On regroupe donc autant de jours que le budget de lignes
+     * le permet par page plutôt que d'imposer 1 jour = 1 page (qui gâche beaucoup de
+     * papier) : dès qu'un jour de plus dépasserait le budget, on force la page suivante.
+     * `$budgetLignes` est volontairement conservateur (estimé empiriquement pour rester
+     * sûr même avec des cases sur 2 lignes) plutôt que calculé au pixel près.
+     *
+     * @param array<string, array<int, Creneau>> $creneauxParJour
+     * @param JourSemaine[] $joursAffiches
+     * @return array<string, bool>
+     */
+    private function calculerSautsDePage(array $creneauxParJour, array $joursAffiches, int $budgetLignes): array
+    {
+        $sauts               = [];
+        $lignesPageActuelle  = 0;
+
+        foreach ($joursAffiches as $i => $jour) {
+            $lignesJour = count($creneauxParJour[$jour->value] ?? []);
+
+            if ($i > 0 && $lignesPageActuelle + $lignesJour > $budgetLignes) {
+                $sauts[$jour->value] = true;
+                $lignesPageActuelle  = 0;
+            }
+
+            $lignesPageActuelle += $lignesJour;
+        }
+
+        return $sauts;
     }
 
     #[Route('/generer', name: 'generate', methods: ['GET', 'POST'])]
