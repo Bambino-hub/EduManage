@@ -63,6 +63,61 @@ class SeanceRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Séances verrouillées ("personnalisées") de l'année — celles qu'EmploiDuTempsGenerator::reorganiser()
+     * doit préserver telles quelles. Mêmes jointures que findByAnneeScolaire() : le
+     * générateur a besoin de l'attribution/classe/matière/enseignant/créneau/salle
+     * complets pour reconstruire ses structures internes sans lazy-load supplémentaire.
+     *
+     * @return Seance[]
+     */
+    public function findVerrouilleesByAnneeScolaire(int $anneeScolaireId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.attribution', 'a')
+            ->addSelect('a')
+            ->join('a.classe', 'cl')
+            ->addSelect('cl')
+            ->join('a.matiere', 'm')
+            ->addSelect('m')
+            ->join('a.enseignant', 'e')
+            ->addSelect('e')
+            ->join('s.creneau', 'c')
+            ->addSelect('c')
+            ->join('s.salle', 'sa')
+            ->addSelect('sa')
+            ->where('cl.anneeScolaire = :anneeId')
+            ->andWhere('s.verrouille = true')
+            ->setParameter('anneeId', $anneeScolaireId)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Séances d'un même créneau, toutes classes/enseignants confondus, pour une année
+     * donnée — utilisé par EmploiDuTempsVerrouillageService pour retrouver les séances
+     * "sœurs" (matières parallèles ou classes fusionnées) qui doivent être verrouillées
+     * ensemble, jamais séparément.
+     *
+     * @return Seance[]
+     */
+    public function findByCreneauEtAnnee(int $creneauId, int $anneeScolaireId): array
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.attribution', 'a')
+            ->addSelect('a')
+            ->join('a.classe', 'cl')
+            ->addSelect('cl')
+            ->join('a.matiere', 'm')
+            ->addSelect('m')
+            ->where('s.creneau = :creneauId')
+            ->andWhere('cl.anneeScolaire = :anneeId')
+            ->setParameter('creneauId', $creneauId)
+            ->setParameter('anneeId', $anneeScolaireId)
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Seance[] */
     public function findByEnseignant(int $enseignantId): array
     {

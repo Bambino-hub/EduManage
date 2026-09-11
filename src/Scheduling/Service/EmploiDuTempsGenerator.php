@@ -18,6 +18,7 @@ use App\Scheduling\Enum\JourSemaine;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Repository\CreneauRepository;
 use App\Scheduling\Repository\RegroupementClasseRepository;
+use App\Scheduling\Repository\SeanceRepository;
 use App\Scheduling\Service\Dto\ClasseBilan;
 use App\Scheduling\Service\Dto\GenerationResult;
 use App\Scheduling\Service\Dto\UnitResult;
@@ -125,6 +126,7 @@ class EmploiDuTempsGenerator
         private readonly SalleRepository $salleRepo,
         private readonly MatiereNiveauRepository $matiereNiveauRepo,
         private readonly RegroupementClasseRepository $regroupementRepo,
+        private readonly SeanceRepository $seanceRepo,
     ) {
     }
 
@@ -371,6 +373,273 @@ class EmploiDuTempsGenerator
     }
 
     /**
+     * Variante de generer() qui respecte les séances verrouillées ("personnalisées",
+     * cf. Seance::$verrouille et EmploiDuTempsVerrouillageService) : elle ne les purge
+     * jamais et ne les déplace jamais, mais recalcule tout le reste autour d'elles en
+     * respectant les mêmes règles métier (conflits enseignant/classe/salle, EPS, FHR,
+     * 8ème heure, etc. — tout l'algorithme de placement, y compris la réparation locale,
+     * est partagé avec generer() via placerUnite()/placerBlocAvecReparation()).
+     *
+     * Différences volontaires avec generer(), documentées ici plutôt que dispersées :
+     * - purgerSeancesNonVerrouillees() au lieu de purgerSeances() : les séances
+     *   verrouillées restent en base, jamais recréées (cf. le filtre `verrouille` dans
+     *   la boucle de persistance finale, sinon elles seraient dupliquées).
+     * - seederSeancesVerrouillees() les réinjecte dans le registre de blocs AVANT la
+     *   première tentative, comme si elles avaient été posées par le générateur
+     *   lui-même — mais marquées `verrouille: true`, ce qui les rend increvables par la
+     *   réparation locale (cf. contientBlocVerrouille()).
+     * - placerUnite() reçoit `heuresACaser` = heures encore nécessaires pour l'unité
+     *   (son volume total moins ce qui est déjà couvert par un verrou), jamais le
+     *   volume total brut.
+     * - PAS de passe de défragmentation (contrairement à generer()) : elle évincerait
+     *   et reposerait des blocs d'une unité entière pour améliorer sa décomposition
+     *   1h/2h, ce qui n'a pas de sens à mélanger avec des blocs verrouillés à demeure —
+     *   scope volontairement réduit, la défragmentation reste un pur "confort visuel",
+     *   jamais une exigence de correction.
+     *
+     * Une unité entièrement couverte par des verrous (heuresACaser = 0) n'est pas
+     * soumise à l'algorithme du tout : ses heures sont comptées d'office comme placées.
+     */
+    public function reorganiser(AnneeScolaire $annee, int $maxRestarts = 20): GenerationResult
+    {
+        $debut                    = microtime(true);
+        $this->matiereNiveauIndex = $this->matiereNiveauRepo->findIndexeParMatiereEtNiveau();
+        $attributions             = $this->attributionRepo->findByAnneeScolaire((int) $annee->getId());
+
+        if ($attributions === []) {
+            return new GenerationResult(0, 0, 0, [], []);
+        }
+
+        $seancesVerrouillees = $this->seanceRepo->findVerrouilleesByAnneeScolaire((int) $annee->getId());
+        $this->purgerSeancesNonVerrouillees($attributions);
+
+        $regroupementParClasseEtMatiere = $this->regroupementRepo->indexerParClasseEtMatiere();
+        $unites               = $this->construireUnites($attributions, $regroupementParClasseEtMatiere);
+        $heuresTotalDemandees = array_sum(array_map(fn (GenerationUnit $u) => $u->heures, $unites));
+
+        $enseignantNbClasses = $this->compterClassesParEnseignant($attributions);
+        $scoreParUnite       = [];
+        foreach ($unites as $unite) {
+            $scoreParUnite[spl_object_id($unite)] = $this->scoreContrainte($unite, $enseignantNbClasses);
+        }
+
+        $tousCreneaux              = $this->creneauRepo->findOrdonnes();
+        $creneauxEligiblesParCycle = [
+            TypeCycle::COLLEGE->value => $this->filtrerEligibles($tousCreneaux, TypeCycle::COLLEGE),
+            TypeCycle::LYCEE->value   => $this->filtrerEligibles($tousCreneaux, TypeCycle::LYCEE),
+        ];
+
+        $classes = [];
+        foreach ($unites as $unite) {
+            foreach ($unite->classes as $classe) {
+                $classes[$classe->getId()] = $classe;
+            }
+        }
+
+        $sallesParType   = [];
+        foreach (TypeSalle::cases() as $type) {
+            $sallesParType[$type->value] = $this->salleRepo->findByType($type);
+        }
+        $classeSalleMap = $this->assignerSallesAttitrees(array_values($classes), $sallesParType[TypeSalle::STANDARD->value]);
+
+        $meilleur             = null;
+        $tentativesEffectuees = 0;
+
+        for ($tentative = 1; $tentative <= $maxRestarts; $tentative++) {
+            if ($meilleur !== null && microtime(true) - $debut > self::BUDGET_TEMPS_SECONDES) {
+                break;
+            }
+
+            $tentativesEffectuees = $tentative;
+
+            $classeBusy                      = [];
+            $enseignantBusy                  = [];
+            $salleBusy                       = [];
+            $blocs                           = [];
+            $prochainBlocId                  = 0;
+            $joursUtilisesParUnite           = [];
+            $nbPremiereHeurePrefereeParUnite = [];
+            $budgetReparation                = self::BUDGET_REPARATION_PAR_TENTATIVE;
+            $resultatsUnites                 = [];
+            $heuresPlaceesTotal              = 0;
+
+            $heuresVerrouilleesParUnite = $this->seederSeancesVerrouillees(
+                $unites,
+                $seancesVerrouillees,
+                $classeBusy,
+                $enseignantBusy,
+                $salleBusy,
+                $blocs,
+                $prochainBlocId,
+                $joursUtilisesParUnite,
+                $nbPremiereHeurePrefereeParUnite,
+            );
+
+            $ordreUnites = $unites;
+            shuffle($ordreUnites);
+            usort(
+                $ordreUnites,
+                static fn (GenerationUnit $a, GenerationUnit $b) => $scoreParUnite[spl_object_id($b)] <=> $scoreParUnite[spl_object_id($a)],
+            );
+
+            foreach ($ordreUnites as $index => $unite) {
+                $uniteId            = spl_object_id($unite);
+                $heuresVerrouillees = $heuresVerrouilleesParUnite[$uniteId] ?? 0;
+                $heuresACaser       = max(0, $unite->heures - $heuresVerrouillees);
+
+                if ($heuresACaser === 0) {
+                    // Entièrement couverte par des verrous : rien à calculer, déjà complète.
+                    $heuresPlaceesTotal += $unite->heures;
+                    $resultatsUnites[]   = new UnitResult($unite->libelle, $unite->heures, $unite->heures, []);
+                    continue;
+                }
+
+                $resultat = $this->placerUnite(
+                    $unite,
+                    $creneauxEligiblesParCycle,
+                    $classeSalleMap,
+                    $sallesParType,
+                    $classeBusy,
+                    $enseignantBusy,
+                    $salleBusy,
+                    $blocs,
+                    $prochainBlocId,
+                    $joursUtilisesParUnite,
+                    $nbPremiereHeurePrefereeParUnite,
+                    $budgetReparation,
+                    $heuresACaser,
+                );
+
+                // Toujours ajouter la part verrouillée, même si placerUnite() échoue
+                // intégralement (resultat['heures'] = 0) — sinon le compteur global
+                // heuresPlaceesTotal sous-compte silencieusement les unités partiellement
+                // verrouillées (déjà comptées correctement dans le UnitResult ci-dessous,
+                // ce qui désynchronisait unitesIncompletes() du rapport agrégé).
+                $heuresPlaceesEffectives  = $heuresVerrouillees + $resultat['heures'];
+                $heuresPlaceesTotal      += $heuresPlaceesEffectives;
+
+                $raisons = $heuresPlaceesEffectives < $unite->heures
+                    ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
+                    : [];
+                $resultatsUnites[] = new UnitResult($unite->libelle, $unite->heures, $heuresPlaceesEffectives, $raisons);
+            }
+
+            // Deuxième chance ciblée, identique dans l'esprit à generer() : un budget de
+            // réparation frais et dédié pour chaque unité encore incomplète après la
+            // passe normale (voir la docblock de generer() pour le détail du pourquoi).
+            for ($essai = 0; $essai < self::NB_ESSAIS_SECONDE_CHANCE; $essai++) {
+                if (microtime(true) - $debut > self::BUDGET_TEMPS_SECONDES) {
+                    break;
+                }
+
+                $resteDesIncompletes = false;
+
+                foreach ($ordreUnites as $index => $unite) {
+                    if ($resultatsUnites[$index]->estComplet()) {
+                        continue;
+                    }
+
+                    $uniteId            = spl_object_id($unite);
+                    $heuresVerrouillees = $heuresVerrouilleesParUnite[$uniteId] ?? 0;
+                    $heuresACaser       = max(0, $unite->heures - $heuresVerrouillees);
+                    if ($heuresACaser === 0) {
+                        continue; // garde défensive, ne devrait pas arriver (déjà filtré en amont)
+                    }
+
+                    $budgetSecondeChance = self::BUDGET_REPARATION_SECONDE_CHANCE;
+                    $resultat = $this->placerUnite(
+                        $unite,
+                        $creneauxEligiblesParCycle,
+                        $classeSalleMap,
+                        $sallesParType,
+                        $classeBusy,
+                        $enseignantBusy,
+                        $salleBusy,
+                        $blocs,
+                        $prochainBlocId,
+                        $joursUtilisesParUnite,
+                        $nbPremiereHeurePrefereeParUnite,
+                        $budgetSecondeChance,
+                        $heuresACaser,
+                    );
+
+                    if ($resultat['heures'] > 0) {
+                        $heuresPlaceesTotal     += $resultat['heures'];
+                        $heuresPlaceesEffectives = $heuresVerrouillees + $resultat['heures'];
+                        $resultatsUnites[$index] = new UnitResult($unite->libelle, $unite->heures, $heuresPlaceesEffectives, []);
+                    } else {
+                        $resteDesIncompletes = true;
+                    }
+                }
+
+                if (!$resteDesIncompletes) {
+                    break;
+                }
+            }
+
+            // Contrairement à generer(), pas de passe de défragmentation ici — voir la
+            // docblock de la méthode.
+
+            // Les séances verrouillées existent déjà en base (jamais purgées) : on les
+            // exclut des placements à (re)persister, sinon elles seraient dupliquées.
+            $placementsTotal = [];
+            foreach ($blocs as $blocData) {
+                if ($blocData['verrouille'] ?? false) {
+                    continue;
+                }
+                array_push($placementsTotal, ...$blocData['placements']);
+            }
+
+            if ($meilleur === null || $heuresPlaceesTotal > $meilleur['heuresPlacees']) {
+                $meilleur = [
+                    'heuresPlacees' => $heuresPlaceesTotal,
+                    'placements'    => $placementsTotal,
+                    'unites'        => $resultatsUnites,
+                ];
+            }
+
+            if ($heuresPlaceesTotal === $heuresTotalDemandees) {
+                break;
+            }
+        }
+
+        foreach ($meilleur['placements'] as $p) {
+            $seance = new Seance();
+            $seance->setAttribution($p['attribution']);
+            $seance->setCreneau($p['creneau']);
+            $seance->setSalle($p['salle']);
+            $this->em->persist($seance);
+        }
+        $this->em->flush();
+
+        return new GenerationResult(
+            tentatives: $tentativesEffectuees,
+            heuresPlacees: $meilleur['heuresPlacees'],
+            heuresNonPlacees: $heuresTotalDemandees - $meilleur['heuresPlacees'],
+            unites: $meilleur['unites'],
+            bilanClasses: $this->construireBilanClasses($unites, $classes, $creneauxEligiblesParCycle, [...$meilleur['placements'], ...$this->placementsDesSeancesVerrouillees($seancesVerrouillees)]),
+        );
+    }
+
+    /**
+     * Reconstruit, pour construireBilanClasses(), des "placements" à partir des séances
+     * verrouillées — au même format que ceux produits par le solveur (`attribution` +
+     * `creneau`) — pour que le bilan par classe compte bien les heures verrouillées
+     * comme placées (sinon reorganiser() sous-évaluerait systématiquement les classes
+     * ayant des séances personnalisées).
+     *
+     * @param Seance[] $seancesVerrouillees
+     * @return list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>
+     */
+    private function placementsDesSeancesVerrouillees(array $seancesVerrouillees): array
+    {
+        return array_map(
+            static fn (Seance $s) => ['attribution' => $s->getAttribution(), 'creneau' => $s->getCreneau(), 'salle' => $s->getSalle()],
+            $seancesVerrouillees,
+        );
+    }
+
+    /**
      * @param Attribution[] $attributions
      * @return array<int, int> enseignantId => nombre de classes distinctes couvertes
      */
@@ -430,6 +699,30 @@ class EmploiDuTempsGenerator
         $this->em->createQueryBuilder()
             ->delete(Seance::class, 's')
             ->where('s.attribution IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Purge utilisée par reorganiser() : contrairement à purgerSeances(), préserve les
+     * séances verrouillées (personnalisées) — elles ne sont jamais recalculées, voir
+     * seederSeancesVerrouillees() qui les réinjecte dans le registre de placement juste
+     * après cet appel.
+     *
+     * @param Attribution[] $attributions
+     */
+    private function purgerSeancesNonVerrouillees(array $attributions): void
+    {
+        $ids = array_map(fn (Attribution $a) => $a->getId(), $attributions);
+        if ($ids === []) {
+            return;
+        }
+
+        $this->em->createQueryBuilder()
+            ->delete(Seance::class, 's')
+            ->where('s.attribution IN (:ids)')
+            ->andWhere('s.verrouille = false')
             ->setParameter('ids', $ids)
             ->getQuery()
             ->execute();
@@ -895,6 +1188,26 @@ class EmploiDuTempsGenerator
     }
 
     /**
+     * Un des blocs listés (obstacles potentiels à évincer pour une réparation) est-il
+     * verrouillé (séance personnalisée, cf. seederSeancesVerrouillees()) ? Un seul
+     * suffit à rendre tout le candidat hors-jeu : on ne peut pas évincer "les autres"
+     * et laisser le verrouillé en place, ça ne libère pas le créneau visé.
+     *
+     * @param int[] $blocIds
+     * @param array<int, array{verrouille?: bool, ...}> $blocs
+     */
+    private function contientBlocVerrouille(array $blocIds, array $blocs): bool
+    {
+        foreach ($blocIds as $id) {
+            if ($blocs[$id]['verrouille'] ?? false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Résout une salle par Attribution du groupe (attitrée pour les matières standards,
      * cherchée dans le pool spécialisé sinon), libre sur TOUS les créneaux du bloc. Si
      * deux attributions du groupe partagent le même enseignant (ex. classes fusionnées
@@ -983,6 +1296,12 @@ class EmploiDuTempsGenerator
      * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @param int|null $heuresACaser Nombre d'heures encore à placer pour cette unité —
+     *        par défaut `$unite->heures` (comportement historique, utilisé par
+     *        generer()). `reorganiser()` passe le reliquat après déduction des heures
+     *        déjà couvertes par des séances verrouillées (voir seederSeancesVerrouillees()) :
+     *        ces heures-là sont déjà dans le registre `$blocs` (protégées de toute
+     *        éviction, cf. blocsEnConflit()), placerUnite() ne s'occupe que du reste.
      * @return array{heures: int, ideal: bool}
      */
     private function placerUnite(
@@ -998,9 +1317,18 @@ class EmploiDuTempsGenerator
         array &$joursUtilisesParUnite,
         array &$nbPremiereHeurePrefereeParUnite,
         int &$budgetReparation,
+        ?int $heuresACaser = null,
     ): array {
-        $cycle = $unite->classes[0]->getNiveau()->getCycle()->getType();
+        $heuresACaser ??= $unite->heures;
+        $cycle          = $unite->classes[0]->getNiveau()->getCycle()->getType();
 
+        if ($heuresACaser <= 0) {
+            return ['heures' => 0, 'ideal' => true];
+        }
+
+        // Le déclencheur du cas spécial "6h collège" reste le volume STRUCTUREL de
+        // l'unité (toujours 6h/semaine), pas $heuresACaser — sinon un reliquat de 4h
+        // après verrouillage de 2h perdrait à tort la règle "1 jour double".
         if ($cycle === TypeCycle::COLLEGE && $unite->heures === 6) {
             return $this->placerUniteCollegeSixHeures(
                 $unite,
@@ -1016,10 +1344,11 @@ class EmploiDuTempsGenerator
                 $joursUtilisesParUnite,
                 $nbPremiereHeurePrefereeParUnite,
                 $budgetReparation,
+                $heuresACaser,
             );
         }
 
-        $blocsTailles = $this->decomposerHeures($unite, $unite->heures, $cycle);
+        $blocsTailles = $this->decomposerHeures($unite, $heuresACaser, $cycle);
         $journal      = [];
         $ideal        = true;
 
@@ -1075,7 +1404,7 @@ class EmploiDuTempsGenerator
             }
         }
 
-        return ['heures' => $unite->heures, 'ideal' => $ideal];
+        return ['heures' => $heuresACaser, 'ideal' => $ideal];
     }
 
     /**
@@ -1177,6 +1506,12 @@ class EmploiDuTempsGenerator
             if ($blocIdsConflit === []) {
                 continue; // déjà tenté en passe 1 (aucun conflit classe/enseignant, seule la salle bloquait)
             }
+            if ($this->contientBlocVerrouille($blocIdsConflit, $blocs)) {
+                // Au moins un obstacle est une séance verrouillée (personnalisée,
+                // cf. seederSeancesVerrouillees()) : jamais évinçable, ce candidat est
+                // définitivement hors-jeu, pas la peine de consommer du budget dessus.
+                continue;
+            }
             $budgetReparation--;
 
             $pointDeReprise = count($journal);
@@ -1247,6 +1582,11 @@ class EmploiDuTempsGenerator
      * @param array<int, array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: list<array{attribution: Attribution, creneau: Creneau, salle: Salle}>, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}> $blocs
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @param int $heuresACaser Nombre d'heures encore à placer pour cette unité (par
+     *        défaut 6, comportement historique utilisé par generer()). reorganiser()
+     *        passe un reliquat < 6 quand une partie des 6h est déjà couverte par des
+     *        séances verrouillées, déjà présentes dans `$blocs`/`$joursUtilisesParUnite`
+     *        avant cet appel — voir seederSeancesVerrouillees().
      * @return array{heures: int, ideal: bool}
      */
     private function placerUniteCollegeSixHeures(
@@ -1263,11 +1603,48 @@ class EmploiDuTempsGenerator
         array &$joursUtilisesParUnite,
         array &$nbPremiereHeurePrefereeParUnite,
         int &$budgetReparation,
+        int $heuresACaser = 6,
     ): array {
-        $parJour = $this->creneauxParJour($eligibles);
-        $jours   = $this->shuffleArray(array_keys($parJour));
+        if ($heuresACaser <= 0) {
+            return ['heures' => 0, 'ideal' => true];
+        }
 
-        foreach ($jours as $jourDouble) {
+        $uniteId = spl_object_id($unite);
+
+        // Le jour "double" (matin + après-midi) peut déjà exister — verrouillé par une
+        // personnalisation, ou posé plus tôt dans CETTE tentative si cette méthode est
+        // un jour rappelée en cours de route. Dans ce cas plus besoin d'en imposer un
+        // nouveau : le reliquat se place comme des séances d'1h tout à fait normales,
+        // un jour distinct chacune (chemin identique au cas général non-6h).
+        if ($this->journeeDoubleDejaPosee($blocs, $uniteId) || $heuresACaser === 1) {
+            $journal = [];
+            for ($i = 0; $i < $heuresACaser; $i++) {
+                $id = $this->placerBlocAvecReparation(
+                    $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
+                    $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
+                    $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite, $journal, $budgetReparation, 0,
+                );
+                if ($id === null) {
+                    $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+
+                    return ['heures' => 0, 'ideal' => false];
+                }
+            }
+
+            return ['heures' => $heuresACaser, 'ideal' => true];
+        }
+
+        $parJour           = $this->creneauxParJour($eligibles);
+        $joursUtilises     = $joursUtilisesParUnite[$uniteId] ?? [];
+        // Seuls les jours encore totalement libres pour cette unité peuvent accueillir
+        // le jour double ou un nouveau singleton — un jour qui porte déjà 1 séance
+        // verrouillée reste possible en théorie (compléter avec l'autre moitié), mais ce
+        // cas résiduel n'est pas géré ici (rarissime en pratique) : on le traite comme
+        // les autres jours déjà utilisés, meilleur effort oblige.
+        $joursDisponibles  = $this->shuffleArray(array_values(array_filter(array_keys($parJour), static fn ($j) => !isset($joursUtilises[$j]))));
+        $nbSimplesAPoser   = $heuresACaser - 2;
+
+        foreach ($joursDisponibles as $jourDouble) {
             $matin     = array_values(array_filter($parJour[$jourDouble], static fn (Creneau $c) => (int) $c->getHeureDebut()->format('H') < 13));
             $apresMidi = array_values(array_filter($parJour[$jourDouble], static fn (Creneau $c) => (int) $c->getHeureDebut()->format('H') >= 13));
 
@@ -1303,10 +1680,15 @@ class EmploiDuTempsGenerator
                 continue;
             }
 
-            $autresJours = array_values(array_filter($jours, static fn ($j) => $j !== $jourDouble));
+            $autresJours = array_values(array_filter($joursDisponibles, static fn ($j) => $j !== $jourDouble));
             $succes      = true;
+            $poses       = 0;
 
             foreach ($autresJours as $jour) {
+                if ($poses >= $nbSimplesAPoser) {
+                    break;
+                }
+
                 $id = $this->placerBlocAvecReparation(
                     $unite, 1, $creneauxEligiblesParCycle, $classeSalleMap, $sallesParType,
                     $classeBusy, $enseignantBusy, $salleBusy, $blocs, $prochainBlocId,
@@ -1317,18 +1699,44 @@ class EmploiDuTempsGenerator
                     $succes = false;
                     break;
                 }
+                $poses++;
             }
 
-            if ($succes) {
+            if ($succes && $poses === $nbSimplesAPoser) {
                 // Structure inhérente en séances d'1h (jamais de bloc de 2h à casser) :
                 // pas de notion de décomposition "dégradée" ici.
-                return ['heures' => 6, 'ideal' => true];
+                return ['heures' => $heuresACaser, 'ideal' => true];
             }
 
             $this->annulerDepuis($journal, 0, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
         }
 
         return ['heures' => 0, 'ideal' => false];
+    }
+
+    /**
+     * Une unité a-t-elle déjà, dans le registre actuel, un jour portant 2 blocs (le
+     * "jour double" du cas spécial 6h collège) ? Vérifié sur `$blocs` (verrouillés ou
+     * non) plutôt que sur un compteur dédié : c'est la seule source de vérité toujours à
+     * jour, y compris pour les blocs verrouillés pré-enregistrés par
+     * seederSeancesVerrouillees() avant même la première tentative de placement.
+     *
+     * @param array<int, array{uniteId: int, jour: string, ...}> $blocs
+     */
+    private function journeeDoubleDejaPosee(array $blocs, int $uniteId): bool
+    {
+        $comptes = [];
+        foreach ($blocs as $blocData) {
+            if ($blocData['uniteId'] !== $uniteId) {
+                continue;
+            }
+            $comptes[$blocData['jour']] = ($comptes[$blocData['jour']] ?? 0) + 1;
+            if ($comptes[$blocData['jour']] >= 2) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1412,6 +1820,14 @@ class EmploiDuTempsGenerator
         array &$nbPremiereHeurePrefereeParUnite,
         array &$journal,
     ): array {
+        // Garde-fou : ne devrait jamais être atteint (contientBlocVerrouille() filtre
+        // déjà ces candidats en amont dans placerBlocAvecReparation()) — une exception
+        // explicite ici est préférable à une corruption silencieuse du registre si un
+        // futur appelant oubliait ce filtre.
+        if ($blocs[$id]['verrouille'] ?? false) {
+            throw new \LogicException("Tentative d'éviction du bloc verrouillé #{$id} — ne devrait jamais arriver, cf. contientBlocVerrouille().");
+        }
+
         $blocData  = $this->retirerBlocBrut($id, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
         $journal[] = ['action' => 'remove', 'id' => $id, 'data' => $blocData];
 
@@ -1475,7 +1891,7 @@ class EmploiDuTempsGenerator
         array &$nbPremiereHeurePrefereeParUnite,
     ): void {
         foreach (array_keys($blocs) as $blocId) {
-            if (($blocs[$blocId]['uniteId'] ?? null) === $uniteId) {
+            if (($blocs[$blocId]['uniteId'] ?? null) === $uniteId && !($blocs[$blocId]['verrouille'] ?? false)) {
                 $this->retirerBlocBrut($blocId, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
             }
         }
@@ -1546,6 +1962,111 @@ class EmploiDuTempsGenerator
     }
 
     /**
+     * Pré-enregistre les séances verrouillées (personnalisées) comme des blocs
+     * `verrouille: true` dans le registre — appelée par reorganiser() avant la toute
+     * première tentative de placement, pour que classeBusy/enseignantBusy/salleBusy/
+     * joursUtilisesParUnite en tiennent compte dès le départ, et que la réparation
+     * locale ne puisse jamais les évincer (cf. contientBlocVerrouille()/evincerBloc()).
+     *
+     * Granularité volontairement simple : UN bloc verrouillé par (unité, créneau), même
+     * si le placement d'origine formait un bloc de 2h lycée à cheval sur 2 créneaux —
+     * le suivi d'occupation (classeBusy/enseignantBusy/salleBusy) reste correct quelle
+     * que soit cette granularité ; seul effet de bord accepté, cosmétique : le compteur
+     * de préférence "1ère heure Maths 3ème" et la passe de défragmentation (de toute
+     * façon désactivée dans reorganiser(), voir sa docblock) ne "voient" pas la fusion
+     * d'origine en un seul bloc de 2h.
+     *
+     * Les séances verrouillées d'un même (unité, créneau) — ex. classes fusionnées, ou
+     * matières parallèles ALL/ESP — sont regroupées en UN SEUL blocData portant leurs
+     * placements respectifs, exactement comme le ferait commitBloc() : c'est ce qui
+     * garantit que classeBusy couvre bien TOUTES les classes de l'unité à ce créneau,
+     * même si une seule de leurs séances a déclenché le verrouillage (la cascade de
+     * verrouillage d'EmploiDuTempsVerrouillageService garantit en amont qu'elles sont
+     * toujours verrouillées ensemble, jamais séparément).
+     *
+     * @param GenerationUnit[] $unites
+     * @param Seance[] $seancesVerrouillees
+     * @param array<int, array<string, true>> $joursUtilisesParUnite
+     * @param array<int, int> $nbPremiereHeurePrefereeParUnite
+     * @return array<int, int> uniteObjectId (spl_object_id) => nombre d'heures déjà couvertes par un verrou
+     */
+    private function seederSeancesVerrouillees(
+        array $unites,
+        array $seancesVerrouillees,
+        array &$classeBusy,
+        array &$enseignantBusy,
+        array &$salleBusy,
+        array &$blocs,
+        int &$prochainBlocId,
+        array &$joursUtilisesParUnite,
+        array &$nbPremiereHeurePrefereeParUnite,
+    ): array {
+        $uniteParAttributionId = [];
+        foreach ($unites as $unite) {
+            foreach ($unite->attributions as $attribution) {
+                $uniteParAttributionId[$attribution->getId()] = $unite;
+            }
+        }
+
+        $groupes = [];
+        foreach ($seancesVerrouillees as $seance) {
+            $unite = $uniteParAttributionId[$seance->getAttribution()->getId()] ?? null;
+            if ($unite === null) {
+                // Attribution renommée/supprimée depuis le verrouillage (données
+                // désynchronisées) : séance orpheline, ignorée plutôt que de planter.
+                continue;
+            }
+
+            $cle = spl_object_id($unite).':'.$seance->getCreneau()->getId();
+            $groupes[$cle]['unite']     ??= $unite;
+            $groupes[$cle]['creneau']   ??= $seance->getCreneau();
+            $groupes[$cle]['seances'][]  = $seance;
+        }
+
+        $heuresVerrouilleesParUnite = [];
+
+        foreach ($groupes as $groupe) {
+            $unite   = $groupe['unite'];
+            $uniteId = spl_object_id($unite);
+            $creneau = $groupe['creneau'];
+
+            $placements     = [];
+            $clesEnseignant = [];
+            $clesSalle      = [];
+            foreach ($groupe['seances'] as $seance) {
+                $attribution      = $seance->getAttribution();
+                $placements[]     = ['attribution' => $attribution, 'creneau' => $creneau, 'salle' => $seance->getSalle()];
+                $clesEnseignant[] = "{$attribution->getEnseignant()->getId()}:{$creneau->getId()}";
+                $clesSalle[]      = "{$seance->getSalle()->getId()}:{$creneau->getId()}";
+            }
+
+            $clesClasse = [];
+            foreach ($unite->classes as $classe) {
+                $clesClasse[] = "{$classe->getId()}:{$creneau->getId()}";
+            }
+
+            $id       = $prochainBlocId++;
+            $blocData = [
+                'unite'          => $unite,
+                'uniteId'        => $uniteId,
+                'groupeCreneaux' => [$creneau],
+                'jour'           => $creneau->getJourSemaine()->value,
+                'placements'     => $placements,
+                'clesClasse'     => $clesClasse,
+                'clesEnseignant' => $clesEnseignant,
+                'clesSalle'      => $clesSalle,
+                'verrouille'     => true,
+            ];
+
+            $this->insererBlocBrut($id, $blocData, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
+
+            $heuresVerrouilleesParUnite[$uniteId] = ($heuresVerrouilleesParUnite[$uniteId] ?? 0) + 1;
+        }
+
+        return $heuresVerrouilleesParUnite;
+    }
+
+    /**
      * @param array<int, array<string, true>> $joursUtilisesParUnite
      * @param array<int, int> $nbPremiereHeurePrefereeParUnite
      * @return array{unite: GenerationUnit, uniteId: int, groupeCreneaux: Creneau[], jour: string, placements: array, clesClasse: string[], clesEnseignant: string[], clesSalle: string[]}
@@ -1581,10 +2102,19 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Attribue une salle standard "fixe" à chaque classe pour toute la génération
-     * (round-robin — si le nombre de salles standard est insuffisant, plusieurs
-     * classes partagent la même salle et le solveur le traduira naturellement en
-     * échecs de placement partiels, pas en double réservation silencieuse).
+     * Attribue une salle standard "fixe" à chaque classe pour toute la génération —
+     * chaque classe a SA PROPRE salle, du même nom (cf. la commande
+     * app:academic:generer-salles-depuis-classes : "les élèves restent en place, les
+     * enseignants circulent"), donc on fait correspondre le nom de la classe au nom de
+     * la salle en priorité, plutôt qu'un simple round-robin par position qui ignore ce
+     * lien et peut faire atterrir une classe dans la salle d'une AUTRE — source réelle
+     * d'un faux conflit de salle entre deux classes sans rapport (cf. mémoire projet,
+     * incident du 2026-09-12 : 1ère A42 assignée à la salle "6ème B" au lieu de la
+     * sienne). Round-robin conservé en repli, uniquement pour les classes sans salle
+     * homonyme (ne devrait pas arriver si la commande a été exécutée pour chaque
+     * classe) — si le nombre de salles restantes est insuffisant, plusieurs classes
+     * partagent alors la même salle et le solveur le traduira naturellement en échecs
+     * de placement partiels, pas en double réservation silencieuse.
      *
      * @param Classe[] $classes
      * @param Salle[] $sallesStandard
@@ -1592,14 +2122,35 @@ class EmploiDuTempsGenerator
      */
     private function assignerSallesAttitrees(array $classes, array $sallesStandard): array
     {
-        $mapping = [];
-        $n       = count($sallesStandard);
-        if ($n === 0) {
-            return $mapping;
+        $salleParNom = [];
+        foreach ($sallesStandard as $salle) {
+            $salleParNom[$salle->getNom()] = $salle;
         }
 
-        foreach (array_values($classes) as $i => $classe) {
-            $mapping[$classe->getId()] = $sallesStandard[$i % $n];
+        $mapping         = [];
+        $sallesUtilisees = [];
+        $classesRestantes = [];
+
+        foreach ($classes as $classe) {
+            $salle = $salleParNom[$classe->getNom()] ?? null;
+            if ($salle !== null) {
+                $mapping[$classe->getId()]        = $salle;
+                $sallesUtilisees[$salle->getId()] = true;
+            } else {
+                $classesRestantes[] = $classe;
+            }
+        }
+
+        $sallesRestantes = array_values(array_filter(
+            $sallesStandard,
+            static fn (Salle $s) => !isset($sallesUtilisees[$s->getId()]),
+        ));
+
+        $n = count($sallesRestantes);
+        if ($n > 0) {
+            foreach (array_values($classesRestantes) as $i => $classe) {
+                $mapping[$classe->getId()] = $sallesRestantes[$i % $n];
+            }
         }
 
         return $mapping;

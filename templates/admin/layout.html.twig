@@ -156,7 +156,11 @@
                 <i class="bi bi-grid-3x3-gap-fill"></i>
                 Vue globale
             </a>
-            <a href="{{ path('admin_edt_generate') }}" class="sidebar-link sidebar-link-accent {% if currentRoute == 'admin_edt_generate' %}active{% endif %}">
+            <a href="{{ path('admin_edt_personnaliser') }}" class="sidebar-link {% if currentRoute == 'admin_edt_personnaliser' %}active{% endif %}">
+                <i class="bi bi-person-gear"></i>
+                Personnaliser
+            </a>
+            <a href="{{ path('admin_edt_generate') }}" class="sidebar-link sidebar-link-accent {% if currentRoute in ['admin_edt_generate', 'admin_edt_reorganize'] %}active{% endif %}">
                 <i class="bi bi-lightning-charge-fill"></i>
                 Génération auto
             </a>

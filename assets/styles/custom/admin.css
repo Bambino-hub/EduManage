@@ -585,6 +585,38 @@
 }
 
 /* =============================================================
+   PERSONNALISER (edt_personnaliser_controller.js) — grille d'un seul
+   enseignant : sélection/déplacement + verrouillage par séance.
+   ============================================================= */
+
+.edtp-cell {
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.edtp-item {
+    padding: 2px 2px 2px 0;
+    border-radius: 3px;
+    cursor: grab;
+}
+
+.edtp-item.edtp-locked {
+    cursor: not-allowed;
+    background: #fdf3f0;
+}
+
+.edtp-selected {
+    outline: 2px solid var(--college-navy);
+    outline-offset: 1px;
+    border-radius: 3px;
+}
+
+.edtp-lock-btn {
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* =============================================================
    IMPRESSION — masque la navigation, garde le contenu pleine largeur.
    Générique : réutilisable sur n'importe quelle page admin (marquer les
    éléments à masquer avec .no-print, ex. boutons d'action, colonne Actions).

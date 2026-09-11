@@ -1,0 +1,159 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Personnaliser un emploi du temps — EduManage{% endblock %}
+{% block page_title %}Personnaliser l'emploi du temps{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">Personnaliser l'emploi du temps</h1>
+        <p class="text-muted mb-0" style="font-size:.85rem">
+            Choisissez un enseignant, ajustez ses séances si besoin, puis verrouillez celles à
+            préserver. Une séance verrouillée n'est plus jamais déplacée — même par une
+            « Réorganisation ».
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ path('admin_edt_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
+        <a href="{{ path('admin_edt_generate') }}" class="btn btn-sm" style="background:var(--college-orange);color:#fff">
+            <i class="bi bi-arrow-repeat me-1"></i>Réorganiser
+        </a>
+    </div>
+</div>
+
+<div class="admin-card mb-4">
+    <div class="admin-card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Enseignant</label>
+                <select name="enseignant" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">— Choisir un enseignant —</option>
+                    {% for enseignant in enseignants %}
+                        <option value="{{ enseignant.id }}" {{ enseignantObj and enseignantObj.id == enseignant.id ? 'selected' }}>
+                            {{ enseignant.nomComplet }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if annee is null %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            Aucune année scolaire active.
+        </div>
+    </div>
+{% elseif not enseignantObj %}
+    <div class="admin-card">
+        <div class="admin-card-body text-center text-muted py-5">
+            <i class="bi bi-person-gear display-6 d-block mb-2"></i>
+            Choisissez un enseignant pour personnaliser son emploi du temps.
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-warning d-flex gap-2 mb-3" style="font-size:.85rem">
+        <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+        <div>
+            Ici, le déplacement est <strong>totalement libre</strong> : n'importe quel
+            jour, n'importe quelle heure, <strong>sans vérification de conflit</strong>
+            (une autre classe/salle déjà occupée à ce créneau n'empêche pas le
+            déplacement). Placez la séance où vous la voulez, verrouillez-la (cadenas),
+            puis cliquez <strong>« Réorganiser »</strong> — c'est cette étape qui
+            replace tout le reste autour, sans jamais toucher aux séances verrouillées.
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-3 align-items-center mb-3" style="font-size:.8rem">
+        <span class="d-flex align-items-center gap-1">
+            <i class="bi bi-lock-fill text-danger"></i> Verrouillée (personnalisée) — jamais déplacée
+        </span>
+        <span class="d-flex align-items-center gap-1">
+            <i class="bi bi-unlock text-muted"></i> Libre — cliquez le cadenas pour verrouiller
+        </span>
+        <span class="text-muted">
+            Un clic sur une séance (elle se surligne), puis un clic sur une autre case
+            pour l'y déplacer (glisser-déposer possible aussi). Pas de double-clic.
+        </span>
+    </div>
+
+    {# Le conteneur data-controller doit envelopper TOUS les data-*-target utilisés par
+       ce contrôleur (dont l'alerte) — sinon Stimulus ne trouve pas la cible et
+       showAlert()/hideAlert() lèvent une exception qui casse silencieusement toute
+       action (déplacement ET verrouillage), cf. mémoire du 2026-09-11.
+       Route de déplacement dédiée (/personnaliser/deplacer, PAS /globale/permuter) :
+       ici aucune vérification de conflit, cf. EmploiDuTempsPersonnalisationService. #}
+    <div class="admin-card" data-controller="edt-personnaliser"
+         data-edt-personnaliser-move-url-value="{{ path('admin_edt_personnaliser_deplacer') }}"
+         data-edt-personnaliser-move-token-value="{{ csrf_token('edt_personnaliser_deplacer') }}"
+         data-edt-personnaliser-lock-url-value="{{ path('admin_edt_personnaliser_verrouiller') }}"
+         data-edt-personnaliser-lock-token-value="{{ csrf_token('edt_personnaliser_verrouiller') }}">
+        <div class="alert alert-danger d-none m-3" data-edt-personnaliser-target="alert"></div>
+        <div class="admin-card-header">
+            <h2 class="admin-card-title">{{ enseignantObj.nomComplet }}</h2>
+        </div>
+        <div class="admin-card-body p-0" style="overflow-x:auto">
+            <table class="table table-bordered align-middle mb-0 text-center edtp-grid" style="font-size:.8rem">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:70px">Heure</th>
+                        {% for jour in joursAffiches %}
+                            <th>{{ jour.label() }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ordre in 1..ordreMax %}
+                        <tr>
+                            <td class="text-muted fw-semibold bg-light">{{ ordre }}</td>
+                            {% for jour in joursAffiches %}
+                                {% set creneau = creneauxParJour[jour.value][ordre] ?? null %}
+                                {% set seancesCase = grille[jour.value][ordre] ?? [] %}
+                                {% if creneau is null %}
+                                    <td class="text-muted">—</td>
+                                {% elseif creneau.reserve %}
+                                    <td class="bg-light text-muted fst-italic small">{{ creneau.libelleReserve }}</td>
+                                {% else %}
+                                    <td class="edtp-cell" style="min-width:140px"
+                                        data-edt-personnaliser-target="cell"
+                                        data-creneau-id="{{ creneau.id }}"
+                                        data-action="dragover->edt-personnaliser#dragOver drop->edt-personnaliser#drop click->edt-personnaliser#cellClick">
+                                        {% if seancesCase is empty %}
+                                            <span class="text-muted edtp-empty">·</span>
+                                        {% else %}
+                                            {% for seance in seancesCase %}
+                                                {% if not loop.first %}<hr class="my-1">{% endif %}
+                                                <div class="edtp-item {{ seance.verrouille ? 'edtp-locked' }}"
+                                                     data-edt-personnaliser-target="item"
+                                                     data-seance-id="{{ seance.id }}"
+                                                     data-verrouille="{{ seance.verrouille ? '1' : '0' }}"
+                                                     draggable="{{ seance.verrouille ? 'false' : 'true' }}"
+                                                     data-action="click->edt-personnaliser#toggleSelect dragstart->edt-personnaliser#dragStart dragend->edt-personnaliser#dragEnd">
+                                                    <div class="d-flex align-items-center justify-content-between gap-1">
+                                                        <span class="fw-semibold" style="border-left:4px solid {{ seance.attribution.matiere.couleur }};padding-left:4px">
+                                                            {{ seance.attribution.matiere.code }}
+                                                        </span>
+                                                        <button type="button" class="btn btn-sm p-0 border-0 edtp-lock-btn"
+                                                                data-action="click->edt-personnaliser#toggleLock"
+                                                                title="{{ seance.verrouille ? 'Déverrouiller' : 'Verrouiller (personnaliser)' }}">
+                                                            <i class="bi {{ seance.verrouille ? 'bi-lock-fill text-danger' : 'bi-unlock text-muted' }}"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="text-muted" style="font-size:.72rem">{{ seance.attribution.classe.nom }}</div>
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

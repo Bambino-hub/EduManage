@@ -39,6 +39,17 @@ class Seance
     #[ORM\JoinColumn(nullable: false)]
     private ?Creneau $creneau = null;
 
+    /**
+     * Séance "personnalisée" : figée à son créneau/salle actuels. Ni
+     * EmploiDuTempsGenerator::generer() (reset total, purge tout) ni
+     * ::reorganiser() (préserve les verrous, ne purge que le reste) ne la déplacent
+     * jamais — voir la doc de ces deux méthodes pour le détail. Une permutation
+     * manuelle (EmploiDuTempsPermutationService) refuse aussi de déplacer une séance
+     * verrouillée (il faut d'abord la déverrouiller).
+     */
+    #[ORM\Column]
+    private bool $verrouille = false;
+
     public function getId(): ?int { return $this->id; }
 
     public function getAttribution(): ?Attribution { return $this->attribution; }
@@ -62,6 +73,14 @@ class Seance
     public function setCreneau(?Creneau $creneau): static
     {
         $this->creneau = $creneau;
+        return $this;
+    }
+
+    public function isVerrouille(): bool { return $this->verrouille; }
+
+    public function setVerrouille(bool $verrouille): static
+    {
+        $this->verrouille = $verrouille;
         return $this;
     }
 

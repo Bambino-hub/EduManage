@@ -100,9 +100,18 @@ final class EmploiDuTempsPermutationService
                 continue;
             }
 
-            $attribution = $seancesParId[$seanceId]->getAttribution();
+            $seance      = $seancesParId[$seanceId];
+            $attribution = $seance->getAttribution();
             $classeId    = $attribution->getClasse()->getId();
             $matiereId   = $attribution->getMatiere()->getId();
+
+            if ($seance->isVerrouille()) {
+                $erreurs[] = sprintf(
+                    '« %s » (%s) est verrouillée (personnalisée) : déverrouillez-la d\'abord pour la déplacer.',
+                    $attribution->getMatiere()->getNom(),
+                    $attribution->getClasse()->getNom(),
+                );
+            }
 
             if (isset($regroupementParClasseEtMatiere[$classeId][$matiereId])) {
                 $erreurs[] = sprintf(

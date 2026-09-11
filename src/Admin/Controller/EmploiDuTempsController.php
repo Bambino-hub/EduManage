@@ -9,6 +9,7 @@ use App\Academic\Repository\ClasseRepository;
 use App\Academic\Repository\SalleRepository;
 use App\Scheduling\Entity\Creneau;
 use App\Scheduling\Entity\EmploiDuTempsVersion;
+use App\Scheduling\Entity\Seance;
 use App\Scheduling\Enum\OrigineVersionEdt;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Repository\CreneauRepository;
@@ -19,6 +20,7 @@ use App\Scheduling\Service\EmploiDuTempsGenerator;
 use App\Scheduling\Service\EmploiDuTempsHistorique;
 use App\Scheduling\Service\GrilleEmploiDuTempsBuilder;
 use App\Scheduling\Service\EmploiDuTempsPermutationService;
+use App\Scheduling\Service\EmploiDuTempsPersonnalisationService;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use App\Staff\Repository\EnseignantRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -412,6 +414,120 @@ class EmploiDuTempsController extends AbstractController
     }
 
     /**
+     * « Personnaliser » : grille interactive d'UN enseignant — pour choisir ses séances à
+     * verrouiller (et, si besoin, les déplacer avant de les verrouiller). Le déplacement
+     * réutilise directement /globale/permuter (EmploiDuTempsPermutationService, déjà
+     * générique — il ne dépend pas de la vue globale), pas de service dédié. Une fois
+     * verrouillée, une séance survient telle quelle à une « Réorganisation »
+     * (EmploiDuTempsGenerator::reorganiser(), cf. generate()/reorganize()).
+     */
+    #[Route('/personnaliser', name: 'personnaliser')]
+    public function personnaliser(
+        Request $request,
+        AnneeScolaireRepository $anneeRepo,
+        EnseignantRepository $enseignantRepo,
+        SeanceRepository $seanceRepo,
+        CreneauRepository $creneauRepo,
+        GrilleEmploiDuTempsBuilder $grilleBuilder,
+    ): Response {
+        $annee       = $anneeRepo->findActive();
+        $enseignants = $enseignantRepo->findActifs();
+
+        $enseignantId  = $request->query->getInt('enseignant') ?: null;
+        $enseignantObj = $enseignantId ? $enseignantRepo->find($enseignantId) : null;
+
+        $seances = ($annee && $enseignantObj)
+            ? $seanceRepo->findByEnseignantEtAnnee($enseignantId, (int) $annee->getId())
+            : [];
+
+        [$creneauxParJour, $joursAffiches, $ordreMax] = $grilleBuilder->construireStructureCreneaux($creneauRepo);
+
+        return $this->render('admin/edt/personnaliser.html.twig', [
+            'annee'           => $annee,
+            'enseignants'     => $enseignants,
+            'enseignantObj'   => $enseignantObj,
+            'grille'          => $grilleBuilder->regrouperParCreneau($seances),
+            'creneauxParJour' => $creneauxParJour,
+            'joursAffiches'   => $joursAffiches,
+            'ordreMax'        => $ordreMax,
+        ]);
+    }
+
+    /**
+     * Déplace librement une séance (et sa cascade fusion/parallèle) vers n'importe quel
+     * créneau — SANS vérification de conflit enseignant/salle/classe, cf. la docblock
+     * d'EmploiDuTempsPersonnalisationService::deplacer(). Appelé en AJAX depuis
+     * personnaliser() ; volontairement une route dédiée, distincte de
+     * /globale/permuter (EmploiDuTempsPermutationService) qui reste strictement validée
+     * pour la vue globale.
+     */
+    #[Route('/personnaliser/deplacer', name: 'personnaliser_deplacer', methods: ['POST'])]
+    public function personnaliserDeplacer(
+        Request $request,
+        SeanceRepository $seanceRepo,
+        EmploiDuTempsPersonnalisationService $personnalisationService,
+    ): JsonResponse {
+        $payload = json_decode($request->getContent(), true);
+        if (!is_array($payload)) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Requête invalide.']], 400);
+        }
+
+        if (!$this->isCsrfTokenValid('edt_personnaliser_deplacer', (string) ($payload['_token'] ?? ''))) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Jeton de sécurité invalide, veuillez recharger la page.']], 403);
+        }
+
+        $seance = $seanceRepo->find((int) ($payload['seanceId'] ?? 0));
+        if ($seance === null) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Séance introuvable.']], 404);
+        }
+
+        $resultat = $personnalisationService->deplacer($seance, (int) ($payload['creneauId'] ?? 0));
+
+        return new JsonResponse(
+            ['succes' => $resultat['succes'], 'erreurs' => $resultat['erreurs']],
+            $resultat['succes'] ? 200 : 422,
+        );
+    }
+
+    /**
+     * Verrouille/déverrouille une séance (et sa cascade fusion/parallèle, cf.
+     * EmploiDuTempsPersonnalisationService) — appelé en AJAX depuis personnaliser().
+     */
+    #[Route('/personnaliser/verrouiller', name: 'personnaliser_verrouiller', methods: ['POST'])]
+    public function personnaliserVerrouiller(
+        Request $request,
+        SeanceRepository $seanceRepo,
+        EmploiDuTempsPersonnalisationService $personnalisationService,
+    ): JsonResponse {
+        $payload = json_decode($request->getContent(), true);
+        if (!is_array($payload)) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Requête invalide.']], 400);
+        }
+
+        if (!$this->isCsrfTokenValid('edt_personnaliser_verrouiller', (string) ($payload['_token'] ?? ''))) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Jeton de sécurité invalide, veuillez recharger la page.']], 403);
+        }
+
+        $seance = $seanceRepo->find((int) ($payload['seanceId'] ?? 0));
+        if ($seance === null) {
+            return new JsonResponse(['succes' => false, 'erreurs' => ['Séance introuvable.']], 404);
+        }
+
+        $verrouille = (bool) ($payload['verrouille'] ?? true);
+        $resultat   = $personnalisationService->basculerVerrou($seance, $verrouille);
+
+        return new JsonResponse(
+            [
+                'succes'     => $resultat['succes'],
+                'erreurs'    => $resultat['erreurs'],
+                'verrouille' => $verrouille,
+                'seanceIds'  => array_map(static fn (Seance $s) => $s->getId(), $resultat['seances']),
+            ],
+            $resultat['succes'] ? 200 : 422,
+        );
+    }
+
+    /**
      * Export PDF de la vue globale — même mise en page compacte que l'impression
      * navigateur. `?affichage=matiere` (défaut, 1 page A4 paysage, code matière seul) ou
      * `?affichage=enseignant` (matière + nom de l'enseignant par case, 1 page A3 paysage :
@@ -519,6 +635,7 @@ class EmploiDuTempsController extends AbstractController
         AttributionRepository $attributionRepo,
         CreneauRepository $creneauRepo,
         SalleRepository $salleRepo,
+        SeanceRepository $seanceRepo,
         EmploiDuTempsGenerator $generator,
         EmploiDuTempsHistorique $historique,
     ): Response {
@@ -581,11 +698,90 @@ class EmploiDuTempsController extends AbstractController
         }
 
         return $this->render('admin/edt/generate.html.twig', [
-            'annee'          => $annee,
-            'resultat'       => $resultat,
-            'nbAttributions' => $annee ? count($attributionRepo->findByAnneeScolaire((int) $annee->getId())) : 0,
-            'nbCreneaux'     => count($creneauRepo->findOrdonnes()),
-            'nbSalles'       => count($salleRepo->findAll()),
+            'annee'                 => $annee,
+            'resultat'              => $resultat,
+            'mode'                  => 'generer',
+            'nbAttributions'        => $annee ? count($attributionRepo->findByAnneeScolaire((int) $annee->getId())) : 0,
+            'nbCreneaux'            => count($creneauRepo->findOrdonnes()),
+            'nbSalles'              => count($salleRepo->findAll()),
+            'nbSeancesVerrouillees' => $annee ? count($seanceRepo->findVerrouilleesByAnneeScolaire((int) $annee->getId())) : 0,
+        ]);
+    }
+
+    /**
+     * « Réorganiser » : recalcule l'emploi du temps en respectant les séances
+     * verrouillées (personnalisées, cf. EmploiDuTempsPersonnalisationService) — contrairement
+     * à generate() qui repart entièrement de zéro. Même page de rapport (generate.html.twig),
+     * mêmes filets de sécurité (instantané historique avant/après, cf. commentaires de
+     * generate()).
+     */
+    #[Route('/reorganiser', name: 'reorganize', methods: ['POST'])]
+    public function reorganize(
+        Request $request,
+        AnneeScolaireRepository $anneeRepo,
+        AttributionRepository $attributionRepo,
+        CreneauRepository $creneauRepo,
+        SalleRepository $salleRepo,
+        SeanceRepository $seanceRepo,
+        EmploiDuTempsGenerator $generator,
+        EmploiDuTempsHistorique $historique,
+    ): Response {
+        $annee = $anneeRepo->findActive();
+
+        if (!$this->isCsrfTokenValid('reorganiser_edt', $request->getPayload()->getString('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+            return $this->redirectToRoute('admin_edt_generate');
+        }
+
+        if ($annee === null) {
+            $this->addFlash('error', 'Aucune année scolaire active. Activez une année avant de réorganiser.');
+            return $this->redirectToRoute('admin_edt_generate');
+        }
+
+        $historique->capturer(
+            $annee,
+            OrigineVersionEdt::PreGeneration,
+            'Emploi du temps existant, sauvegardé avant réorganisation du '
+                .(new \DateTimeImmutable())->format('d/m/Y à H\hi'),
+        );
+
+        $resultat = $generator->reorganiser($annee);
+
+        $historique->capturer(
+            $annee,
+            OrigineVersionEdt::Generation,
+            sprintf(
+                'Réorganisation du %s — %dh placées%s',
+                (new \DateTimeImmutable())->format('d/m/Y à H\hi'),
+                $resultat->heuresPlacees,
+                $resultat->heuresNonPlacees > 0 ? sprintf(', %dh non placées', $resultat->heuresNonPlacees) : '',
+            ),
+            $resultat,
+        );
+
+        if ($resultat->succes()) {
+            $this->addFlash('success', sprintf(
+                'Emploi du temps réorganisé : %d heures placées sans conflit (personnalisations respectées).',
+                $resultat->heuresPlacees,
+            ));
+        } elseif ($resultat->heuresPlacees > 0) {
+            $this->addFlash('warning', sprintf(
+                'Réorganisation partielle : %d heures placées, %d non placées (voir détail ci-dessous).',
+                $resultat->heuresPlacees,
+                $resultat->heuresNonPlacees,
+            ));
+        } else {
+            $this->addFlash('error', 'Rien n\'a pu être réorganisé (vérifiez les attributions, salles et créneaux).');
+        }
+
+        return $this->render('admin/edt/generate.html.twig', [
+            'annee'                 => $annee,
+            'resultat'              => $resultat,
+            'mode'                  => 'reorganiser',
+            'nbAttributions'        => count($attributionRepo->findByAnneeScolaire((int) $annee->getId())),
+            'nbCreneaux'            => count($creneauRepo->findOrdonnes()),
+            'nbSalles'              => count($salleRepo->findAll()),
+            'nbSeancesVerrouillees' => count($seanceRepo->findVerrouilleesByAnneeScolaire((int) $annee->getId())),
         ]);
     }
 

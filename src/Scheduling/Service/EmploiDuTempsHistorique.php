@@ -68,6 +68,7 @@ class EmploiDuTempsHistorique
                 $seance->getAttribution()->getId(),
                 $seance->getCreneau()->getId(),
                 $seance->getSalle()->getId(),
+                $seance->isVerrouille(),
             ];
         }
 
@@ -138,7 +139,11 @@ class EmploiDuTempsHistorique
         }
 
         $recreees = 0;
-        foreach ($version->getDonnees() as [$attributionId, $creneauId, $salleId]) {
+        foreach ($version->getDonnees() as $tuple) {
+            // array_pad : les instantanés pris avant l'ajout du verrouillage (2026-09-11)
+            // n'ont que 3 éléments — on les restaure sans verrou plutôt que de planter.
+            [$attributionId, $creneauId, $salleId, $verrouille] = array_pad($tuple, 4, false);
+
             $attribution = $attributionParId[$attributionId] ?? null;
             $creneau     = $creneauParId[$creneauId] ?? null;
             $salle       = $salleParId[$salleId] ?? null;
@@ -150,7 +155,8 @@ class EmploiDuTempsHistorique
             $seance = (new Seance())
                 ->setAttribution($attribution)
                 ->setCreneau($creneau)
-                ->setSalle($salle);
+                ->setSalle($salle)
+                ->setVerrouille((bool) $verrouille);
 
             $this->em->persist($seance);
             $recreees++;

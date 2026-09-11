@@ -16,7 +16,9 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Chaque génération automatique (et chaque enregistrement manuel) dépose une entrée
  * ici : la liste de toutes les séances est sérialisée en JSON sous la forme
- * `[[attributionId, creneauId, salleId], ...]`. On peut ainsi revenir sur une version
+ * `[[attributionId, creneauId, salleId, verrouille], ...]` (le 4ᵉ élément, ajouté le
+ * 2026-09-11, est absent des instantanés plus anciens — restaurer() le lit via
+ * array_pad() pour rester compatible). On peut ainsi revenir sur une version
  * antérieure pour la retravailler sans avoir relancé la génération.
  *
  * L'historique est borné (EmploiDuTempsHistorique::MAX_VERSIONS par année) : les
@@ -54,9 +56,10 @@ class EmploiDuTempsVersion
     private ?int $heuresNonPlacees = null;
 
     /**
-     * Liste des séances sérialisées : chaque élément est `[attributionId, creneauId, salleId]`.
+     * Liste des séances sérialisées : chaque élément est
+     * `[attributionId, creneauId, salleId, verrouille]`.
      *
-     * @var array<int, array{0: int, 1: int, 2: int}>
+     * @var array<int, array{0: int, 1: int, 2: int, 3?: bool}>
      */
     #[ORM\Column(type: Types::JSON)]
     private array $donnees = [];
@@ -111,10 +114,10 @@ class EmploiDuTempsVersion
         return $this;
     }
 
-    /** @return array<int, array{0: int, 1: int, 2: int}> */
+    /** @return array<int, array{0: int, 1: int, 2: int, 3?: bool}> */
     public function getDonnees(): array { return $this->donnees; }
 
-    /** @param array<int, array{0: int, 1: int, 2: int}> $donnees */
+    /** @param array<int, array{0: int, 1: int, 2: int, 3?: bool}> $donnees */
     public function setDonnees(array $donnees): static
     {
         $this->donnees = $donnees;

@@ -56,10 +56,11 @@
                                 génération — vous pourrez y revenir si le nouveau résultat ne convient pas.
                             </div>
                         </div>
-                        <form method="post">
+                        <form method="post" action="{{ path('admin_edt_generate') }}"
+                              onsubmit="return confirm('Repartir de zéro : TOUTES les séances, y compris les emplois du temps personnalisés (verrouillés), seront recalculées. Pour les préserver, utilisez plutôt « Réorganiser » ci-dessous. Continuer ?');">
                             <input type="hidden" name="_token" value="{{ csrf_token('generer_edt') }}">
                             <button type="submit" class="btn" style="background:var(--college-orange);color:#fff">
-                                <i class="bi bi-lightning-charge-fill me-1"></i>Lancer la génération
+                                <i class="bi bi-lightning-charge-fill me-1"></i>Lancer la génération (repart de zéro)
                             </button>
                         </form>
                     {% endif %}
@@ -67,12 +68,44 @@
             </div>
         </div>
 
+        {% if annee and nbAttributions > 0 %}
+        <div class="admin-card mb-4">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-arrow-repeat me-2 text-college-purple"></i>
+                    Réorganiser
+                </h2>
+                <a href="{{ path('admin_edt_personnaliser') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-person-gear me-1"></i>Personnaliser un enseignant
+                </a>
+            </div>
+            <div class="admin-card-body">
+                <div class="alert alert-info d-flex gap-2 mb-3" style="font-size:.85rem">
+                    <i class="bi bi-shield-lock-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Recalcule l'emploi du temps mais <strong>préserve les séances personnalisées
+                        (verrouillées)</strong> — actuellement <strong>{{ nbSeancesVerrouillees }}</strong>.
+                        Le reste est replacé autour d'elles en respectant les mêmes règles (conflits
+                        enseignant/classe/salle, EPS, FHR, 8ème heure…). L'état actuel est aussi sauvegardé
+                        dans l'<a href="{{ path('admin_edt_historique') }}">historique</a> avant l'opération.
+                    </div>
+                </div>
+                <form method="post" action="{{ path('admin_edt_reorganize') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('reorganiser_edt') }}">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-repeat me-1"></i>Réorganiser (respecte les personnalisations)
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
         {% if resultat %}
             <div class="admin-card">
                 <div class="admin-card-header">
                     <h2 class="admin-card-title">
                         <i class="bi bi-clipboard-check-fill me-2 text-college-purple"></i>
-                        Résultat de la génération
+                        Résultat de la {{ mode == 'reorganiser' ? 'réorganisation' : 'génération' }}
                     </h2>
                 </div>
                 <div class="admin-card-body">
