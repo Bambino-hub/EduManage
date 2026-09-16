@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Scheduling\Service;
 
+use App\Academic\Enum\TypeSalle;
+use App\Academic\Repository\SalleRepository;
 use App\Scheduling\Entity\Seance;
 use App\Scheduling\Repository\CreneauRepository;
 use App\Scheduling\Repository\RegroupementClasseRepository;
@@ -55,6 +57,7 @@ final class EmploiDuTempsPersonnalisationService
         private readonly SeanceRepository $seanceRepo,
         private readonly RegroupementClasseRepository $regroupementRepo,
         private readonly CreneauRepository $creneauRepo,
+        private readonly SalleRepository $salleRepo,
     ) {
     }
 
@@ -75,6 +78,11 @@ final class EmploiDuTempsPersonnalisationService
         foreach ($groupe as $s) {
             $s->setVerrouille($verrouille);
         }
+
+        if (!$verrouille) {
+            $this->corrigerSalleIncoherente($groupe);
+        }
+
         $this->em->flush();
 
         return ['succes' => true, 'erreurs' => [], 'seances' => $groupe];
@@ -175,6 +183,44 @@ final class EmploiDuTempsPersonnalisationService
         }
 
         return $affectees;
+    }
+
+    /**
+     * Remet un groupe de séances (cascade fusion/parallèle ou séance isolée) dans LA
+     * salle standard de sa classe — décision explicite de l'utilisateur (2026-09-16) :
+     * chaque classe a sa propre salle standard, unique, et TOUTES ses séances
+     * simultanées (matières parallèles ALL/ESP, TM/EM comprises) la PARTAGENT, plus
+     * besoin de chercher une 2ᵉ salle "flottante". Cette salle standard est créée/
+     * supprimée automatiquement avec la classe (cf. `ClasseController`), donc toujours
+     * censée exister — plus aucune notion de salle "libre mais empruntée" à gérer ici.
+     *
+     * Un groupe de classes fusionnées (`RegroupementClasse`) reçoit la salle de la
+     * PREMIÈRE classe du groupe (celle de la séance sur laquelle l'utilisateur a agi) —
+     * les deux classes sont physiquement réunies dans une seule salle par définition,
+     * peu importe laquelle des deux tant que c'est toujours la même pour tout le groupe.
+     *
+     * Utilisée au moment du DÉVERROUILLAGE dans `basculerVerrou()`, et pour un nettoyage
+     * global ponctuel de tout l'emploi du temps si besoin.
+     *
+     * @param Seance[] $groupe
+     */
+    public function corrigerSalleIncoherente(array $groupe): void
+    {
+        if ($groupe === []) {
+            return;
+        }
+
+        $classeCanonique = $groupe[0]->getAttribution()->getClasse();
+        $salle           = $this->salleRepo->findOneBy(['nom' => $classeCanonique->getNom(), 'type' => TypeSalle::STANDARD]);
+        if ($salle === null) {
+            return; // ne devrait pas arriver si chaque classe a bien sa salle standard
+        }
+
+        foreach ($groupe as $s) {
+            if ($s->getSalle()->getId() !== $salle->getId()) {
+                $s->setSalle($salle);
+            }
+        }
     }
 
     /**

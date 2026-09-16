@@ -110,6 +110,8 @@ class SeanceRepository extends ServiceEntityRepository
             ->addSelect('cl')
             ->join('a.matiere', 'm')
             ->addSelect('m')
+            ->join('s.salle', 'sa')
+            ->addSelect('sa')
             ->where('s.creneau = :creneauId')
             ->andWhere('cl.anneeScolaire = :anneeId')
             ->setParameter('creneauId', $creneauId)

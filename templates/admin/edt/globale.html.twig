@@ -82,9 +82,9 @@
                 dernière génération (conflit enseignant/salle, ou volume horaire de la classe supérieur aux créneaux
                 disponibles dans la semaine). Le détail par classe est dans le
                 <a href="{{ path('admin_edt_generate') }}">bilan de génération</a>. Les matières parallèles (ex.
-                Allemand/Espagnol, Travail Manuel/Enseignement Ménager) se déplacent ensemble, vers un créneau libre
-                pour les 2 — pas d'échange possible avec une autre matière depuis cette vue. Les classes fusionnées ne
-                peuvent pas être déplacées ici.
+                Allemand/Espagnol, Travail Manuel/Enseignement Ménager) et les classes fusionnées se déplacent
+                ensemble, vers un créneau où toutes les cases concernées sont libres — pas d'échange avec une autre
+                séance possible pour ces groupes depuis cette vue.
             </div>
         </div>
         <div class="admin-card">
@@ -136,9 +136,10 @@
                                                         <span class="text-muted edt-empty">·</span>
                                                     {% else %}
                                                         {% for s in seancesCase %}
-                                                            {% set fusionnee = (regroupementParClasseEtMatiere[classe.id][s.attribution.matiere.id] ?? null) is not null %}
+                                                            {% set regroupementId = regroupementParClasseEtMatiere[classe.id][s.attribution.matiere.id] ?? null %}
+                                                            {% set fusionnee = regroupementId is not null %}
                                                             <span
-                                                                class="fw-semibold{{ fusionnee ? '' : ' edt-seance-item' }}"
+                                                                class="fw-semibold edt-seance-item"
                                                                 data-edt-globale-target="item"
                                                                 data-seance-id="{{ s.id }}"
                                                                 data-classe-id="{{ classe.id }}"
@@ -147,15 +148,12 @@
                                                                 data-salle-id="{{ s.salle.id }}"
                                                                 data-matiere-code="{{ s.attribution.matiere.code }}"
                                                                 data-fusion="{{ fusionnee ? '1' : '0' }}"
-                                                                {% if fusionnee %}
-                                                                    title="{{ s.attribution.matiere.nom }} — {{ s.attribution.enseignant.nomComplet }} — classes fusionnées, non déplaçable ici"
-                                                                {% else %}
-                                                                    draggable="true"
-                                                                    role="button"
-                                                                    tabindex="0"
-                                                                    title="{{ s.attribution.matiere.nom }} — {{ s.attribution.enseignant.nomComplet }} — {{ seancesCase|length > 1 ? 'cliquer ou glisser pour déplacer le groupe (matières parallèles) vers un autre créneau' : 'cliquer ou glisser pour permuter' }}"
-                                                                    data-action="click->edt-globale#toggleSelect dragstart->edt-globale#dragStart dragend->edt-globale#dragEnd keydown.enter->edt-globale#toggleSelect"
-                                                                {% endif %}
+                                                                data-regroupement-id="{{ regroupementId ?? '' }}"
+                                                                draggable="true"
+                                                                role="button"
+                                                                tabindex="0"
+                                                                title="{{ s.attribution.matiere.nom }} — {{ s.attribution.enseignant.nomComplet }} — {{ fusionnee ? 'cliquer ou glisser pour déplacer le groupe (classes fusionnées) vers un autre créneau' : (seancesCase|length > 1 ? 'cliquer ou glisser pour déplacer le groupe (matières parallèles) vers un autre créneau' : 'cliquer ou glisser pour permuter') }}"
+                                                                data-action="click->edt-globale#toggleSelect dragstart->edt-globale#dragStart dragend->edt-globale#dragEnd keydown.enter->edt-globale#toggleSelect"
                                                             ><span class="edt-txt-matiere">{{ s.attribution.matiere.code }}</span><span class="edt-txt-enseignant">{{ s.attribution.matiere.code }} {{ s.attribution.enseignant.nom }}</span></span>
                                                         {% endfor %}
                                                     {% endif %}

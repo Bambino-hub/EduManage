@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Scheduling\Service;
 
 use App\Academic\Entity\AnneeScolaire;
+use App\Academic\Enum\TypeCycle;
+use App\Academic\Repository\MatiereNiveauRepository;
+use App\Scheduling\Entity\Attribution;
 use App\Scheduling\Entity\Creneau;
 use App\Scheduling\Entity\Seance;
 use App\Scheduling\Repository\CreneauRepository;
@@ -31,6 +34,7 @@ final class EmploiDuTempsPermutationService
         private readonly SeanceRepository $seanceRepo,
         private readonly CreneauRepository $creneauRepo,
         private readonly RegroupementClasseRepository $regroupementRepo,
+        private readonly MatiereNiveauRepository $matiereNiveauRepo,
     ) {
     }
 
@@ -57,7 +61,12 @@ final class EmploiDuTempsPermutationService
 
         $regroupementParClasseEtMatiere = $this->regroupementRepo->indexerParClasseEtMatiere();
 
-        $erreurs = $this->validerReferences($creneauParSeanceId, $seancesParId, $creneauxParId, $regroupementParClasseEtMatiere);
+        $erreurs = $this->validerReferences($creneauParSeanceId, $seancesParId, $creneauxParId);
+        if ($erreurs !== []) {
+            return new PermutationResult(false, $erreurs);
+        }
+
+        $erreurs = $this->validerCoherenceFusion($seances, $seancesParId, $creneauParSeanceId, $regroupementParClasseEtMatiere);
         if ($erreurs !== []) {
             return new PermutationResult(false, $erreurs);
         }
@@ -76,17 +85,14 @@ final class EmploiDuTempsPermutationService
     }
 
     /**
-     * Erreurs de forme : identifiants inconnus, ou séance faisant partie d'une fusion de
-     * classes (déplacer une seule des classes fusionnées casserait leur appariement —
-     * refusé plutôt que de silencieusement désynchroniser les 2 classes).
+     * Erreurs de forme : identifiants inconnus, ou séance verrouillée (personnalisée).
      *
      * @param array<int, int> $creneauParSeanceId
      * @param array<int, Seance> $seancesParId
      * @param array<int, Creneau> $creneauxParId
-     * @param array<int, array<int, int>> $regroupementParClasseEtMatiere
      * @return string[]
      */
-    private function validerReferences(array $creneauParSeanceId, array $seancesParId, array $creneauxParId, array $regroupementParClasseEtMatiere): array
+    private function validerReferences(array $creneauParSeanceId, array $seancesParId, array $creneauxParId): array
     {
         $erreurs = [];
 
@@ -102,8 +108,6 @@ final class EmploiDuTempsPermutationService
 
             $seance      = $seancesParId[$seanceId];
             $attribution = $seance->getAttribution();
-            $classeId    = $attribution->getClasse()->getId();
-            $matiereId   = $attribution->getMatiere()->getId();
 
             if ($seance->isVerrouille()) {
                 $erreurs[] = sprintf(
@@ -112,17 +116,77 @@ final class EmploiDuTempsPermutationService
                     $attribution->getClasse()->getNom(),
                 );
             }
+        }
 
-            if (isset($regroupementParClasseEtMatiere[$classeId][$matiereId])) {
+        return $erreurs;
+    }
+
+    /**
+     * Une classe fusionnée (`RegroupementClasse`) partage TOUJOURS le même créneau pour
+     * cette matière avec l'autre (les) classe(s) fusionnée(s) — c'est une seule séance
+     * pédagogique vécue à plusieurs. Un déplacement doit donc porter sur TOUT le groupe
+     * à la fois, vers le même nouveau créneau, jamais sur une seule des classes (ce qui
+     * désynchroniserait durablement leur appariement, sans qu'aucun garde-fou du
+     * générateur ne puisse le corriger après coup).
+     *
+     * @param Seance[] $seances
+     * @param array<int, Seance> $seancesParId
+     * @param array<int, int> $creneauParSeanceId
+     * @param array<int, array<int, int>> $regroupementParClasseEtMatiere
+     * @return string[]
+     */
+    private function validerCoherenceFusion(array $seances, array $seancesParId, array $creneauParSeanceId, array $regroupementParClasseEtMatiere): array
+    {
+        $erreurs = [];
+
+        $regroupementIdParSeance = static function (Seance $s) use ($regroupementParClasseEtMatiere): ?int {
+            $a = $s->getAttribution();
+            return $regroupementParClasseEtMatiere[$a->getClasse()->getId()][$a->getMatiere()->getId()] ?? null;
+        };
+
+        $groupesSourceDejaVerifies = [];
+        foreach ($creneauParSeanceId as $seanceId => $nouveauCreneauId) {
+            $seance         = $seancesParId[$seanceId];
+            $regroupementId = $regroupementIdParSeance($seance);
+            if ($regroupementId === null) {
+                continue;
+            }
+
+            $creneauActuelId = $seance->getCreneau()->getId();
+            $cle             = $regroupementId . ':' . $creneauActuelId;
+            if (isset($groupesSourceDejaVerifies[$cle])) {
+                continue;
+            }
+            $groupesSourceDejaVerifies[$cle] = true;
+
+            $membres = array_values(array_filter(
+                $seances,
+                static fn (Seance $s) => $s->getCreneau()->getId() === $creneauActuelId && $regroupementIdParSeance($s) === $regroupementId,
+            ));
+
+            $nomMatiere    = $seance->getAttribution()->getMatiere()->getNom();
+            $creneauxCibles = [];
+            foreach ($membres as $membre) {
+                if (!isset($creneauParSeanceId[$membre->getId()])) {
+                    $erreurs[] = sprintf(
+                        '« %s » concerne des classes fusionnées : %s doit être déplacée avec les autres, pas toute seule.',
+                        $nomMatiere,
+                        $membre->getAttribution()->getClasse()->getNom(),
+                    );
+                    continue;
+                }
+                $creneauxCibles[] = $creneauParSeanceId[$membre->getId()];
+            }
+
+            if ($creneauxCibles !== [] && count(array_unique($creneauxCibles)) > 1) {
                 $erreurs[] = sprintf(
-                    '« %s » (%s) concerne des classes fusionnées : elle ne peut pas être déplacée seule.',
-                    $attribution->getMatiere()->getNom(),
-                    $attribution->getClasse()->getNom(),
+                    '« %s » concerne des classes fusionnées : elles doivent toutes être déplacées vers le même créneau.',
+                    $nomMatiere,
                 );
             }
         }
 
-        return $erreurs;
+        return array_values(array_unique($erreurs));
     }
 
     /**
@@ -176,6 +240,24 @@ final class EmploiDuTempsPermutationService
             return count($ids) === count($groupe) && !in_array(null, $ids, true) && count(array_unique($ids)) === 1;
         };
 
+        // Salle partagée entre 2 matières parallèles (ALL/ESP, TM/EM) de la MÊME classe :
+        // pas un conflit non plus depuis que chaque classe n'a plus qu'UNE seule salle
+        // standard, partagée par toutes ses séances simultanées (décision utilisateur du
+        // 2026-09-16 — cf. EmploiDuTempsGenerator::resoudreSalles()). Ne s'applique qu'à
+        // la salle : l'enseignant, lui, reste bien différent entre ALL et ESP, donc le
+        // contrôle enseignant n'a pas besoin de cette exemption.
+        $estParalleleMemeClasseCoherente = static function (array $groupe): bool {
+            $classeIds = array_map(static fn (Seance $s) => $s->getAttribution()->getClasse()->getId(), $groupe);
+            if (count(array_unique($classeIds)) !== 1) {
+                return false;
+            }
+            $groupesOptionnels = array_map(
+                static fn (Seance $s) => $s->getAttribution()->getMatiere()->getGroupeOptionnel()?->value,
+                $groupe,
+            );
+            return !in_array(null, $groupesOptionnels, true) && count(array_unique($groupesOptionnels)) === 1;
+        };
+
         foreach ($parCreneauEnseignant as $groupe) {
             if (count($groupe) > 1 && !$estFusionCoherente($groupe)) {
                 $enseignant = $groupe[0]->getAttribution()->getEnseignant();
@@ -184,7 +266,7 @@ final class EmploiDuTempsPermutationService
         }
 
         foreach ($parCreneauSalle as $groupe) {
-            if (count($groupe) > 1 && !$estFusionCoherente($groupe)) {
+            if (count($groupe) > 1 && !$estFusionCoherente($groupe) && !$estParalleleMemeClasseCoherente($groupe)) {
                 $salle     = $groupe[0]->getSalle();
                 $erreurs[] = sprintf('La salle %s serait utilisée par deux classes au même créneau.', $salle->getNom());
             }
@@ -271,6 +353,76 @@ final class EmploiDuTempsPermutationService
             }
         }
 
+        // Volume horaire maximal par jour pour une même matière d'une même classe — même
+        // règle que le générateur automatique (EmploiDuTempsGenerator::decomposerHeures()/
+        // placerUniteCollegeSixHeures()) : lycée jamais plus de 2h/jour (jamais 3h), EPS
+        // jamais plus d'1h/jour quel que soit le cycle, collège 1h/jour sauf le cas
+        // spécial 6h/semaine (ex. Français) qui autorise une "journée double" de 2h. On ne
+        // contrôle que les paires (classe, matière) effectivement touchées par ce lot — une
+        // violation préexistante sans rapport avec le changement demandé ne doit pas le bloquer.
+        $pairesTouchees = [];
+        foreach ($creneauParSeanceId as $seanceId => $creneauId) {
+            $a = $seancesParId[$seanceId]->getAttribution();
+            $pairesTouchees[$a->getClasse()->getId() . ':' . $a->getMatiere()->getId()] = true;
+        }
+
+        if ($pairesTouchees !== []) {
+            $parPaireEtJour = [];
+            foreach ($seances as $seance) {
+                $a   = $seance->getAttribution();
+                $cle = $a->getClasse()->getId() . ':' . $a->getMatiere()->getId();
+                if (!isset($pairesTouchees[$cle])) {
+                    continue;
+                }
+                $jour = $creneauxParId[$creneauFinalParSeanceId[$seance->getId()]]->getJourSemaine()->value;
+                $parPaireEtJour[$cle][$jour][] = $seance;
+            }
+
+            foreach ($parPaireEtJour as $parJour) {
+                foreach ($parJour as $seancesDuJour) {
+                    $attribution = $seancesDuJour[0]->getAttribution();
+                    $max         = $this->capaciteMaxHeuresParJour($attribution);
+                    if (count($seancesDuJour) > $max) {
+                        $erreurs[] = sprintf(
+                            '%s (%s) : %d séances le même jour dépasse le maximum autorisé (%dh/jour).',
+                            $attribution->getMatiere()->getNom(),
+                            $attribution->getClasse()->getNom(),
+                            count($seancesDuJour),
+                            $max,
+                        );
+                    }
+                }
+            }
+        }
+
         return array_values(array_unique($erreurs));
+    }
+
+    /**
+     * Volume horaire maximal, pour une même matière d'une même classe, autorisé en UNE
+     * seule journée — même règle que `EmploiDuTempsGenerator::decomposerHeures()` :
+     * EPS jamais plus d'1h/jour (quel que soit le cycle) ; lycée jamais plus de 2h/jour
+     * (un bloc de 2h maximum, jamais 3h) ; collège 1h/jour, sauf le cas spécial 6h/semaine
+     * (ex. Français) qui autorise une "journée double" de 2h pour caser 6h sur 5 jours.
+     */
+    private function capaciteMaxHeuresParJour(Attribution $attribution): int
+    {
+        $matiere = $attribution->getMatiere();
+
+        if ($matiere->getCode() === 'EPS') {
+            return 1;
+        }
+
+        $cycle = $attribution->getClasse()->getNiveau()->getCycle()->getType();
+        if ($cycle === TypeCycle::LYCEE) {
+            return 2;
+        }
+
+        $matiereNiveau = $this->matiereNiveauRepo->findOneByMatiereEtNiveau($matiere, $attribution->getClasse()->getNiveau());
+        if ($matiereNiveau !== null && (int) round((float) $matiereNiveau->getHeuresParSemaine()) === 6) {
+            return 2;
+        }
+
+        return 1;
     }
 }

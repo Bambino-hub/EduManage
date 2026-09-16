@@ -11,10 +11,20 @@ import { Controller } from '@hotwired/stimulus';
  *
  * L'unité de sélection est toujours LE GROUPE de séances occupant la case cliquée (1
  * séance normalement, 2+ pour des matières parallèles) : les déplacer une par une
- * désynchroniserait un état qui doit rester groupé. Un groupe de plusieurs séances ne
- * peut être déposé que sur une case VIDE (pas d'échange multi-séances dans cette
- * version) ; une séance seule peut en revanche s'échanger avec une autre séance seule.
- * Les séances de classes fusionnées (data-fusion="1") restent, elles, non déplaçables.
+ * désynchroniserait un état qui doit rester groupé. Un groupe peut être déposé sur une
+ * case VIDE, ou ÉCHANGÉ avec les séances d'une case déjà occupée quelle que soit la
+ * taille de chaque côté (1 séance contre 1, groupe contre 1, groupe contre groupe) —
+ * seules les classes fusionnées ne sont jamais un partenaire d'échange valide (elles ont
+ * leur propre logique, voir plus bas).
+ *
+ * Les séances de classes fusionnées (data-fusion="1", ex. 1ère C / 1ère D1) suivent une
+ * logique à part : le "groupe" n'est plus les séances d'UNE case, mais toutes les
+ * séances qui partagent le même data-regroupement-id au même créneau, RÉPARTIES SUR
+ * PLUSIEURS COLONNES (une par classe fusionnée) — elles représentent une seule séance
+ * pédagogique vécue par 2+ classes ensemble, même enseignant, même salle. Un créneau
+ * cible n'est valide que si la case de CHAQUE classe du groupe y est vide (toujours pas
+ * d'échange pour ces groupes dans cette version) ; voir highlightFusionTargets()/
+ * moveFusionGroupTo().
  *
  * Tout reste en mémoire côté client jusqu'au clic sur "Enregistrer" (l'unique source de
  * vérité côté serveur revalide tout avant d'écrire en base) ; "Annuler" recharge
@@ -67,7 +77,7 @@ export default class extends Controller {
 
     selectItem(item) {
         this.clearHighlights();
-        const group = this.itemsInCell(item.closest('td'));
+        const group = item.dataset.fusion === '1' ? this.itemsInFusionGroup(item) : this.itemsInCell(item.closest('td'));
         this.selectedGroup = group;
         group.forEach((i) => i.classList.add('edt-selected'));
         this.highlightTargets(group);
@@ -140,6 +150,13 @@ export default class extends Controller {
         return { busyEnseignant, busySalle };
     }
 
+    /** Toutes les séances d'un même regroupement (classes fusionnées) au même créneau que `item`. */
+    itemsInFusionGroup(item) {
+        const regroupementId = item.dataset.regroupementId;
+        const creneauId = item.dataset.creneauId;
+        return this.itemTargets.filter((it) => it.dataset.regroupementId === regroupementId && it.dataset.creneauId === creneauId);
+    }
+
     itemsInCell(cell) {
         return this.itemTargets.filter((it) => cell.contains(it));
     }
@@ -182,6 +199,11 @@ export default class extends Controller {
     }
 
     highlightTargets(group) {
+        if (group[0].dataset.fusion === '1') {
+            this.highlightFusionTargets(group);
+            return;
+        }
+
         const { busyEnseignant, busySalle } = this.buildBusyMaps();
         const classeId = group[0].dataset.classeId;
         const sourceCreneauId = group[0].dataset.creneauId;
@@ -209,34 +231,35 @@ export default class extends Controller {
                 return;
             }
 
-            // Case cible occupée : échange pris en charge uniquement séance-seule contre
-            // séance-seule (pas d'échange impliquant un groupe de matières parallèles).
-            if (group.length !== 1 || occupants.length !== 1) {
+            // Case cible occupée : échange group ↔ occupants, quelle que soit la taille
+            // de chaque côté (1 séance seule, ou un groupe de matières parallèles) — sauf
+            // si l'un des occupants est une classe fusionnée (jamais échangeable ici).
+            if (occupants.some((o) => o.dataset.fusion === '1')) {
                 return;
             }
-
-            const item = group[0];
-            const occupant = occupants[0];
-            if (occupant.dataset.fusion === '1') {
+            if (!group.every((item) => this.reglesRespectees(item.dataset.matiereCode, cell.dataset))) {
                 return;
             }
-            if (!this.reglesRespectees(item.dataset.matiereCode, cell.dataset)) {
+            if (!occupants.every((o) => this.reglesRespectees(o.dataset.matiereCode, sourceCellDataset))) {
                 return;
             }
 
             const targetCreneauId = cell.dataset.creneauId;
-            const enseignantOccupantCible = busyEnseignant.get(targetCreneauId)?.get(item.dataset.enseignantId);
-            const salleOccupantCible = busySalle.get(targetCreneauId)?.get(item.dataset.salleId);
-            if ((enseignantOccupantCible && enseignantOccupantCible !== occupant) || (salleOccupantCible && salleOccupantCible !== occupant)) {
+            const cibleOk = group.every((item) => {
+                const ens = busyEnseignant.get(targetCreneauId)?.get(item.dataset.enseignantId);
+                const sal = busySalle.get(targetCreneauId)?.get(item.dataset.salleId);
+                return (!ens || occupants.includes(ens)) && (!sal || occupants.includes(sal));
+            });
+            if (!cibleOk) {
                 return;
             }
 
-            if (!this.reglesRespectees(occupant.dataset.matiereCode, sourceCellDataset)) {
-                return;
-            }
-            const enseignantOccupantSource = busyEnseignant.get(sourceCreneauId)?.get(occupant.dataset.enseignantId);
-            const salleOccupantSource = busySalle.get(sourceCreneauId)?.get(occupant.dataset.salleId);
-            if ((enseignantOccupantSource && enseignantOccupantSource !== item) || (salleOccupantSource && salleOccupantSource !== item)) {
+            const sourceOk = occupants.every((o) => {
+                const ens = busyEnseignant.get(sourceCreneauId)?.get(o.dataset.enseignantId);
+                const sal = busySalle.get(sourceCreneauId)?.get(o.dataset.salleId);
+                return (!ens || group.includes(ens)) && (!sal || group.includes(sal));
+            });
+            if (!sourceOk) {
                 return;
             }
 
@@ -244,13 +267,62 @@ export default class extends Controller {
         });
     }
 
+    /**
+     * Cibles valides pour un groupe de classes fusionnées : le groupe est réparti sur
+     * PLUSIEURS colonnes (une par classe fusionnée) au créneau source. Un créneau cible
+     * n'est valide que si la case de CHAQUE classe du groupe y existe et est vide (même
+     * restriction que les groupes de matières parallèles : pas d'échange dans cette
+     * version), et si l'enseignant/la salle partagés du groupe ne sont pas déjà occupés
+     * ailleurs à ce créneau par une séance extérieure au groupe.
+     */
+    highlightFusionTargets(group) {
+        const { busyEnseignant, busySalle } = this.buildBusyMaps();
+        const sourceCreneauId = group[0].dataset.creneauId;
+        const enseignantId = group[0].dataset.enseignantId;
+        const salleId = group[0].dataset.salleId;
+        const enseignantIds = new Set(group.map((i) => i.dataset.enseignantId));
+
+        this.itemTargets.forEach((other) => {
+            if (!group.includes(other) && enseignantIds.has(other.dataset.enseignantId)) {
+                other.closest('td')?.classList.add('edt-prof-busy');
+            }
+        });
+
+        const creneauIds = new Set(this.cellTargets.map((c) => c.dataset.creneauId));
+        creneauIds.forEach((creneauId) => {
+            if (creneauId === sourceCreneauId) {
+                return;
+            }
+
+            const cellsCibles = group.map((item) =>
+                this.cellTargets.find((c) => c.dataset.creneauId === creneauId && c.dataset.classeId === item.dataset.classeId),
+            );
+            if (cellsCibles.some((c) => !c || this.itemsInCell(c).length > 0)) {
+                return; // classe introuvable à ce créneau, ou case déjà occupée
+            }
+            if (group.some((item, i) => !this.reglesRespectees(item.dataset.matiereCode, cellsCibles[i].dataset))) {
+                return;
+            }
+            if (busyEnseignant.get(creneauId)?.has(enseignantId) || busySalle.get(creneauId)?.has(salleId)) {
+                return; // enseignant/salle du groupe déjà pris ailleurs à ce créneau
+            }
+
+            cellsCibles.forEach((c) => c.classList.add('edt-drop-valid'));
+        });
+    }
+
     // --- Application du déplacement (état client, en attente d'enregistrement) -------
 
     moveGroupTo(group, targetCell) {
+        if (group[0].dataset.fusion === '1') {
+            this.moveFusionGroupTo(group, targetCell);
+            return;
+        }
+
         const sourceCell = group[0].closest('td');
         const sourceCreneauId = sourceCell.dataset.creneauId;
         const targetCreneauId = targetCell.dataset.creneauId;
-        const occupant = group.length === 1 ? (this.itemsInCell(targetCell)[0] ?? null) : null;
+        const occupants = this.itemsInCell(targetCell);
 
         group.forEach((item) => {
             targetCell.appendChild(item);
@@ -258,14 +330,31 @@ export default class extends Controller {
             this.stagePending(item, targetCreneauId);
         });
 
-        if (occupant) {
+        occupants.forEach((occupant) => {
             sourceCell.appendChild(occupant);
             occupant.dataset.creneauId = sourceCreneauId;
             this.stagePending(occupant, sourceCreneauId);
-        }
+        });
 
         this.toggleEmptyPlaceholder(sourceCell);
         this.toggleEmptyPlaceholder(targetCell);
+        this.updatePendingCount();
+    }
+
+    /** Déplace chaque membre du groupe fusionné vers SA PROPRE colonne au créneau cible (targetCell n'est que la case cliquée/déposée, une parmi celles du groupe). */
+    moveFusionGroupTo(group, targetCell) {
+        const targetCreneauId = targetCell.dataset.creneauId;
+
+        group.forEach((item) => {
+            const sourceCell = item.closest('td');
+            const cell = this.cellTargets.find((c) => c.dataset.creneauId === targetCreneauId && c.dataset.classeId === item.dataset.classeId);
+            cell.appendChild(item);
+            item.dataset.creneauId = targetCreneauId;
+            this.stagePending(item, targetCreneauId);
+            this.toggleEmptyPlaceholder(sourceCell);
+            this.toggleEmptyPlaceholder(cell);
+        });
+
         this.updatePendingCount();
     }
 

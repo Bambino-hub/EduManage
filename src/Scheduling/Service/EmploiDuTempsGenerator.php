@@ -226,7 +226,7 @@ class EmploiDuTempsGenerator
                 $idealParIndex[$index] = $resultat['ideal'];
 
                 $raisons = $resultat['heures'] < $unite->heures
-                    ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
+                    ? [$this->raisonEchec($unite, $classeSalleMap)]
                     : [];
                 $resultatsUnites[] = new UnitResult($unite->libelle, $unite->heures, $resultat['heures'], $raisons);
             }
@@ -519,7 +519,7 @@ class EmploiDuTempsGenerator
                 $heuresPlaceesTotal      += $heuresPlaceesEffectives;
 
                 $raisons = $heuresPlaceesEffectives < $unite->heures
-                    ? [$this->raisonEchec($unite, $classeSalleMap, $sallesParType)]
+                    ? [$this->raisonEchec($unite, $classeSalleMap)]
                     : [];
                 $resultatsUnites[] = new UnitResult($unite->libelle, $unite->heures, $heuresPlaceesEffectives, $raisons);
             }
@@ -1208,64 +1208,32 @@ class EmploiDuTempsGenerator
     }
 
     /**
-     * Résout une salle par Attribution du groupe (attitrée pour les matières standards,
-     * cherchée dans le pool spécialisé sinon), libre sur TOUS les créneaux du bloc. Si
-     * deux attributions du groupe partagent le même enseignant (ex. classes fusionnées
-     * pour une matière : même professeur pour les deux classes), elles reçoivent
-     * obligatoirement la même salle — un enseignant ne peut pas être à deux endroits en
-     * même temps, indépendamment de ce que dit chaque classe attitrée.
+     * Résout la salle du groupe : TOUJOURS la salle standard attitrée de la classe,
+     * quelle que soit la matière — plus de salle spécialisée (labo/info/gymnase) ni de
+     * salle "flottante" supplémentaire pour les matières parallèles (ALL/ESP, TM/EM) ou
+     * les classes fusionnées. Décision explicite de l'utilisateur (2026-09-16) : chaque
+     * classe a sa propre salle standard (créée/supprimée automatiquement avec la classe,
+     * cf. ClasseController), et toutes ses séances simultanées la PARTAGENT — plus besoin
+     * de chercher une 2ᵉ salle, donc plus jamais de conflit avec le homeroom d'une autre
+     * classe. Le groupe entier (parallèle ou fusion) reçoit la salle de la PREMIÈRE
+     * classe de l'unité (`$unite->classes[0]`) — pour une fusion, les deux classes sont
+     * physiquement réunies dans une seule salle par définition, peu importe laquelle des
+     * deux est "canonique" tant que c'est toujours la même à chaque résolution.
      *
      * @param Creneau[] $groupeCreneaux
      * @param array<int, Salle> $classeSalleMap
-     * @param array<string, Salle[]> $sallesParType
      * @return array<int, Salle>|null clé = id de l'Attribution
      */
-    private function resoudreSalles(GenerationUnit $unite, array $groupeCreneaux, array $classeSalleMap, array $sallesParType, array $salleBusy): ?array
+    private function resoudreSalles(GenerationUnit $unite, array $groupeCreneaux, array $classeSalleMap, array $salleBusy): ?array
     {
-        $resultat           = [];
-        $sallesRetenues      = []; // ids déjà pris DANS cette résolution — un groupe parallèle a besoin
-                                    // de salles distinctes pour ses membres simultanés, jamais la même deux fois
-        $salleParEnseignant = []; // enseignantId => Salle déjà retenue dans cette résolution
+        $salle = $classeSalleMap[$unite->classes[0]->getId()] ?? null;
+        if ($salle === null || !$this->salleLibreSurGroupe($salle, $groupeCreneaux, $salleBusy)) {
+            return null;
+        }
 
+        $resultat = [];
         foreach ($unite->attributions as $attribution) {
-            $enseignantId = $attribution->getEnseignant()->getId();
-
-            if (isset($salleParEnseignant[$enseignantId])) {
-                $resultat[$attribution->getId()] = $salleParEnseignant[$enseignantId];
-                continue;
-            }
-
-            $typeRequis = $attribution->getMatiere()->getSalleRequise();
-
-            if ($typeRequis === null) {
-                // La salle attitrée de la classe est essayée en priorité ; si elle est déjà prise
-                // par un autre membre du même groupe parallèle (ex. ALL a pris la salle de la classe,
-                // ESP a besoin d'une autre salle standard au même moment), on pioche dans le pool.
-                $salleAttitree = $classeSalleMap[$attribution->getClasse()->getId()] ?? null;
-                $candidats     = array_values(array_filter(
-                    [$salleAttitree, ...($sallesParType[TypeSalle::STANDARD->value] ?? [])],
-                    static fn (?Salle $s) => $s !== null,
-                ));
-            } else {
-                $candidats = $this->shuffleArray($sallesParType[$typeRequis->value] ?? []);
-            }
-
-            $trouve = null;
-            foreach ($candidats as $salle) {
-                if (in_array($salle->getId(), $sallesRetenues, true)) {
-                    continue;
-                }
-                if ($this->salleLibreSurGroupe($salle, $groupeCreneaux, $salleBusy)) {
-                    $trouve = $salle;
-                    break;
-                }
-            }
-            if ($trouve === null) {
-                return null;
-            }
-            $resultat[$attribution->getId()]   = $trouve;
-            $sallesRetenues[]                  = $trouve->getId();
-            $salleParEnseignant[$enseignantId] = $trouve;
+            $resultat[$attribution->getId()] = $salle;
         }
 
         return $resultat;
@@ -1478,7 +1446,7 @@ class EmploiDuTempsGenerator
             if (isset($joursUtilises[$jour]) || !$this->candidatValide($unite, $groupeCreneaux, $classeBusy, $enseignantBusy)) {
                 continue;
             }
-            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $sallesParType, $salleBusy);
+            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $salleBusy);
             if ($salles === null) {
                 continue;
             }
@@ -1522,7 +1490,7 @@ class EmploiDuTempsGenerator
 
             // La salle se résout APRÈS éviction : une salle libérée par une victime doit
             // compter comme disponible pour le nouveau bloc.
-            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $sallesParType, $salleBusy);
+            $salles = $this->resoudreSalles($unite, $groupeCreneaux, $classeSalleMap, $salleBusy);
             if ($salles === null) {
                 $this->annulerDepuis($journal, $pointDeReprise, $classeBusy, $enseignantBusy, $salleBusy, $blocs, $joursUtilisesParUnite, $nbPremiereHeurePrefereeParUnite);
                 continue; // conflit de salle en plus du conflit classe/enseignant : pas réparable ici
@@ -2156,17 +2124,11 @@ class EmploiDuTempsGenerator
         return $mapping;
     }
 
-    /** @param array<int, Salle> $classeSalleMap @param array<string, Salle[]> $sallesParType */
-    private function raisonEchec(GenerationUnit $unite, array $classeSalleMap, array $sallesParType): string
+    /** @param array<int, Salle> $classeSalleMap */
+    private function raisonEchec(GenerationUnit $unite, array $classeSalleMap): string
     {
-        foreach ($unite->attributions as $attribution) {
-            $typeRequis = $attribution->getMatiere()->getSalleRequise();
-            if ($typeRequis !== null && ($sallesParType[$typeRequis->value] ?? []) === []) {
-                return "Aucune salle de type « {$typeRequis->label()} » disponible.";
-            }
-            if ($typeRequis === null && !isset($classeSalleMap[$attribution->getClasse()->getId()])) {
-                return 'Aucune salle standard disponible pour cette classe.';
-            }
+        if (!isset($classeSalleMap[$unite->classes[0]->getId()])) {
+            return 'Aucune salle standard attitrée pour cette classe.';
         }
 
         return 'Aucun créneau disponible même après tentative de réparation locale (déplacement d\'autres séances) — conflit enseignant/classe trop contraint.';
