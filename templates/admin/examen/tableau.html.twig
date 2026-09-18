@@ -19,6 +19,9 @@
         <h1 class="h4 mb-1">{{ entete ?: 'Programme des devoirs — ' ~ cycle.nom }}</h1>
         <p class="text-muted mb-0 small">{{ annee ? 'Année scolaire ' ~ annee.libelle : 'Aucune année scolaire active' }}</p>
     </div>
+    <a href="{{ path('admin_examen_index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
 </div>
 
 <form method="get" class="card card-body mb-3 border-0 shadow-sm" style="background:#f8f9fb">
