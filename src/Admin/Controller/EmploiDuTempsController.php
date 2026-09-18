@@ -558,9 +558,12 @@ class EmploiDuTempsController extends AbstractController
         [$reserveRowspan, $reserveContinuation]        = $this->calculerRunsReserves($creneauxParJour);
 
         $avecEnseignant = $request->query->getString('affichage', 'matiere') === 'enseignant';
-        // Budget testé empiriquement sur les 2 variantes (matière/enseignant) — cf.
-        // calculerSautsDePage().
-        $joursSautDePage = $this->calculerSautsDePage($creneauxParJour, $joursAffiches, 15);
+        // Budget relevé à 22 (au lieu de 15) pour tenir sur 2 pages max, en-tête compris,
+        // plutôt que 3 : retesté empiriquement (rendu réel + pdfinfo + inspection visuelle
+        // des 2 variantes matière/enseignant, avec et sans en-tête) après resserrement du
+        // CSS de globale.html.twig (paddings, line-height, en-tête local plus compact —
+        // cf. `.pdf-globale-entete` dans ce template). Cf. calculerSautsDePage().
+        $joursSautDePage = $this->calculerSautsDePage($creneauxParJour, $joursAffiches, 22);
 
         $html = $this->renderView('admin/edt/pdf/globale.html.twig', [
             'annee'               => $annee,

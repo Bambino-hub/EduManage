@@ -32,21 +32,31 @@
 <head>
 <meta charset="utf-8">
 <style>
-    @page { margin: 0.8cm; }
+    @page { margin: 0.6cm; }
     body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a2e; }
-    h1 { font-size: 15px; margin: 0 0 8px; }
+    h1 { font-size: 13px; margin: 0 0 5px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: {{ avecEnseignant ? '10px' : '9px' }}; }
-    th, td { border: 1px solid #333; padding: 3px 2px; text-align: center; vertical-align: middle; }
+    th, td { border: 1px solid #333; padding: 1px 2px; line-height: 1.05; text-align: center; vertical-align: middle; }
     th { background: #eef0f5; font-weight: bold; }
     tr.jour-nouvelle-page { page-break-before: always; }
     td.jour { background: #f7f7fb; font-weight: bold; text-transform: uppercase; }
     td.heure { background: #f7f7fb; color: #555; }
     td.reserve { background: #f7f7fb; font-style: italic; color: #555; }
     td.case-cours { overflow-wrap: break-word; }
+    /* En-tête du collège rétréci pour cette page : partagé avec d'autres PDF (bulletins,
+       reçus...), donc on ne réduit pas la taille par défaut du fragment — on l'écrase
+       localement (sélecteurs plus spécifiques) pour laisser un maximum de hauteur à la
+       grille, seule vue où le budget de pages est aussi serré. */
+    .pdf-globale-entete .entete-college-table td.logo { width: 80px; }
+    .pdf-globale-entete .entete-college-table td.logo img { width: 70px; }
+    .pdf-globale-entete .entete-college h1 { font-size: 16px; margin: 1px 0; }
+    .pdf-globale-entete .entete-college .pays { font-size: 7px; }
+    .pdf-globale-entete .entete-college .coordonnees { font-size: 7px; }
+    .pdf-globale-entete .entete-college .devise { margin: 3px 0 0; padding: 2px 0; }
 </style>
 </head>
 <body>
-    {% if avecEntete %}{% include 'admin/pdf/_entete_college.html.twig' %}{% endif %}
+    {% if avecEntete %}<div class="pdf-globale-entete">{% include 'admin/pdf/_entete_college.html.twig' %}</div>{% endif %}
     <h1>Emploi du temps — {{ annee ? annee.libelle : '' }}</h1>
     <table>
         <thead>
