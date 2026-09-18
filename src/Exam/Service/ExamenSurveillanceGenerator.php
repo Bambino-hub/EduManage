@@ -118,6 +118,22 @@ use Doctrine\ORM\EntityManagerInterface;
  * cas `reequilibrer()` converge vers 1 et s'arrête proprement (aucun swap ne peut plus réduire
  * l'écart). Un écart final > 1 malgré la passe indique une vraie contrainte de disponibilité
  * (chevauchements d'examens qui empêchent tout transfert supplémentaire), pas un bug.
+ *
+ * DÉCISION (équité D'UNE GÉNÉRATION À L'AUTRE, 2026-09-18) : tout ce qui précède ne garantit
+ * l'équité QUE pour les examens traités dans le MÊME appel à `genererPourAnnee()` — chaque
+ * régénération repartait de `chargeParEnseignant` = 0 pour tout le monde, donc ne rééquilibrait
+ * jamais l'écart accumulé au fil des générations précédentes (années scolaires antérieures :
+ * seuls les examens de l'année en cours sont purgés/régénérés, l'historique des années passées
+ * reste en base — cf. `SurveillanceRepository::compterParEnseignant()`, déjà utilisé tel quel par
+ * la page récapitulatif, non filtrée par année). Un enseignant présent depuis plusieurs années
+ * pouvait ainsi rester durablement plus chargé qu'un collègue arrivé récemment, sans que la bande
+ * d'équité ni `reequilibrer()` ne le voient jamais, puisque tous deux repartaient à égalité (0) à
+ * chaque régénération. Corrigé en initialisant `chargeParEnseignant` avec la charge historique
+ * (toutes années confondues, hors celle qu'on vient de purger — cf. juste après la purge ci-
+ * dessous) au lieu de 0 : la bande d'équité et `reequilibrer()` restant purement relatifs, ils se
+ * mettent alors à niveler l'écart CUMULÉ, ce qui fait mécaniquement pencher les nouveaux postes de
+ * cette génération vers qui avait le moins surveillé jusqu'ici — sans déroger aux autres règles
+ * (cycle dur, non-chevauchement, préférence matière/domaine à l'intérieur de la bande).
  */
 class ExamenSurveillanceGenerator
 {
@@ -150,6 +166,19 @@ class ExamenSurveillanceGenerator
         }
         $this->em->flush();
 
+        // Une fois la purge de CETTE année flushée, la table `surveillance` ne contient plus
+        // que les années passées : compterParEnseignant() (déjà utilisé par la page
+        // récapitulatif, non filtrée par année) donne donc directement la charge HISTORIQUE de
+        // chacun. Elle sert de point de départ à `chargeParEnseignant` au lieu de 0 : la bande
+        // d'équité et `reequilibrer()` (tous deux purement relatifs, voir leurs docblocks)
+        // continuent alors à niveler l'écart cumulé d'une année sur l'autre — un enseignant
+        // resté en retrait les années précédentes se retrouve avec une charge de départ plus
+        // basse, donc prioritaire sur les nouveaux postes de CETTE génération, tant qu'il reste
+        // des postes à distribuer et sans jamais déroger aux autres règles (cycle, chevauchement,
+        // pertinence matière/domaine dans la bande). Voir aussi la page récapitulatif, qui
+        // affiche cette même charge cumulée toutes années confondues.
+        $chargeHistorique = $this->surveillanceRepo->compterParEnseignant();
+
         $pool = $this->enseignantRepo->findEligiblesSurveillance();
         if ($pool === [] || $examens === []) {
             return new GenerationResultSurveillance(count($examens), 0, 0, []);
@@ -172,7 +201,7 @@ class ExamenSurveillanceGenerator
         $examensAffectesParEnseignant = [];
         $poolParId                    = [];
         foreach ($pool as $enseignant) {
-            $chargeParEnseignant[$enseignant->getId()] = 0;
+            $chargeParEnseignant[$enseignant->getId()] = $chargeHistorique[$enseignant->getId()] ?? 0;
             $poolParId[$enseignant->getId()]           = $enseignant;
         }
 
