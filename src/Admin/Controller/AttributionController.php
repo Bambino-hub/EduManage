@@ -8,9 +8,11 @@ use App\Academic\Repository\AnneeScolaireRepository;
 use App\Academic\Repository\MatiereNiveauRepository;
 use App\Scheduling\Entity\Attribution;
 use App\Scheduling\Form\AttributionCreateType;
+use App\Scheduling\Form\AttributionEchangeType;
 use App\Scheduling\Form\AttributionType;
 use App\Scheduling\Repository\AttributionRepository;
 use App\Scheduling\Service\AttributionCompletudeChecker;
+use App\Scheduling\Service\AttributionEchangeService;
 use App\Scheduling\Service\Export\AttributionPdfExporter;
 use App\Staff\Repository\EnseignantRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -216,6 +218,44 @@ class AttributionController extends AbstractController
         }
 
         return $this->render('admin/attribution/new.html.twig', ['form' => $form]);
+    }
+
+    /**
+     * Corrige 2 attributions déjà planifiées sans relancer la génération : échange
+     * soit les enseignants (cas LEMOU/WATOU), soit la matière+enseignant en gardant
+     * la classe (cas Allemand/Espagnol) — cf. AttributionEchangeService pour le détail
+     * des vérifications et de la sauvegarde automatique avant écriture.
+     */
+    #[Route('/echanger', name: 'echanger')]
+    public function echanger(Request $request, AttributionEchangeService $echangeService): Response
+    {
+        $form = $this->createForm(AttributionEchangeType::class);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $a    = $form->get('attributionA')->getData();
+            $b    = $form->get('attributionB')->getData();
+            $type = $form->get('type')->getData();
+
+            if ($a === null || $b === null) {
+                $form->addError(new FormError('Choisissez les deux attributions.'));
+            } else {
+                $resultat = $type === 'matiere_enseignant'
+                    ? $echangeService->echangerMatiereEtEnseignant($a, $b)
+                    : $echangeService->echangerEnseignants($a, $b);
+
+                if ($resultat->succes) {
+                    $this->addFlash('success', 'Échange effectué. L\'état précédent a été sauvegardé dans l\'historique de l\'emploi du temps.');
+                    return $this->redirectToRoute('admin_attribution_index');
+                }
+
+                foreach ($resultat->erreurs as $erreur) {
+                    $form->addError(new FormError($erreur));
+                }
+            }
+        }
+
+        return $this->render('admin/attribution/echanger.html.twig', ['form' => $form]);
     }
 
     #[Route('/{id}/edit', name: 'edit')]

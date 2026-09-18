@@ -1,0 +1,71 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Échanger deux attributions — EduManage{% endblock %}
+{% block page_title %}Échanger deux attributions{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2 class="admin-card-title">
+                    <i class="bi bi-arrow-left-right me-2 text-college-purple"></i>
+                    Échanger deux attributions
+                </h2>
+                <a href="{{ path('admin_attribution_index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Retour
+                </a>
+            </div>
+            <div class="admin-card-body">
+
+                <div class="alert alert-info d-flex gap-2 mb-4" style="font-size:.85rem">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        Corrige l'emploi du temps déjà généré sans tout régénérer : les créneaux et
+                        salles existants sont conservés, seul ce qui est échangé change. Une
+                        sauvegarde de l'état actuel est enregistrée automatiquement dans
+                        l'historique avant tout changement. Si l'échange créerait un conflit
+                        (enseignant déjà occupé ailleurs, règle EPS/FHR/8ème heure non respectée…),
+                        rien n'est modifié et l'erreur exacte est affichée ci-dessous.
+                    </div>
+                </div>
+
+                {{ form_start(form) }}
+                {{ form_errors(form) }}
+                <div class="row g-3">
+                    <div class="col-12">
+                        {{ form_label(form.attributionA) }}
+                        {{ form_errors(form.attributionA) }}
+                        <div class="position-relative" data-controller="searchable-select">
+                            <input type="text" class="form-control" placeholder="Rechercher un enseignant…" autocomplete="off"
+                                   data-searchable-select-target="input"
+                                   data-action="input->searchable-select#filter focus->searchable-select#open blur->searchable-select#closeSoon keydown->searchable-select#keydown">
+                            <ul class="dropdown-menu w-100" style="max-height:260px; overflow-y:auto" data-searchable-select-target="menu"></ul>
+                            {{ form_widget(form.attributionA, {attr: {'data-searchable-select-target': 'select'}}) }}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        {{ form_label(form.attributionB) }}
+                        {{ form_errors(form.attributionB) }}
+                        <div class="position-relative" data-controller="searchable-select">
+                            <input type="text" class="form-control" placeholder="Rechercher un enseignant…" autocomplete="off"
+                                   data-searchable-select-target="input"
+                                   data-action="input->searchable-select#filter focus->searchable-select#open blur->searchable-select#closeSoon keydown->searchable-select#keydown">
+                            <ul class="dropdown-menu w-100" style="max-height:260px; overflow-y:auto" data-searchable-select-target="menu"></ul>
+                            {{ form_widget(form.attributionB, {attr: {'data-searchable-select-target': 'select'}}) }}
+                        </div>
+                    </div>
+                    <div class="col-12">{{ form_row(form.type) }}</div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-arrow-left-right me-1"></i>Échanger
+                    </button>
+                    <a href="{{ path('admin_attribution_index') }}" class="btn btn-outline-secondary">Annuler</a>
+                </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
