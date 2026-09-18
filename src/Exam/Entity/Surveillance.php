@@ -36,7 +36,7 @@ class Surveillance
     #[ORM\JoinColumn(nullable: false)]
     private ?Classe $classe = null;
 
-    #[ORM\ManyToOne(targetEntity: Enseignant::class)]
+    #[ORM\ManyToOne(targetEntity: Enseignant::class, inversedBy: 'surveillances')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Enseignant $enseignant = null;
 

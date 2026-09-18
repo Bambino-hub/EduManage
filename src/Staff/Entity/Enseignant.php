@@ -118,9 +118,19 @@ class Enseignant
     #[ORM\OneToMany(targetEntity: \App\Scheduling\Entity\Attribution::class, mappedBy: 'enseignant')]
     private Collection $attributions;
 
+    /**
+     * Suppression en cascade : un enseignant (ou stagiaire) retiré du personnel est
+     * automatiquement retiré du tableau de surveillance des examens plutôt que de bloquer
+     * la suppression (ExamenSurveillanceGenerator régénère de toute façon la répartition à
+     * la prochaine génération).
+     */
+    #[ORM\OneToMany(targetEntity: \App\Exam\Entity\Surveillance::class, mappedBy: 'enseignant', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $surveillances;
+
     public function __construct()
     {
-        $this->attributions = new ArrayCollection();
+        $this->attributions  = new ArrayCollection();
+        $this->surveillances = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -226,6 +236,12 @@ class Enseignant
     public function getAttributions(): Collection
     {
         return $this->attributions;
+    }
+
+    /** @return Collection<int, \App\Exam\Entity\Surveillance> */
+    public function getSurveillances(): Collection
+    {
+        return $this->surveillances;
     }
 
     public function getSexe(): ?Sexe
