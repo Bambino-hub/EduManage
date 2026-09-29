@@ -42,11 +42,13 @@
                                 —
                             {% else %}
                                 {% for examen in examensNiveau %}
-                                    <div class="matiere">{{ examen.matiere.code }}</div>
-                                    {% for classe in classesParNiveau[niveau.id] ?? [] %}
-                                        {% set surveillances = surveillancesParExamenClasse[examen.id][classe.id] ?? [] %}
+                                    {% set cellule = cellules[examen.id][niveau.id] ?? null %}
+                                    {% if cellule %}
+                                    <div class="matiere">{{ cellule.entete }}</div>
+                                    {% for portee in cellule.classes %}
+                                        {% set surveillances = surveillancesParExamenClasse[examen.id][portee.classe.id] ?? [] %}
                                         <div class="assignation">
-                                            {{ classe.nom }}:
+                                            {{ portee.libelle }}:
                                             {% if surveillances is empty %}
                                                 <span class="non-pourvu">non pourvu</span>
                                             {% else %}
@@ -54,6 +56,7 @@
                                             {% endif %}
                                         </div>
                                     {% endfor %}
+                                    {% endif %}
                                 {% endfor %}
                             {% endif %}
                         </td>

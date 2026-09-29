@@ -25,7 +25,7 @@
             <tr>
                 <th style="width:70px">Jours</th>
                 <th style="width:55px">Heures</th>
-                {% for niveau in cycle.niveaux %}<th>{{ niveau.nomComplet }}</th>{% endfor %}
+                {% for niveau in niveaux %}<th>{{ niveau.nomComplet }}</th>{% endfor %}
             </tr>
         </thead>
         <tbody>
@@ -33,7 +33,7 @@
                 <tr>
                     <td class="jour">{{ ligne.jourSemaine ? ligne.jourSemaine.label()|upper : '' }} {{ ligne.date|date('d/m') }}</td>
                     <td class="heure">{{ ligne.heureDebut|date('H:i') }}-{{ ligne.heureFin|date('H:i') }}</td>
-                    {% for niveau in cycle.niveaux %}
+                    {% for niveau in niveaux %}
                         {% set examensNiveau = ligne.examensParNiveau[niveau.id] ?? [] %}
                         <td>
                             {% if examensNiveau is empty %}
@@ -41,7 +41,7 @@
                             {% else %}
                                 {% for examen in examensNiveau %}
                                     {% if not loop.first %}<br>{% endif %}
-                                    <span class="matiere">{{ examen.matiere.code }}</span>
+                                    <span class="matiere">{{ examen.matiere.code }}</span>{% if classesOptions[examen.id][niveau.id] is defined %} ({{ classesOptions[examen.id][niveau.id] }}){% endif %}
                                 {% endfor %}
                             {% endif %}
                         </td>

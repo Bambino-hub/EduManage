@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Exam\Service;
 
-use App\Academic\Entity\Niveau;
 use App\Academic\Repository\ClasseRepository;
 use App\Exam\Entity\Examen;
 use App\Exam\Entity\Surveillance;
@@ -37,6 +36,7 @@ final class SurveillancePermutationService
         private readonly ExamenRepository $examenRepo,
         private readonly ClasseRepository $classeRepo,
         private readonly RegroupementSurveillanceRepository $regroupementRepo,
+        private readonly ExamenClassesResolver $classesResolver,
     ) {
     }
 
@@ -70,7 +70,14 @@ final class SurveillancePermutationService
 
         $groupeParClasseId = $this->regroupementRepo->findGroupeParClasseId();
 
-        $erreurs = $this->validerReferences($cibleParSurveillanceId, $surveillancesParId, $classesParId, $examensParId, $groupeParClasseId);
+        // Classes réellement surveillées par examen (matières à choix, examens parallèles) :
+        // calculé sur tous les examens de l'année, pour connaître les examens parallèles.
+        $annee       = $examensParId !== [] ? reset($examensParId)->getAnneeScolaire() : null;
+        $repartition = $annee !== null
+            ? $this->classesResolver->repartir($this->examenRepo->findByAnnee($annee), $this->classeRepo->findByAnneeScolaireActive())
+            : [];
+
+        $erreurs = $this->validerReferences($cibleParSurveillanceId, $surveillancesParId, $classesParId, $examensParId, $groupeParClasseId, $repartition);
         if ($erreurs !== []) {
             return new PermutationResultSurveillance(false, $erreurs);
         }
@@ -96,7 +103,8 @@ final class SurveillancePermutationService
 
     /**
      * Erreurs de forme : identifiants inconnus, classe cible hors du périmètre de l'examen
-     * cible, ou classe d'origine/de destination faisant partie d'un `RegroupementSurveillance`
+     * cible (niveau non concerné, matière à choix que la classe ne suit pas, ou classe déjà
+     * surveillée via l'examen parallèle — voir ExamenClassesResolver), ou classe d'origine/de destination faisant partie d'un `RegroupementSurveillance`
      * (déplacer une seule des classes réunies casserait leur appariement — refusé dans les deux
      * sens).
      *
@@ -105,9 +113,10 @@ final class SurveillancePermutationService
      * @param array<int, \App\Academic\Entity\Classe> $classesParId
      * @param array<int, Examen> $examensParId
      * @param array<int, int> $groupeParClasseId
+     * @param array<int, array<int, mixed>> $repartition voir ExamenClassesResolver::repartir()
      * @return string[]
      */
-    private function validerReferences(array $cibleParSurveillanceId, array $surveillancesParId, array $classesParId, array $examensParId, array $groupeParClasseId): array
+    private function validerReferences(array $cibleParSurveillanceId, array $surveillancesParId, array $classesParId, array $examensParId, array $groupeParClasseId, array $repartition): array
     {
         $erreurs = [];
 
@@ -147,8 +156,7 @@ final class SurveillancePermutationService
                 continue;
             }
 
-            $niveauIds = array_map(static fn(Niveau $n) => $n->getId(), $examenCible->getNiveaux()->toArray());
-            if (!in_array($classeCible->getNiveau()->getId(), $niveauIds, true)) {
+            if (!isset($repartition[$examenCible->getId()][$classeCible->getId()])) {
                 $erreurs[] = sprintf(
                     '%s ne fait pas partie des classes concernées par « %s ».',
                     $classeCible->getNom(),

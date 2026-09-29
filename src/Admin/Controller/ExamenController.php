@@ -6,10 +6,12 @@ namespace App\Admin\Controller;
 
 use App\Academic\Entity\Cycle;
 use App\Academic\Repository\AnneeScolaireRepository;
+use App\Academic\Repository\ClasseRepository;
 use App\Academic\Repository\CycleRepository;
 use App\Exam\Entity\Examen;
 use App\Exam\Form\ExamenType;
 use App\Exam\Repository\ExamenRepository;
+use App\Exam\Service\ExamenClassesResolver;
 use App\Exam\Service\ExamGridBuilder;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -83,15 +85,19 @@ class ExamenController extends AbstractController
         Request $request,
         AnneeScolaireRepository $anneeRepo,
         ExamGridBuilder $gridBuilder,
+        ClasseRepository $classeRepo,
+        ExamenClassesResolver $classesResolver,
     ): Response {
         $annee  = $anneeRepo->findActive();
         $lignes = $annee ? $gridBuilder->construireLignes($cycle, $annee) : [];
 
         return $this->render('admin/examen/tableau.html.twig', [
-            'cycle'  => $cycle,
-            'annee'  => $annee,
-            'lignes' => $lignes,
-            'entete' => $request->query->getString('entete', ''),
+            'cycle'           => $cycle,
+            'niveaux'         => $gridBuilder->niveauxAffiches($cycle),
+            'annee'           => $annee,
+            'lignes'          => $lignes,
+            'classesOptions'  => $this->classesOptions($lignes, $classeRepo, $classesResolver),
+            'entete'          => $request->query->getString('entete', ''),
         ]);
     }
 
@@ -156,15 +162,19 @@ class ExamenController extends AbstractController
         Request $request,
         AnneeScolaireRepository $anneeRepo,
         ExamGridBuilder $gridBuilder,
+        ClasseRepository $classeRepo,
+        ExamenClassesResolver $classesResolver,
         EmploiDuTempsPdfExporter $exporter,
     ): Response {
         $annee  = $anneeRepo->findActive();
         $lignes = $annee ? $gridBuilder->construireLignes($cycle, $annee) : [];
 
         $html = $this->renderView('admin/examen/pdf/tableau.html.twig', [
-            'cycle'      => $cycle,
-            'annee'      => $annee,
-            'lignes'     => $lignes,
+            'cycle'          => $cycle,
+            'niveaux'        => $gridBuilder->niveauxAffiches($cycle),
+            'annee'          => $annee,
+            'lignes'         => $lignes,
+            'classesOptions' => $this->classesOptions($lignes, $classeRepo, $classesResolver),
             'entete'     => $request->query->getString('entete', ''),
             'avecEntete' => $request->query->getBoolean('entete_college', false),
         ]);
@@ -173,6 +183,43 @@ class ExamenController extends AbstractController
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="programme-examens-'.$cycle->getId().'.pdf"',
         ]);
+    }
+
+    /**
+     * Pour les examens de matière à choix (ALL/ESP…), les classes du niveau qui la passent
+     * réellement (`Classe::matieresOptionnelles`), affichées sous le code de la matière : sur un
+     * niveau à plusieurs classes (ex. 1ère A4), on voit d'un coup d'œil que l'ALL concerne 1ère
+     * A42 et l'ESP 1ère A41. Rien n'est affiché pour les matières communes à toutes les classes.
+     *
+     * @param \App\Exam\Service\Dto\GrilleLigne[] $lignes
+     * @return array<int, array<int, string>> examenId => niveauId => noms des classes
+     */
+    private function classesOptions(array $lignes, ClasseRepository $classeRepo, ExamenClassesResolver $classesResolver): array
+    {
+        $classesParNiveau = [];
+        foreach ($classeRepo->findByAnneeScolaireActive() as $classe) {
+            $classesParNiveau[$classe->getNiveau()->getId()][] = $classe;
+        }
+
+        $resultat = [];
+        foreach ($lignes as $ligne) {
+            foreach ($ligne->examensParNiveau as $niveauId => $examens) {
+                foreach ($examens as $examen) {
+                    if ($examen->getMatiere()?->getGroupeOptionnel() === null) {
+                        continue;
+                    }
+                    $noms = [];
+                    foreach ($classesParNiveau[$niveauId] ?? [] as $classe) {
+                        if ($classesResolver->concerne($examen, $classe)) {
+                            $noms[] = $classe->getNom();
+                        }
+                    }
+                    $resultat[$examen->getId()][$niveauId] = $noms !== [] ? implode(', ', $noms) : 'aucune classe';
+                }
+            }
+        }
+
+        return $resultat;
     }
 
     private function verifierAppartenance(Cycle $cycle, Examen $examen): void

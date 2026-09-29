@@ -124,9 +124,12 @@
                                         <span class="text-muted">-</span>
                                     {% else %}
                                         {% for examen in examensNiveau %}
+                                            {% set cellule = cellules[examen.id][niveau.id] ?? null %}
+                                            {% if cellule %}
                                             <div class="surveillance-entry">
-                                                <div class="fw-semibold">{{ examen.matiere.code }}</div>
-                                                {% for classe in classesParNiveau[niveau.id] ?? [] %}
+                                                <div class="fw-semibold">{{ cellule.entete }}</div>
+                                                {% for portee in cellule.classes %}
+                                                    {% set classe = portee.classe %}
                                                     {% set surveillances = surveillancesParExamenClasse[examen.id][classe.id] ?? [] %}
                                                     {% set fusionnee = groupeParClasseId[classe.id] is defined %}
                                                     <div class="surveillance-cell"
@@ -135,7 +138,7 @@
                                                          data-classe-id="{{ classe.id }}"
                                                          data-fusion="{{ fusionnee ? '1' : '0' }}"
                                                          data-action="dragover->surveillance-permutation#dragOver drop->surveillance-permutation#drop click->surveillance-permutation#cellClick">
-                                                        <span class="text-muted">{{ classe.nom }}:</span>
+                                                        <span class="text-muted">{{ portee.libelle }}:</span>
                                                         {% if surveillances is empty %}
                                                             <span class="text-warning surveillance-empty">non pourvu</span>
                                                         {% else %}
@@ -151,8 +154,11 @@
                                                             {% endfor %}
                                                         {% endif %}
                                                     </div>
+                                                {% else %}
+                                                    <div class="text-muted small fst-italic">Aucune classe concernée</div>
                                                 {% endfor %}
                                             </div>
+                                            {% endif %}
                                         {% endfor %}
                                     {% endif %}
                                 </td>

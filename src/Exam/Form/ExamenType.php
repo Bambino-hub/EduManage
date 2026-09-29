@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exam\Form;
 
+use App\Academic\Entity\Classe;
 use App\Academic\Entity\Cycle;
 use App\Academic\Entity\Matiere;
 use App\Academic\Entity\Niveau;
@@ -27,7 +28,10 @@ class ExamenType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $cycle = $options['cycle'];
+        $cycle       = $options['cycle'];
+        $dejaChoisis = $options['data'] instanceof Examen
+            ? array_map(static fn(Niveau $n) => $n->getId(), $options['data']->getNiveaux()->toArray())
+            : [];
 
         $builder
             ->add('matiere', EntityType::class, [
@@ -60,9 +64,14 @@ class ExamenType extends AbstractType
                 'label'         => 'Niveaux concernés',
                 'class'         => Niveau::class,
                 'choice_label'  => fn(Niveau $n) => $n->getNomComplet(),
+                // Seulement les niveaux ayant au moins une classe active cette année (ex. Tle C
+                // désactivée n'est plus proposée) — sauf ceux déjà cochés sur l'examen édité,
+                // pour ne jamais les décocher silencieusement à l'enregistrement.
                 'query_builder' => fn(NiveauRepository $repo) => $repo->createQueryBuilder('n')
                     ->where('n.cycle = :cycle')
+                    ->andWhere('(EXISTS (SELECT c.id FROM '.Classe::class.' c JOIN c.anneeScolaire a WHERE c.niveau = n AND c.active = true AND a.active = true) OR n.id IN (:dejaChoisis))')
                     ->setParameter('cycle', $cycle)
+                    ->setParameter('dejaChoisis', $dejaChoisis ?: [0])
                     ->orderBy('n.ordre', 'ASC'),
                 'multiple'      => true,
                 'expanded'      => true,

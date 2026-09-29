@@ -11,6 +11,7 @@ use App\Academic\Repository\CycleRepository;
 use App\Exam\Entity\Examen;
 use App\Exam\Repository\RegroupementSurveillanceRepository;
 use App\Exam\Repository\SurveillanceRepository;
+use App\Exam\Service\ExamenClassesResolver;
 use App\Exam\Service\ExamenSurveillanceGenerator;
 use App\Exam\Service\ExamGridBuilder;
 use App\Exam\Service\SurveillancePermutationService;
@@ -42,18 +43,19 @@ class SurveillanceController extends AbstractController
         SurveillanceRepository $surveillanceRepo,
         ClasseRepository $classeRepo,
         RegroupementSurveillanceRepository $regroupementRepo,
+        ExamenClassesResolver $classesResolver,
     ): Response {
         $annee  = $anneeRepo->findActive();
         $lignes = $annee ? $gridBuilder->construireLignes($cycle, $annee) : [];
 
-        [$classesParNiveau, $surveillancesParExamenClasse] = $this->construireDonneesAffichage($lignes, $surveillanceRepo, $classeRepo);
+        [$cellules, $surveillancesParExamenClasse] = $this->construireDonneesAffichage($lignes, $surveillanceRepo, $classeRepo, $classesResolver);
 
         return $this->render('admin/surveillance/tableau.html.twig', [
             'cycle'                          => $cycle,
-            'niveaux'                        => $this->niveauxAffiches($cycle, $classesParNiveau),
+            'niveaux'                        => $gridBuilder->niveauxAffiches($cycle),
             'annee'                          => $annee,
             'lignes'                         => $lignes,
-            'classesParNiveau'               => $classesParNiveau,
+            'cellules'                       => $cellules,
             'surveillancesParExamenClasse'   => $surveillancesParExamenClasse,
             'groupeParClasseId'              => $regroupementRepo->findGroupeParClasseId(),
             'entete'                         => $request->query->getString('entete', ''),
@@ -183,19 +185,20 @@ class SurveillanceController extends AbstractController
         ExamGridBuilder $gridBuilder,
         SurveillanceRepository $surveillanceRepo,
         ClasseRepository $classeRepo,
+        ExamenClassesResolver $classesResolver,
         EmploiDuTempsPdfExporter $exporter,
     ): Response {
         $annee  = $anneeRepo->findActive();
         $lignes = $annee ? $gridBuilder->construireLignes($cycle, $annee) : [];
 
-        [$classesParNiveau, $surveillancesParExamenClasse] = $this->construireDonneesAffichage($lignes, $surveillanceRepo, $classeRepo);
+        [$cellules, $surveillancesParExamenClasse] = $this->construireDonneesAffichage($lignes, $surveillanceRepo, $classeRepo, $classesResolver);
 
         $html = $this->renderView('admin/surveillance/pdf/tableau.html.twig', [
             'cycle'                        => $cycle,
-            'niveaux'                      => $this->niveauxAffiches($cycle, $classesParNiveau),
+            'niveaux'                      => $gridBuilder->niveauxAffiches($cycle),
             'annee'                        => $annee,
             'lignes'                       => $lignes,
-            'classesParNiveau'             => $classesParNiveau,
+            'cellules'                     => $cellules,
             'surveillancesParExamenClasse' => $surveillancesParExamenClasse,
             'entete'                       => $request->query->getString('entete', ''),
             'avecEntete'                   => $request->query->getBoolean('entete_college', false),
@@ -208,47 +211,68 @@ class SurveillanceController extends AbstractController
     }
 
     /**
-     * Niveaux du cycle à afficher en colonne : exclut ceux sans aucune classe active cette
-     * année (ex. Tle C, désactivée) — une colonne entière sans classe n'apporte rien et
-     * encombre le tableau et son export PDF.
+     * Contenu de chaque case (examen × niveau) du tableau : les classes à surveiller pour cet
+     * examen (voir ExamenClassesResolver — matières à choix limitées aux classes qui les suivent,
+     * une seule ligne par classe pour deux examens parallèles) et l'en-tête à afficher
+     * ("ALL + ESP" quand une classe y passe les deux à la fois). Une case vide dont la classe est
+     * déjà couverte par l'examen parallèle vaut `null` : elle n'est pas affichée du tout.
      *
-     * @param array<int, \App\Academic\Entity\Classe[]> $classesParNiveau
-     * @return \App\Academic\Entity\Niveau[]
-     */
-    private function niveauxAffiches(Cycle $cycle, array $classesParNiveau): array
-    {
-        return array_values(array_filter(
-            $cycle->getNiveaux()->toArray(),
-            static fn(\App\Academic\Entity\Niveau $n) => !empty($classesParNiveau[$n->getId()]),
-        ));
-    }
-
-    /**
      * @param \App\Exam\Service\Dto\GrilleLigne[] $lignes
-     * @return array{0: array<int, \App\Academic\Entity\Classe[]>, 1: array<int, array<int, \App\Exam\Entity\Surveillance[]>>}
+     * @return array{0: array<int, array<int, array{entete: string, classes: array<int, array{classe: \App\Academic\Entity\Classe, libelle: string}>}|null>>, 1: array<int, array<int, \App\Exam\Entity\Surveillance[]>>}
      */
-    private function construireDonneesAffichage(array $lignes, SurveillanceRepository $surveillanceRepo, ClasseRepository $classeRepo): array
+    private function construireDonneesAffichage(array $lignes, SurveillanceRepository $surveillanceRepo, ClasseRepository $classeRepo, ExamenClassesResolver $classesResolver): array
     {
-        $classesParNiveau = [];
-        foreach ($classeRepo->findByAnneeScolaireActive() as $classe) {
-            $classesParNiveau[$classe->getNiveau()->getId()][] = $classe;
+        $examens = [];
+        foreach ($lignes as $ligne) {
+            foreach ($ligne->examensParNiveau as $examensNiveau) {
+                foreach ($examensNiveau as $examen) {
+                    /** @var Examen $examen */
+                    $examens[$examen->getId()] = $examen;
+                }
+            }
         }
 
-        $examenIds = [];
-        foreach ($lignes as $ligne) {
-            foreach ($ligne->examensParNiveau as $examens) {
-                foreach ($examens as $examen) {
-                    /** @var Examen $examen */
-                    $examenIds[$examen->getId()] = true;
+        $repartition = $classesResolver->repartir(array_values($examens), $classeRepo->findByAnneeScolaireActive());
+
+        $cellules = [];
+        $couverts = []; // examenId => niveauId => true : examen déjà surveillé via un examen parallèle
+        foreach ($examens as $examenId => $examen) {
+            foreach ($repartition[$examenId] ?? [] as $portee) {
+                $niveauId = $portee['classe']->getNiveau()->getId();
+                $codes    = array_map(static fn(Examen $e) => $e->getMatiere()->getCode(), $portee['examens']);
+
+                $cellules[$examenId][$niveauId]['classes'][] = [
+                    'classe'  => $portee['classe'],
+                    'libelle' => count($codes) > 1 ? sprintf('%s (%s)', $portee['classe']->getNom(), implode(' + ', $codes)) : $portee['classe']->getNom(),
+                ];
+                foreach ($codes as $code) {
+                    $cellules[$examenId][$niveauId]['codes'][$code] = true;
+                }
+                foreach ($portee['examens'] as $parallele) {
+                    $couverts[$parallele->getId()][$niveauId] = true;
+                }
+            }
+        }
+
+        foreach ($examens as $examenId => $examen) {
+            foreach ($examen->getNiveaux() as $niveau) {
+                $niveauId = $niveau->getId();
+                if (isset($cellules[$examenId][$niveauId])) {
+                    $cellules[$examenId][$niveauId]['entete'] = implode(' + ', array_keys($cellules[$examenId][$niveauId]['codes']));
+                    unset($cellules[$examenId][$niveauId]['codes']);
+                } elseif (isset($couverts[$examenId][$niveauId])) {
+                    $cellules[$examenId][$niveauId] = null;
+                } else {
+                    $cellules[$examenId][$niveauId] = ['entete' => $examen->getMatiere()->getCode(), 'classes' => []];
                 }
             }
         }
 
         $surveillancesParExamenClasse = [];
-        foreach ($surveillanceRepo->findByExamens(array_keys($examenIds)) as $surveillance) {
+        foreach ($surveillanceRepo->findByExamens(array_keys($examens)) as $surveillance) {
             $surveillancesParExamenClasse[$surveillance->getExamen()->getId()][$surveillance->getClasse()->getId()][] = $surveillance;
         }
 
-        return [$classesParNiveau, $surveillancesParExamenClasse];
+        return [$cellules, $surveillancesParExamenClasse];
     }
 }

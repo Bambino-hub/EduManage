@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Exam\Service;
 
 use App\Academic\Entity\AnneeScolaire;
+use App\Academic\Entity\Classe;
 use App\Academic\Entity\Cycle;
+use App\Academic\Entity\Niveau;
+use App\Academic\Repository\ClasseRepository;
 use App\Exam\Repository\ExamenRepository;
 use App\Exam\Service\Dto\GrilleLigne;
 use App\Scheduling\Enum\JourSemaine;
@@ -17,8 +20,31 @@ use App\Scheduling\Enum\JourSemaine;
  */
 class ExamGridBuilder
 {
-    public function __construct(private readonly ExamenRepository $examenRepo)
+    public function __construct(
+        private readonly ExamenRepository $examenRepo,
+        private readonly ClasseRepository $classeRepo,
+    ) {
+    }
+
+    /**
+     * Niveaux du cycle à afficher en colonne : seulement ceux qui ont au moins une classe active
+     * cette année (ex. Tle C, désactivée, disparaît) — une classe désactivée doit l'être dans
+     * toute l'application, programme des examens compris.
+     *
+     * @return Niveau[]
+     */
+    public function niveauxAffiches(Cycle $cycle): array
     {
+        $niveauxActifs = [];
+        foreach ($this->classeRepo->findByAnneeScolaireActive() as $classe) {
+            /** @var Classe $classe */
+            $niveauxActifs[$classe->getNiveau()->getId()] = true;
+        }
+
+        return array_values(array_filter(
+            $cycle->getNiveaux()->toArray(),
+            static fn(Niveau $n) => isset($niveauxActifs[$n->getId()]),
+        ));
     }
 
     /** @return GrilleLigne[] */

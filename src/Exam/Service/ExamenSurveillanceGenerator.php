@@ -7,7 +7,6 @@ namespace App\Exam\Service;
 use App\Academic\Entity\AnneeScolaire;
 use App\Academic\Entity\Classe;
 use App\Academic\Entity\Cycle;
-use App\Academic\Entity\Niveau;
 use App\Academic\Enum\DomaineMatiere;
 use App\Academic\Repository\ClasseRepository;
 use App\Exam\Entity\Examen;
@@ -33,6 +32,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *  - le pool éligible : enseignants **internes dont le poste est un poste d'enseignement, et
  *    stagiaires actifs** (ni externes, ni personnel non-enseignant même de type "interne" —
  *    Censeur, Économe, Secrétaire, etc.) ;
+ *  - les classes réellement concernées (`ExamenClassesResolver`) : un examen de matière à choix
+ *    (ALL/ESP) ne vise que les classes qui la suivent, et une classe qui passe deux examens
+ *    parallèles au même moment (ex. 2nde A4 : ALL + ESP) ne reçoit qu'un seul jeu de surveillants ;
  *  - l'ÉQUITÉ DE CHARGE avant tout : à chaque poste à pourvoir, seuls les candidats dont la
  *    charge actuelle est au plus `TOLERANCE_EQUILIBRAGE` au-dessus du minimum parmi les
  *    disponibles ("bande d'équité") sont considérés — jamais quelqu'un de plus chargé, quelle
@@ -151,6 +153,7 @@ class ExamenSurveillanceGenerator
         private readonly SurveillanceRepository $surveillanceRepo,
         private readonly ClasseRepository $classeRepo,
         private readonly RegroupementSurveillanceRepository $regroupementRepo,
+        private readonly ExamenClassesResolver $classesResolver,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -196,6 +199,10 @@ class ExamenSurveillanceGenerator
         [$enseigne, $domainesEnseignant] = $this->construireDonneesAttributions($annee);
         $classesActives   = $this->classeRepo->findByAnneeScolaireActive();
         $groupeParClasseId = $this->regroupementRepo->findGroupeParClasseId();
+        // Classes réellement à surveiller par examen : matières à choix (ALL/ESP) limitées aux
+        // classes qui les suivent, et une seule surveillance par classe quand elle passe deux
+        // examens parallèles au même moment — voir ExamenClassesResolver.
+        $repartition = $this->classesResolver->repartir($examens, $classesActives);
 
         $chargeParEnseignant          = [];
         $examensAffectesParEnseignant = [];
@@ -211,11 +218,7 @@ class ExamenSurveillanceGenerator
         $surveillancesParExamenEtEnseignant = [];
 
         foreach ($examens as $examen) {
-            $niveauIds         = array_map(static fn(Niveau $n) => $n->getId(), $examen->getNiveaux()->toArray());
-            $classesConcernees = array_values(array_filter(
-                $classesActives,
-                static fn(Classe $c) => in_array($c->getNiveau()->getId(), $niveauIds, true),
-            ));
+            $classesConcernees = array_values(array_column($repartition[$examen->getId()] ?? [], 'classe'));
 
             $unites        = $this->regrouperClasses($classesConcernees, $groupeParClasseId);
             $premierNiveau = $examen->getNiveaux()->first();
