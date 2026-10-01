@@ -85,6 +85,33 @@ class Enseignant
     #[ORM\Column(type: Types::JSON)]
     private array $heuresApresMidiInterdites = [];
 
+    /**
+     * Autorisé(e) à surveiller les devoirs : SEUL critère d'appartenance au pool de la
+     * génération du tableau de surveillance (avec `actif`) — ni le statut (interne/externe/
+     * stagiaire) ni la fonction n'entrent plus en compte, cf.
+     * EnseignantRepository::findEligiblesSurveillance().
+     */
+    #[ORM\Column]
+    private bool $autoriseSurveillance = false;
+
+    /**
+     * Période pendant laquelle la personne est disponible pour surveiller (bornes incluses,
+     * chacune facultative) : en dehors, ExamenSurveillanceGenerator ne la programme jamais —
+     * typiquement un stagiaire présent un temps donné. Réglée depuis le programme des devoirs.
+     */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $surveillanceDu = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $surveillanceAu = null;
+
+    /**
+     * Ne surveille que la moitié du nombre de surveillances le plus élevé (arrondie à l'entier
+     * supérieur : 6 → 3, 5 → 3), cf. ExamenSurveillanceGenerator::ajusterDemiCharges().
+     */
+    #[ORM\Column]
+    private bool $surveillanceMoitie = false;
+
     /* --------------------------------------------------------------
        Champs "stage" : pertinents uniquement quand $type = STAGIAIRE
        (stage pédagogique en classe OU stage administratif de bureau).
@@ -323,6 +350,64 @@ class Enseignant
         sort($heures);
         $this->heuresApresMidiInterdites = $heures;
         return $this;
+    }
+
+    public function isAutoriseSurveillance(): bool
+    {
+        return $this->autoriseSurveillance;
+    }
+
+    public function setAutoriseSurveillance(bool $autoriseSurveillance): static
+    {
+        $this->autoriseSurveillance = $autoriseSurveillance;
+        return $this;
+    }
+
+    public function getSurveillanceDu(): ?\DateTimeImmutable
+    {
+        return $this->surveillanceDu;
+    }
+
+    public function setSurveillanceDu(?\DateTimeImmutable $surveillanceDu): static
+    {
+        $this->surveillanceDu = $surveillanceDu;
+        return $this;
+    }
+
+    public function getSurveillanceAu(): ?\DateTimeImmutable
+    {
+        return $this->surveillanceAu;
+    }
+
+    public function setSurveillanceAu(?\DateTimeImmutable $surveillanceAu): static
+    {
+        $this->surveillanceAu = $surveillanceAu;
+        return $this;
+    }
+
+    public function isSurveillanceMoitie(): bool
+    {
+        return $this->surveillanceMoitie;
+    }
+
+    public function setSurveillanceMoitie(bool $surveillanceMoitie): static
+    {
+        $this->surveillanceMoitie = $surveillanceMoitie;
+        return $this;
+    }
+
+    public function hasPeriodeSurveillance(): bool
+    {
+        return $this->surveillanceDu !== null || $this->surveillanceAu !== null;
+    }
+
+    /** Vrai si `$date` tombe dans la période de disponibilité pour la surveillance (ou s'il n'y en a pas). */
+    public function estDisponiblePourSurveillance(\DateTimeInterface $date): bool
+    {
+        $jour = $date->format('Y-m-d');
+
+        return ($this->surveillanceDu === null || $jour >= $this->surveillanceDu->format('Y-m-d'))
+            && ($this->surveillanceAu === null || $jour <= $this->surveillanceAu->format('Y-m-d'));
     }
 
     public function getTypeStage(): ?TypeStage

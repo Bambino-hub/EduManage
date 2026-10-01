@@ -8,6 +8,7 @@ use App\Staff\Entity\Enseignant;
 use App\Staff\Enum\Sexe;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -74,6 +75,11 @@ class StagiaireType extends AbstractType
                 'widget'   => 'single_text',
                 'input'    => 'datetime_immutable',
                 'required' => false,
+            ])
+            ->add('autoriseSurveillance', CheckboxType::class, [
+                'label'    => 'Autorisé(e) à surveiller les devoirs',
+                'required' => false,
+                'help'     => 'La période pendant laquelle il/elle peut surveiller se règle depuis le programme des devoirs (« Disponibilité des surveillants »).',
             ]);
     }
 

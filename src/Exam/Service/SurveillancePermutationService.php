@@ -239,6 +239,8 @@ final class SurveillancePermutationService
      * horaire différent), revérifie que l'enseignant n'a pas déjà une autre surveillance
      * (existante ou déplacée dans le même lot) qui chevauche ce nouvel horaire. Un déplacement au
      * sein du même examen n'est jamais concerné (même horaire par construction, comme avant).
+     * Refuse aussi un examen hors de la période de disponibilité de l'enseignant
+     * (`Enseignant::surveillanceDu/Au`, ex. un stagiaire dont le stage est terminé).
      *
      * @param array<int, array{examenId: int, classeId: int}> $cibleParSurveillanceId
      * @param array<int, Surveillance> $surveillancesParId
@@ -280,6 +282,11 @@ final class SurveillancePermutationService
         foreach ($deplacements as $id => $cible) {
             $enseignant  = $surveillancesParId[$id]->getEnseignant();
             $examenCible = $examensParId[$cible['examenId']];
+
+            if ($examenCible->getDate() !== null && !$enseignant->estDisponiblePourSurveillance($examenCible->getDate())) {
+                $erreurs[] = sprintf('%s n\'est pas disponible pour surveiller le %s (hors de sa période de disponibilité).', $enseignant->getNomComplet(), $examenCible->getDate()->format('d/m/Y'));
+                continue;
+            }
 
             $conflit = false;
             foreach ($autresSurveillancesParEnseignant[$enseignant->getId()] ?? [] as $autreExamen) {

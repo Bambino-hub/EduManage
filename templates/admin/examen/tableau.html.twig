@@ -54,6 +54,10 @@
     <a href="{{ path('admin_surveillance_tableau', {cycle: cycle.id, entete: entete}) }}" class="btn btn-info btn-sm">
         <i class="bi bi-shield-check me-1"></i>Tableau de surveillance
     </a>
+    <a href="{{ path('admin_surveillance_disponibilites', {cycle: cycle.id}) }}" class="btn btn-outline-info btn-sm"
+       title="Limiter un surveillant (ex. un stagiaire) à une période, ou à la moitié des surveillances">
+        <i class="bi bi-calendar-range me-1"></i>Disponibilité des surveillants
+    </a>
 </div>
 
 <div class="admin-card">

@@ -16,7 +16,9 @@ use App\Exam\Service\ExamenSurveillanceGenerator;
 use App\Exam\Service\ExamGridBuilder;
 use App\Exam\Service\SurveillancePermutationService;
 use App\Scheduling\Service\Export\EmploiDuTempsPdfExporter;
+use App\Staff\Entity\Enseignant;
 use App\Staff\Repository\EnseignantRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -140,7 +142,16 @@ class SurveillanceController extends AbstractController
                 $resultat->postesRequis,
             ));
         } else {
-            $this->addFlash('error', 'Rien n\'a pu être généré (vérifiez les examens et les enseignants disponibles).');
+            $this->addFlash('error', 'Rien n\'a pu être généré (vérifiez les examens et les enseignants autorisés à surveiller).');
+        }
+
+        if ($resultat->successions !== []) {
+            $this->addFlash('warning', sprintf(
+                '%d surveillance(s) successive(s) n\'ont pas pu être évitées, faute d\'autre surveillant disponible : %s%s',
+                count($resultat->successions),
+                implode(' ; ', array_slice($resultat->successions, 0, 8)),
+                count($resultat->successions) > 8 ? ' ; …' : '.',
+            ));
         }
 
         return $this->redirectToRoute('admin_surveillance_tableau', ['cycle' => $cycle->getId()]);
@@ -175,6 +186,66 @@ class SurveillanceController extends AbstractController
             'min'     => $charges !== [] ? min($charges) : 0,
             'max'     => $charges !== [] ? max($charges) : 0,
         ]);
+    }
+
+    /**
+     * Réglages de surveillance des personnes autorisées à surveiller dans ce cycle, accessibles
+     * depuis le programme des devoirs : période de disponibilité (un stagiaire présent un temps
+     * donné n'est plus programmé en dehors) et demi-charge. Les réglages appartiennent à la
+     * personne, pas au cycle : un enseignant partagé ("1/2") apparaît sur les deux pages avec
+     * les mêmes valeurs. Pris en compte à la prochaine génération (ExamenSurveillanceGenerator).
+     */
+    #[Route('/admin/surveillance/cycle/{cycle}/disponibilites', name: 'disponibilites')]
+    public function disponibilites(Cycle $cycle, Request $request, EnseignantRepository $enseignantRepo, EntityManagerInterface $em): Response
+    {
+        $surveillants = array_values(array_filter(
+            $enseignantRepo->findEligiblesSurveillance(),
+            static fn(Enseignant $e) => in_array(trim((string) $e->getCycle()), ['', '1/2', (string) $cycle->getId()], true),
+        ));
+
+        if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('disponibilites_surveillance', $request->getPayload()->getString('_token'))) {
+                $this->addFlash('error', 'Jeton de sécurité invalide, veuillez réessayer.');
+                return $this->redirectToRoute('admin_surveillance_disponibilites', ['cycle' => $cycle->getId()]);
+            }
+
+            $saisie  = $request->getPayload()->all('surveillants');
+            $erreurs = [];
+            foreach ($surveillants as $enseignant) {
+                $ligne = (array) ($saisie[$enseignant->getId()] ?? []);
+                $du    = self::lireDate($ligne['du'] ?? '');
+                $au    = self::lireDate($ligne['au'] ?? '');
+
+                if ($du !== null && $au !== null && $du > $au) {
+                    $erreurs[] = $enseignant->getNomComplet();
+                    continue;
+                }
+
+                $enseignant->setSurveillanceDu($du);
+                $enseignant->setSurveillanceAu($au);
+                $enseignant->setSurveillanceMoitie(!empty($ligne['moitie']));
+            }
+            $em->flush();
+
+            if ($erreurs !== []) {
+                $this->addFlash('error', 'Période ignorée (la date de début est après la date de fin) : '.implode(', ', $erreurs).'.');
+            }
+            $this->addFlash('success', 'Disponibilités enregistrées. Régénérez le tableau de surveillance pour les appliquer.');
+
+            return $this->redirectToRoute('admin_surveillance_disponibilites', ['cycle' => $cycle->getId()]);
+        }
+
+        return $this->render('admin/surveillance/disponibilites.html.twig', [
+            'cycle'        => $cycle,
+            'surveillants' => $surveillants,
+        ]);
+    }
+
+    private static function lireDate(mixed $valeur): ?\DateTimeImmutable
+    {
+        $date = is_string($valeur) ? \DateTimeImmutable::createFromFormat('!Y-m-d', $valeur) : false;
+
+        return $date !== false ? $date : null;
     }
 
     #[Route('/admin/surveillance/cycle/{cycle}/export-pdf', name: 'export_pdf')]

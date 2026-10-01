@@ -39,6 +39,11 @@ class EnseignantImporter
         $enseignant = $this->enseignantRepo->findOneBy(['email' => $email]) ?? new Enseignant();
         if ($enseignant->getId() === null) {
             $this->em->persist($enseignant);
+            // Valeur de départ seulement (modifiable ensuite sur la fiche) : un interne dont la
+            // fonction est un poste d'enseignement surveille les devoirs, les autres non.
+            $enseignant->setAutoriseSurveillance(
+                $ligne['type'] === TypePersonnel::INTERNE && stripos((string) $ligne['poste'], 'enseignant') !== false,
+            );
         }
 
         $enseignant->setNom($ligne['nom']);

@@ -81,6 +81,11 @@ class EnseignantType extends AbstractType
                 'label'    => 'Enseignant actif',
                 'required' => false,
             ])
+            ->add('autoriseSurveillance', CheckboxType::class, [
+                'label'    => 'Autorisé(e) à surveiller les devoirs',
+                'required' => false,
+                'help'     => 'Seules les personnes cochées sont programmées par la génération du tableau de surveillance, quels que soient leur statut et leur fonction.',
+            ])
             ->add('nbPremieresHeuresAEviter', IntegerType::class, [
                 'label'       => 'Indisponible aux premières heures',
                 'required'    => false,

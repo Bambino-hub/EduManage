@@ -86,6 +86,24 @@
                         {% endif %}
                     </dd>
 
+                    <dt class="col-5 text-muted small">Surveillance des devoirs</dt>
+                    <dd class="col-7 d-flex flex-column gap-1 align-items-start">
+                        {% if enseignant.autoriseSurveillance %}
+                            <span class="badge bg-success">Autorisé(e)</span>
+                            {% if enseignant.surveillanceMoitie %}
+                                <span class="badge bg-info text-dark">Moitié des surveillances</span>
+                            {% endif %}
+                            {% if enseignant.hasPeriodeSurveillance %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ enseignant.surveillanceDu ? 'Du ' ~ enseignant.surveillanceDu|date('d/m/Y') : '' }}
+                                    {{ enseignant.surveillanceAu ? (enseignant.surveillanceDu ? 'au ' : 'Jusqu\'au ') ~ enseignant.surveillanceAu|date('d/m/Y') : '' }}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">Non autorisé(e)</span>
+                        {% endif %}
+                    </dd>
+
                     {% if enseignant.nbPremieresHeuresAEviter > 0 or enseignant.heuresApresMidiInterdites is not empty %}
                         <dt class="col-5 text-muted small">Disponibilité EDT</dt>
                         <dd class="col-7 d-flex flex-column gap-1 align-items-start">

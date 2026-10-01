@@ -1,0 +1,102 @@
+{% extends 'admin/layout.html.twig' %}
+{% import 'admin/macros.html.twig' as ui %}
+
+{% block title %}Disponibilité des surveillants — {{ cycle.nom }} — EduManage{% endblock %}
+{% block page_title %}Disponibilité des surveillants — {{ cycle.nom }}{% endblock %}
+
+{% block admin_content %}
+<div data-controller="list-filter" data-list-filter-total-value="{{ surveillants|length }}" data-list-filter-label-value="surveillant">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="h4 mb-1">Disponibilité des surveillants — {{ cycle.nom }}</h1>
+        <p class="text-muted mb-0 small" data-list-filter-target="count">
+            {{ surveillants|length }} surveillant{{ surveillants|length > 1 ? 's' : '' }}
+        </p>
+    </div>
+    <a href="{{ path('admin_examen_tableau', {cycle: cycle.id}) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Retour au programme des devoirs
+    </a>
+</div>
+
+<div class="alert alert-info small">
+    <ul class="mb-0 ps-3">
+        <li><strong>Période</strong> : en dehors de ces dates, la personne n'est plus programmée pour surveiller (ex. un stagiaire jusqu'à la fin de son stage). Laisser vide = disponible tout le temps ; une seule des deux dates peut être remplie.</li>
+        <li><strong>Moitié</strong> : la personne ne surveille que la moitié du nombre de surveillances le plus élevé, arrondie à l'entier supérieur (6 → 3, 5 → 3).</li>
+        <li>Seules les personnes dont la case « Autorisé(e) à surveiller les devoirs » est cochée sur leur fiche apparaissent ici. Ces réglages sont propres à la personne : ils valent pour les deux cycles et s'appliquent à la prochaine génération du tableau de surveillance.</li>
+    </ul>
+</div>
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('disponibilites_surveillance') }}">
+
+    <div class="admin-card">
+        <div class="admin-card-body border-bottom py-3 d-flex flex-wrap gap-2 align-items-center">
+            <div class="flex-grow-1" style="max-width:320px">
+                <input type="search" class="form-control form-control-sm" placeholder="Rechercher un nom…"
+                       data-list-filter-target="search" data-action="input->list-filter#search">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm ms-auto">
+                <i class="bi bi-check-lg me-1"></i>Enregistrer
+            </button>
+        </div>
+        <div class="admin-card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 table-stack">
+                    <thead class="table-light">
+                        <tr>
+                            <th>NOM ET PRÉNOMS</th>
+                            <th>STATUT</th>
+                            <th>CYCLE</th>
+                            <th>DISPONIBLE DU</th>
+                            <th>AU</th>
+                            <th class="text-center">MOITIÉ DES SURVEILLANCES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in surveillants %}
+                            <tr data-list-filter-target="row" data-search="{{ s.nomComplet|lower }}">
+                                <td class="fw-semibold td-title">
+                                    {{ s.nomComplet }}
+                                    {% if s.dateDebutStage or s.dateFinStage %}
+                                        <div class="text-muted small fw-normal">
+                                            Stage : {{ s.dateDebutStage ? s.dateDebutStage|date('d/m/Y') : '…' }} – {{ s.dateFinStage ? s.dateFinStage|date('d/m/Y') : '…' }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td data-label="Statut"><span class="badge bg-secondary">{{ s.type.label() }}</span></td>
+                                <td class="text-muted small" data-label="Cycle">{{ s.cycle ?? '—' }}</td>
+                                <td data-label="Disponible du">
+                                    <input type="date" class="form-control form-control-sm" style="max-width:170px"
+                                           name="surveillants[{{ s.id }}][du]" aria-label="Disponible du — {{ s.nomComplet }}"
+                                           value="{{ s.surveillanceDu ? s.surveillanceDu|date('Y-m-d') : '' }}">
+                                </td>
+                                <td data-label="Au">
+                                    <input type="date" class="form-control form-control-sm" style="max-width:170px"
+                                           name="surveillants[{{ s.id }}][au]" aria-label="Disponible jusqu'au — {{ s.nomComplet }}"
+                                           value="{{ s.surveillanceAu ? s.surveillanceAu|date('Y-m-d') : '' }}">
+                                </td>
+                                <td class="text-center" data-label="Moitié des surveillances">
+                                    <input type="checkbox" class="form-check-input" value="1"
+                                           name="surveillants[{{ s.id }}][moitie]" aria-label="Moitié des surveillances — {{ s.nomComplet }}"
+                                           {{ s.surveillanceMoitie ? 'checked' : '' }}>
+                                </td>
+                            </tr>
+                        {% else %}
+                            {{ ui.empty_row(6, 'Aucune personne autorisée à surveiller dans ce cycle. Cochez « Autorisé(e) à surveiller les devoirs » sur la fiche des enseignants concernés.') }}
+                        {% endfor %}
+                        {% if surveillants is not empty %}
+                            <tr data-list-filter-target="empty" hidden>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="bi bi-search fs-3 d-block mb-2 opacity-50"></i>
+                                    Aucun surveillant ne correspond à la recherche.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</form>
+</div>
+{% endblock %}

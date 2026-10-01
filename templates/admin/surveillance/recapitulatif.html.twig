@@ -61,7 +61,18 @@
                 <tbody>
                     {% for ligne in lignes %}
                         <tr>
-                            <td class="fw-semibold td-title">{{ ligne.enseignant.nomComplet }}</td>
+                            <td class="fw-semibold td-title">
+                                {{ ligne.enseignant.nomComplet }}
+                                {% if ligne.enseignant.surveillanceMoitie %}
+                                    <span class="badge bg-info text-dark fw-normal">Moitié</span>
+                                {% endif %}
+                                {% if ligne.enseignant.hasPeriodeSurveillance %}
+                                    <span class="badge bg-warning text-dark fw-normal">
+                                        {{ ligne.enseignant.surveillanceDu ? 'Du ' ~ ligne.enseignant.surveillanceDu|date('d/m/Y') : '' }}
+                                        {{ ligne.enseignant.surveillanceAu ? (ligne.enseignant.surveillanceDu ? 'au ' : 'Jusqu\'au ') ~ ligne.enseignant.surveillanceAu|date('d/m/Y') : '' }}
+                                    </span>
+                                {% endif %}
+                            </td>
                             <td class="text-muted small" data-label="Fonction">{{ ligne.enseignant.poste ?? '—' }}</td>
                             <td data-label="Statut"><span class="badge bg-secondary">{{ ligne.enseignant.type.label() }}</span></td>
                             <td class="text-muted small" data-label="Cycle">{{ ligne.enseignant.cycle ?? '—' }}</td>

@@ -34,6 +34,7 @@ class StagiaireController extends AbstractController
     {
         $stagiaire = new Enseignant();
         $stagiaire->setType(TypePersonnel::STAGIAIRE);
+        $stagiaire->setAutoriseSurveillance(true); // un stagiaire surveille par défaut — décochable dans le formulaire
 
         $form = $this->createForm(StagiaireType::class, $stagiaire);
         $form->handleRequest($request);
